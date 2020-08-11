@@ -184,6 +184,7 @@ class mclass:
         self.ENTRY_PART_MASS = Entry(self.R_tof_group)
         self.ENTRY_PART_CHARGE = Entry(self.R_tof_group)
         self.BUTTON_R_TOF = Button(self.R_tof_group, text="Calculate radius and tof", command=self.make_R_tof, activebackground = button_color)
+        self.BUTTON_SAVE_MOM = Button(tab1, text="Save Momentum Data", command=self.export_momenta, activebackground = button_color)
         
         self.ENTRY_PART_MASS.insert(0,1)
         self.ENTRY_PART_CHARGE.insert(0,1)
@@ -195,6 +196,7 @@ class mclass:
         self.ENTRY_PART_MASS.grid(row=103, column=111, padx='5', pady='5', sticky='w')
         self.ENTRY_PART_CHARGE.grid(row=104, column=111, padx='5', pady='5', sticky='w')
         self.BUTTON_R_TOF.grid(row=105, column=110, columnspan=2, padx='5', pady='5', sticky='w')
+        self.BUTTON_SAVE_MOM.grid(row=110, column=100, columnspan=2, padx='5', pady='5', sticky='w')
         
         self.ENTRY_NUMBER_PART.insert(0, 1000)
         
@@ -258,6 +260,14 @@ class mclass:
         
         self.BUTTON_PLOT_POSITION.grid(row=105, column=105, columnspan=2, padx='5', pady='5', sticky='w')
         self.BUTTON_EXPORT_DATA.grid(row=107, column=105, columnspan=2, padx='5', pady='5', sticky='w')
+        
+    ######### MCP TIMES CALCULATION ########################
+        self.mcp_group = LabelFrame(tab3, text="Calculate MCP times", padx=5, pady=5, bd=3, background=frame_color)
+        self.mcp_group.grid(row=100, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='nw')
+        
+        
+        self.BUTTON_CALC_MCP_TIMES = Button(self.mcp_group, text='Calculate MCP times', command=self.calc_mcp, activebackground = button_color)
+        self.BUTTON_CALC_MCP_TIMES.grid(row=105, column=105, columnspan=2, padx='5', pady='5', sticky='w')
         
     def make_plot_xarray(self, data, row, column, master, sorting=False, sort='time', rowspan=1, columnspan=1, figsize=(4,4), color='blue', marker='.', ls=''):
         fig = Figure(figsize=figsize, facecolor='whitesmoke')
@@ -361,11 +371,37 @@ class mclass:
         tof = self.R_tof.time
         data = np.array([x, y, tof])
         data = data.T
-        with open('data.txt', 'w') as datafile:
+        with open('pos_data.txt', 'w') as datafile:
             np.savetxt(datafile, data, fmt=['%.3E','%.3E','%.3E'])
             
+    def export_momenta(self):
+        p_x = self.momenta[:,0,0]
+        p_y = self.momenta[:,0,1]
+        p_z = self.momenta[:,0,2]
+        mom = np.array([p_x, p_y, p_z])
+        mom = mom.T
+        with open('mom_data.txt', 'w') as datafile:
+            np.savetxt(datafile, mom, fmt=['%.3E','%.3E','%.3E'])
             
-            
+    def calc_mcp(self):
+        x, y = self.calc_position()
+        tof = self.R_tof.time
+        t_mcp = tof
+        v = 0.857*1e6
+        sum_x = 143.8*1e-9
+        sum_y = 141.2*1e-9
+        def calc_t(time_sum, v, x):
+            t = -x/v + time_sum/2
+            return t
+        t2_x = calc_t(sum_x, v, x)
+        t2_y = calc_t(sum_y, v, y)
+        t1_x = sum_x - t2_x
+        t1_y = sum_y - t2_y
+        
+        times = np.array([t_mcp, t1_x, t2_x, t1_y, t2_y])
+        times = times.T
+        with open('mcp_data.txt', 'w') as datafile:
+            np.savetxt(datafile, times, fmt=['%.3E','%.3E','%.3E','%.3E','%.3E'])
         
     
 window = Tk()
