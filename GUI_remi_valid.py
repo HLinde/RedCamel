@@ -16,9 +16,9 @@ import numpy as np
 
 try:
     import ttk
-    from Tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame
+    from Tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, Radiobutton, IntVar
 except:
-    from tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, ttk
+    from tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, ttk , Radiobutton, IntVar
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -56,6 +56,40 @@ def make_gaussian_momentum_distribution(number_of_particles=1000):
     
     momentum = np.random.randn(number_of_particles, 1, 3)*2e-24
     return momentum
+
+def make_gaussian_energy_distribution(energy_mean, width, mass, number_of_particles=1000):
+    """
+    Parameters
+    ----------
+    energy_mean : float
+        Mean energy in eV
+    width : float
+        width of energy distribution
+    number_of_particles : int
+        Sets the number of events that will be generated
+        
+    Returns
+    -------
+    momentum : ndarray
+        Array with x-, y-  and z-momenta
+    """
+    
+    r = (np.random.randn(number_of_particles, 1) * width + energy_mean)*1.6e-19
+    phi = np.random.rand(number_of_particles, 1)*2*np.pi
+    cos_theta = np.random.rand(number_of_particles, 1)*2-1
+    
+    r_mom = np.sqrt(r*2*mass)
+    
+    theta = np.arccos(cos_theta)
+    
+    x= r_mom * np.sin(theta) * np.cos(phi)
+    y= r_mom * np.sin(theta) * np.sin(phi)
+    z= r_mom * cos_theta
+    
+    energy = np.stack([x, y, z], axis=-1)
+    print(energy.shape)
+    
+    return energy
 
 def calc_tof(momentum, remi_params, particle_params=(m_e, q_e)):
     """
@@ -177,6 +211,14 @@ class mclass:
         self.R_tof_group = LabelFrame(tab1, text="R-tof calculation", padx=5, pady=5, bd=3, background=frame_color)
         self.R_tof_group.grid(row=100, column=110, columnspan=2, rowspan=5, padx='5', pady='5', sticky='nw')
         
+        self.v = IntVar()
+        self.v.set(1)
+        self.CHOOSE_MOMENTUM = Radiobutton(self.R_tof_group, command=self.check, text="Momentum", variable=self.v, value=1, background=frame_color)
+        self.CHOOSE_ENERGY = Radiobutton(self.R_tof_group, command=self.check, text="Energy", variable=self.v, value=2, background=frame_color)
+        self.CHOOSE_MOMENTUM.select()
+        self.CHOOSE_MOMENTUM.grid(row=100, column=110, padx='5', pady='5', sticky='w')
+        self.CHOOSE_ENERGY.grid(row=101, column=110, padx='5', pady='5', sticky='w')
+        
         self.LABEL_NUMBER_PART = Label(self.R_tof_group, text='number of Particles:', background=frame_color)
         self.LABEL_PART_MASS = Label(self.R_tof_group, text='Particle mass:', background=frame_color)
         self.LABEL_PART_CHARGE = Label(self.R_tof_group, text='Particle charge:', background=frame_color)
@@ -185,6 +227,21 @@ class mclass:
         self.ENTRY_PART_CHARGE = Entry(self.R_tof_group)
         self.BUTTON_R_TOF = Button(self.R_tof_group, text="Calculate radius and tof", command=self.make_R_tof, activebackground = button_color)
         self.BUTTON_SAVE_MOM = Button(tab1, text="Save Momentum Data", command=self.export_momenta, activebackground = button_color)
+        
+        #if selecting calculation with energy
+        self.LABEL_MEAN_ENERGY = Label(self.R_tof_group, text='Mean Energy:', background=frame_color)
+        self.LABEL_WIDTH = Label(self.R_tof_group, text='Width:', background=frame_color)
+        self.ENTRY_MEAN_ENERGY = Entry(self.R_tof_group)
+        self.ENTRY_WIDTH = Entry(self.R_tof_group)
+        
+        self.LABEL_MEAN_ENERGY.grid(row=103, column=112, padx='5', pady='5', sticky='w')
+        self.LABEL_WIDTH.grid(row=104, column=112, padx='5', pady='5', sticky='w')
+        self.ENTRY_MEAN_ENERGY.grid(row=103, column=113, padx='5', pady='5', sticky='w')
+        self.ENTRY_WIDTH.grid(row=104, column=113, padx='5', pady='5', sticky='w')
+        self.LABEL_MEAN_ENERGY.grid_remove()
+        self.LABEL_WIDTH.grid_remove()
+        self.ENTRY_MEAN_ENERGY.grid_remove()
+        self.ENTRY_WIDTH.grid_remove()
         
         self.ENTRY_PART_MASS.insert(0,1)
         self.ENTRY_PART_CHARGE.insert(0,1)
@@ -299,9 +356,26 @@ class mclass:
         self.remi_params = np.array([U, B, l_a])
         return self.remi_params
     
+    def check(self):
+        if self.v.get()==1:
+            self.LABEL_MEAN_ENERGY.grid_remove()
+            self.LABEL_WIDTH.grid_remove()
+            self.ENTRY_MEAN_ENERGY.grid_remove()
+            self.ENTRY_WIDTH.grid_remove()
+        elif self.v.get()==2:
+            self.LABEL_MEAN_ENERGY.grid()
+            self.LABEL_WIDTH.grid()
+            self.ENTRY_MEAN_ENERGY.grid()
+            self.ENTRY_WIDTH.grid()
+    
     def make_R_tof(self):
-        self.momenta = make_gaussian_momentum_distribution(int(self.ENTRY_NUMBER_PART.get()))
         self.particle_params=(float(self.ENTRY_PART_MASS.get())*m_e, float(self.ENTRY_PART_CHARGE.get())*q_e)
+        if self.v.get()==1:
+            self.momenta = make_gaussian_momentum_distribution(int(self.ENTRY_NUMBER_PART.get()))
+        elif self.v.get()==2:
+            energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
+            width = float(self.ENTRY_WIDTH.get())
+            self.momenta = make_gaussian_energy_distribution(energy_mean, width, self.particle_params[0], number_of_particles=int(self.ENTRY_NUMBER_PART.get()))
         self.R_tof = make_R_tof_array(self.momenta, self.remi_params, self.particle_params)
         self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof = self.make_plot_xarray(self.R_tof, 104, 110, self.R_tof_plot_group, sorting=True, sort='time', columnspan=2, color='powderblue')  
         
