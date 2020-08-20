@@ -168,7 +168,7 @@ class mclass:
         tab3 = ttk.Frame(tabControl, width=300, height=300, style='BW.TLabel')
         tabControl.add(tab1, text='R vs TOF')
         tabControl.add(tab2, text='Position')
-        tabControl.add(tab3, text='y')
+        tabControl.add(tab3, text='Coincidences')
         tabControl.grid(column=0)
             
         back_color = 'whitesmoke'
@@ -181,7 +181,7 @@ class mclass:
         self.omega = q_e * self.B / m_e
         
     ######## REMI configurations ##############
-        remi_conf_group = LabelFrame(tab1, text="REMI Configuration", padx=5, pady=5, bd=3, background=frame_color)
+        remi_conf_group = LabelFrame(tab1, text="REMI Configuration for Electrons", padx=5, pady=5, bd=3, background=frame_color)
         remi_conf_group.grid(row=100, column=100, columnspan=2, rowspan=6, padx='5', pady='5', sticky='nw')
         
         self.LABEL_SET_U = Label(remi_conf_group, text='U[V]:', background=frame_color)
@@ -319,12 +319,39 @@ class mclass:
         self.BUTTON_EXPORT_DATA.grid(row=107, column=105, columnspan=2, padx='5', pady='5', sticky='w')
         
     ######### MCP TIMES CALCULATION ########################
-        self.mcp_group = LabelFrame(tab3, text="Calculate MCP times", padx=5, pady=5, bd=3, background=frame_color)
-        self.mcp_group.grid(row=100, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='nw')
+        self.mcp_group = LabelFrame(tab2, text="Calculate MCP times", padx=5, pady=5, bd=3, background=frame_color)
+        self.mcp_group.grid(row=110, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='nw')
         
         
         self.BUTTON_CALC_MCP_TIMES = Button(self.mcp_group, text='Calculate MCP times', command=self.calc_mcp, activebackground = button_color)
         self.BUTTON_CALC_MCP_TIMES.grid(row=105, column=105, columnspan=2, padx='5', pady='5', sticky='w')
+        
+    ######## Coincidences ##################################
+        remi_ion_conf_group = LabelFrame(tab3, text="REMI Configuration for Ion", padx=5, pady=5, bd=3, background=frame_color)
+        remi_ion_conf_group.grid(row=100, column=100, columnspan=2, rowspan=6, padx='5', pady='5', sticky='nw')
+        
+        self.LABEL_SET_U_ion = Label(remi_ion_conf_group, text='U[V]:', background=frame_color)
+        self.LABEL_SET_B_ion = Label(remi_ion_conf_group, text='B[Gauss]:', background=frame_color)
+        self.LABEL_SET_l_a_ion = Label(remi_ion_conf_group, text='acc length[m]:', background=frame_color)
+        
+        self.LABEL_SET_U_ion.grid(row=103, column=101, padx='5', pady='5', sticky='w')
+        self.LABEL_SET_B_ion.grid(row=104, column=101, padx='5', pady='5', sticky='w')
+        self.LABEL_SET_l_a_ion.grid(row=105, column=101, padx='5', pady='5', sticky='w')
+        
+        self.ENTRY_SET_U_ion = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_B_ion = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_l_a_ion = Entry(remi_ion_conf_group)
+        
+        self.ENTRY_SET_U_ion.grid(row=103, column=102, padx='5', pady='5', sticky='w')
+        self.ENTRY_SET_B_ion.grid(row=104, column=102, padx='5', pady='5', sticky='w')
+        self.ENTRY_SET_l_a_ion.grid(row=105, column=102, padx='5', pady='5', sticky='w')
+        
+        self.ENTRY_SET_U_ion.insert(0, 190)
+        self.ENTRY_SET_B_ion.insert(0, 5)
+        self.ENTRY_SET_l_a_ion.insert(0, 0.188)
+    
+        self.coin_group = LabelFrame(tab3, text="Coincidences", padx=5, pady=5, bd=3, background=frame_color)
+        self.coin_group.grid(row=110, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='nw')
         
     def make_plot_xarray(self, data, row, column, master, sorting=False, sort='time', rowspan=1, columnspan=1, figsize=(4,4), color='blue', marker='.', ls=''):
         fig = Figure(figsize=figsize, facecolor='whitesmoke')
