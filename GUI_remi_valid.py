@@ -209,7 +209,7 @@ class mclass:
         
     ######## momentum, R, tof calculation #############
         self.R_tof_group = LabelFrame(tab1, text="R-tof calculation", padx=5, pady=5, bd=3, background=frame_color)
-        self.R_tof_group.grid(row=100, column=110, columnspan=2, rowspan=5, padx='5', pady='5', sticky='nw')
+        self.R_tof_group.grid(row=100, column=110, columnspan=2, rowspan=5, padx='5', pady='5', sticky='we')
         
         self.v = IntVar()
         self.v.set(1)
@@ -253,13 +253,13 @@ class mclass:
         self.ENTRY_PART_MASS.grid(row=103, column=111, padx='5', pady='5', sticky='w')
         self.ENTRY_PART_CHARGE.grid(row=104, column=111, padx='5', pady='5', sticky='w')
         self.BUTTON_R_TOF.grid(row=105, column=110, columnspan=2, padx='5', pady='5', sticky='w')
-        self.BUTTON_SAVE_MOM.grid(row=110, column=100, columnspan=2, padx='5', pady='5', sticky='w')
+        self.BUTTON_SAVE_MOM.grid(row=104, column=100, columnspan=2, padx='5', pady='5', sticky='w')
         
         self.ENTRY_NUMBER_PART.insert(0, 1000)
         
     ######## R tof simulation ##########################
         self.R_tof_sim_group = LabelFrame(tab1, text="R-tof simulation", padx=5, pady=5, bd=3, background=frame_color)
-        self.R_tof_sim_group.grid(row=105, column=110, columnspan=4, rowspan=6, padx='5', pady='5', sticky='nw')
+        self.R_tof_sim_group.grid(row=105, column=110, columnspan=4, rowspan=6, padx='5', pady='5', sticky='we')
         
         self.LABEL_KIN_ENERGY = Label(self.R_tof_sim_group, text="Kinetic Energy [EV]:", background=frame_color)
         self.ENTRY_KIN_ENERGY_1 = Entry(self.R_tof_sim_group, fg='firebrick')
@@ -286,7 +286,7 @@ class mclass:
         self.ENTRY_CHARGE_1.insert(0, 1)
         self.ENTRY_CHARGE_2.insert(0, 1)
         self.ENTRY_CHARGE_3.insert(0, 1)
-        self.ENTRY_TOF.insert(0, 100)
+        self.ENTRY_TOF.insert(0, 1000)
         
         self.LABEL_KIN_ENERGY.grid(row=106, column=110, padx='5', pady='5', sticky='w')
         self.ENTRY_KIN_ENERGY_1.grid(row=107, column=110, padx='5', pady='5', sticky='w')
@@ -302,10 +302,41 @@ class mclass:
         self.ENTRY_CHARGE_3.grid(row=109, column=112, padx='5', pady='5', sticky='w')
         self.ENTRY_TOF.grid(row=110, column=111, padx='5', pady='5', sticky='w')
         self.LABEL_TOF.grid(row=110, column=110, padx='5', pady='5', sticky='w')
-        self.BUTTON_R_TOF_SIM.grid(row=111, column=110, columnspan=2, padx='5', pady='5', sticky='w')
+        self.BUTTON_R_TOF_SIM.grid(row=106, column=114, columnspan=1, rowspan=5, padx='5', pady='5', sticky='ns')
         
         self.R_tof_plot_group = LabelFrame(tab1, text="R-tof", padx=5, pady=5, bd=3, background=frame_color)
-        self.R_tof_plot_group.grid(row=112, column=110, columnspan=2, rowspan=6, padx='5', pady='5', sticky='nw')
+        self.R_tof_plot_group.grid(row=100, column=120, columnspan=2, rowspan=30, padx='5', pady='5', sticky='nwe')
+        
+        #### IR mode #####
+        self.ir_mode_group = LabelFrame(tab1, text="IR-Mode", padx=5, pady=5, bd=3, background=frame_color)
+        self.ir_mode_group.grid(row=120, column=110, columnspan=2, rowspan=6, padx='5', pady='5', sticky='we')
+        
+        self.LABEL_KIN_ENERGY_START = Label(self.ir_mode_group, text="First Kin Energy [eV]", background=frame_color)
+        self.LABEL_KIN_ENERGY_STEP = Label(self.ir_mode_group, text="Kin Energy Stepsize [eV]", background=frame_color)
+        self.LABEL_NUMBER_OF_PART = Label(self.ir_mode_group, text="Numer of particles", background=frame_color)
+        self.LABEL_MASS_IR = Label(self.ir_mode_group, text="Mass", background=frame_color)
+        self.LABEL_CHARGE_IR = Label(self.ir_mode_group, text="Charge", background=frame_color)
+        
+        self.ENTRY_KIN_ENERGY_START = Entry(self.ir_mode_group)
+        self.ENTRY_KIN_ENERGY_STEP = Entry(self.ir_mode_group)
+        self.ENTRY_NUMBER_OF_PART = Entry(self.ir_mode_group)
+        self.ENTRY_MASS_IR = Entry(self.ir_mode_group)
+        self.ENTRY_CHARGE_IR = Entry(self.ir_mode_group)
+        
+        self.BUTTON_SIM_IR_MODE = Button(self.ir_mode_group, text="Simulate Particle IR Mode", command=self.R_tof_sim_ir, activebackground = button_color)
+        self.BUTTON_SIM_IR_MODE.grid(row=10, column=15, columnspan=2, rowspan=4, padx='5', pady='5', sticky='ns')
+        
+        self.LABEL_KIN_ENERGY_START.grid(row=10, column=10, columnspan=1, padx='5', pady='5', sticky='w')
+        self.LABEL_KIN_ENERGY_STEP.grid(row=10, column=11, columnspan=1, padx='5', pady='5', sticky='w')
+        self.LABEL_NUMBER_OF_PART.grid(row=10, column=12, columnspan=1, padx='5', pady='5', sticky='w')
+        self.LABEL_MASS_IR.grid(row=12, column=10, columnspan=1, padx='5', pady='5', sticky='w')
+        self.LABEL_CHARGE_IR.grid(row=12, column=11, columnspan=1, padx='5', pady='5', sticky='w')
+        
+        self.ENTRY_KIN_ENERGY_START.grid(row=11, column=10, columnspan=1, padx='5', pady='5', sticky='w')
+        self.ENTRY_KIN_ENERGY_STEP.grid(row=11, column=11, columnspan=1, padx='5', pady='5', sticky='w')
+        self.ENTRY_NUMBER_OF_PART.grid(row=11, column=12, columnspan=1, padx='5', pady='5', sticky='w')
+        self.ENTRY_MASS_IR.grid(row=13, column=10, columnspan=1, padx='5', pady='5', sticky='w')
+        self.ENTRY_CHARGE_IR.grid(row=13, column=11, columnspan=1, padx='5', pady='5', sticky='w')
         
         
     ######### Position reconstruction ######################
@@ -327,32 +358,57 @@ class mclass:
         self.BUTTON_CALC_MCP_TIMES.grid(row=105, column=105, columnspan=2, padx='5', pady='5', sticky='w')
         
     ######## Coincidences ##################################
+        #### REMI parameter for Ion ####
         remi_ion_conf_group = LabelFrame(tab3, text="REMI Configuration for Ion", padx=5, pady=5, bd=3, background=frame_color)
         remi_ion_conf_group.grid(row=100, column=100, columnspan=2, rowspan=6, padx='5', pady='5', sticky='nw')
         
         self.LABEL_SET_U_ion = Label(remi_ion_conf_group, text='U[V]:', background=frame_color)
         self.LABEL_SET_B_ion = Label(remi_ion_conf_group, text='B[Gauss]:', background=frame_color)
         self.LABEL_SET_l_a_ion = Label(remi_ion_conf_group, text='acc length[m]:', background=frame_color)
+        self.LABEL_SET_v_jet = Label(remi_ion_conf_group, text='v jet[mm/ns]:', background=frame_color)
         
         self.LABEL_SET_U_ion.grid(row=103, column=101, padx='5', pady='5', sticky='w')
         self.LABEL_SET_B_ion.grid(row=104, column=101, padx='5', pady='5', sticky='w')
         self.LABEL_SET_l_a_ion.grid(row=105, column=101, padx='5', pady='5', sticky='w')
+        self.LABEL_SET_v_jet.grid(row=106, column=101, padx='5', pady='5', sticky='w')
         
         self.ENTRY_SET_U_ion = Entry(remi_ion_conf_group)
         self.ENTRY_SET_B_ion = Entry(remi_ion_conf_group)
         self.ENTRY_SET_l_a_ion = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_v_jet = Entry(remi_ion_conf_group)
         
         self.ENTRY_SET_U_ion.grid(row=103, column=102, padx='5', pady='5', sticky='w')
         self.ENTRY_SET_B_ion.grid(row=104, column=102, padx='5', pady='5', sticky='w')
         self.ENTRY_SET_l_a_ion.grid(row=105, column=102, padx='5', pady='5', sticky='w')
+        self.ENTRY_SET_v_jet.grid(row=106, column=102, padx='5', pady='5', sticky='w')
         
         self.ENTRY_SET_U_ion.insert(0, 190)
         self.ENTRY_SET_B_ion.insert(0, 5)
         self.ENTRY_SET_l_a_ion.insert(0, 0.188)
-    
-        self.coin_group = LabelFrame(tab3, text="Coincidences", padx=5, pady=5, bd=3, background=frame_color)
-        self.coin_group.grid(row=110, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='nw')
+        self.ENTRY_SET_v_jet.insert(0, 0.001)
         
+        #### Ion configuration ####
+        ion_conf_group = LabelFrame(tab3, text="REMI Configuration for Ion", padx=5, pady=5, bd=3, background=frame_color)
+        ion_conf_group.grid(row=110, column=100, columnspan=2, rowspan=6, padx='5', pady='5', sticky='nw')
+        
+        self.LABEL_ION_MASS = Label(ion_conf_group, text='Ion Mass [a.u.]:', background=frame_color)
+        self.LABEL_ION_CHARGE = Label(ion_conf_group, text="Ion Charge [a.u.]:", background=frame_color)
+        
+        self.LABEL_ION_MASS.grid(row=110, column=100, padx='5', pady='5', sticky='w')
+        self.LABEL_ION_CHARGE.grid(row=111, column=100, padx='5', pady='5', sticky='w')
+        
+        self.ENTRY_ION_MASS = Entry(ion_conf_group)
+        self.ENTRY_ION_CHARGE = Entry(ion_conf_group)
+        
+        self.ENTRY_ION_MASS.grid(row=110, column=101, padx='5', pady='5', sticky='w')
+        self.ENTRY_ION_CHARGE.grid(row=111, column=101, padx='5', pady='5', sticky='w')
+        
+    
+        self.ion_pos_group = LabelFrame(tab3, text="Ion Postitions", padx=5, pady=5, bd=3, background=frame_color)
+        self.ion_pos_group.grid(row=120, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='nw')
+        
+        self.BUTTON_ION_POSITION = Button(self.ion_pos_group, text='Calculate Ion Positions', command=self.calc_ion_position, activebackground = button_color)
+        self.BUTTON_ION_POSITION.grid(row=110, column=100, padx='5', pady='5', sticky='w')
     def make_plot_xarray(self, data, row, column, master, sorting=False, sort='time', rowspan=1, columnspan=1, figsize=(4,4), color='blue', marker='.', ls=''):
         fig = Figure(figsize=figsize, facecolor='whitesmoke')
         a = fig.add_subplot(111)
@@ -404,11 +460,11 @@ class mclass:
             width = float(self.ENTRY_WIDTH.get())
             self.momenta = make_gaussian_energy_distribution(energy_mean, width, self.particle_params[0], number_of_particles=int(self.ENTRY_NUMBER_PART.get()))
         self.R_tof = make_R_tof_array(self.momenta, self.remi_params, self.particle_params)
-        self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof = self.make_plot_xarray(self.R_tof, 104, 110, self.R_tof_plot_group, sorting=True, sort='time', columnspan=2, color='powderblue')  
+        self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof = self.make_plot_xarray(self.R_tof, 104, 110, self.R_tof_plot_group, sorting=True, sort='time', columnspan=2, color='powderblue', figsize=(6,6))  
         
     def R_tof_sim(self):
         tof_max = float(self.ENTRY_TOF.get())*1e-9
-        tof = np.linspace(0, tof_max, int(tof_max*100e9))
+        tof = np.linspace(0, tof_max, int(tof_max*1000e9))
         print(tof)
         print(len(self.ax_R_tof.lines))
         while len(self.ax_R_tof.lines)>1:
@@ -419,7 +475,7 @@ class mclass:
             mass_1 = float(self.ENTRY_MASS_1.get())*m_e
             charge_1 = float(self.ENTRY_CHARGE_1.get())*q_e
             particle_params_1 = (mass_1, charge_1)
-            K_1 = np.sqrt(2*m_e*energy_1)
+            K_1 = np.sqrt(2*mass_1*energy_1)
             R_1 = calc_R_fit(K_1, tof, self.remi_params, particle_params_1)
             self.ax_R_tof.plot(tof, R_1, color='firebrick')
             
@@ -428,7 +484,7 @@ class mclass:
             mass_2 = float(self.ENTRY_MASS_2.get())*m_e
             charge_2 = float(self.ENTRY_CHARGE_2.get())*q_e
             particle_params_2 = (mass_2, charge_2)
-            K_2 = np.sqrt(2*m_e*energy_2)
+            K_2 = np.sqrt(2*mass_2*energy_2)
             R_2 = calc_R_fit(K_2, tof, self.remi_params, particle_params_2)
             self.ax_R_tof.plot(tof, R_2, color='deepskyblue')
 
@@ -437,7 +493,7 @@ class mclass:
             mass_3 = float(self.ENTRY_MASS_3.get())*m_e
             charge_3 = float(self.ENTRY_CHARGE_3.get())*q_e
             particle_params_3 = (mass_3, charge_3)
-            K_3 = np.sqrt(2*m_e*energy_3)
+            K_3 = np.sqrt(2*mass_3*energy_3)
             R_3 = calc_R_fit(K_3, tof, self.remi_params, particle_params_3)
             self.ax_R_tof.plot(tof, R_3, color='darkorange')
         self.canvas_R_tof.draw()
@@ -503,6 +559,40 @@ class mclass:
         times = times.T
         with open('mcp_data.txt', 'w') as datafile:
             np.savetxt(datafile, times, fmt=['%.3E','%.3E','%.3E','%.3E','%.3E'])
+            
+    def calc_ion_position(self):
+        p_x = -self.momenta[:,0,0]
+        p_y = -self.momenta[:,0,1]
+        p_z = -self.momenta[:,0,2]
+        v_jet = float(self.ENTRY_SET_v_jet.get())*1e6
+        ion_mass = float(self.ENTRY_ION_MASS.get())*m_e
+        ion_remi_params = (float(self.ENTRY_SET_U_ion.get()), float(self.ENTRY_SET_B_ion.get())*1e-4 , float(self.ENTRY_SET_l_a_ion.get()))
+        ion_params = (ion_mass, float(self.ENTRY_ION_CHARGE.get())*1.6e-19)
+        tof = calc_tof(-self.momenta, ion_remi_params, ion_params)
+        x_pos_ion = (p_x/ion_mass + v_jet)*tof
+        y_pos_ion = (p_y/ion_mass)*tof
+        self.make_plot(x_pos_ion, y_pos_ion, 120, 100, self.ion_pos_group, columnspan=2)
+        return(x_pos_ion, y_pos_ion)
+    
+    def R_tof_sim_ir(self):
+        tof_max = float(self.ENTRY_TOF.get())*1e-9
+        tof = np.linspace(0, tof_max, int(tof_max*100e9))
+        start_energy = float(self.ENTRY_KIN_ENERGY_START.get())*1.6e-19
+        step_energy = float(self.ENTRY_KIN_ENERGY_STEP.get())*1.6e-19
+        number_sim = int(self.ENTRY_NUMBER_OF_PART.get())
+        energys = np.linspace(start_energy, (number_sim*step_energy)+start_energy, number_sim)
+        mass = float(self.ENTRY_MASS_IR.get())*m_e
+        charge = float(self.ENTRY_CHARGE_IR.get())*q_e
+        particle_params = (mass, charge)
+        
+        while len(self.ax_R_tof.lines)>1:
+            self.ax_R_tof.lines[-1].remove()
+        
+        for i in range(number_sim):
+            K = np.sqrt(2*mass*energys[i])
+            R = calc_R_fit(K, tof, self.remi_params, particle_params)
+            self.ax_R_tof.plot(tof, R, color='firebrick')
+        self.canvas_R_tof.draw()
         
     
 window = Tk()
