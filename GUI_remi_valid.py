@@ -16,13 +16,14 @@ import numpy as np
 
 try:
     import ttk
-    from Tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, Radiobutton, IntVar
+    from Tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, Radiobutton, IntVar, Scale, HORIZONTAL, Checkbutton
 except:
-    from tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, ttk , Radiobutton, IntVar
+    from tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, ttk , Radiobutton, IntVar, Scale, HORIZONTAL, Checkbutton
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import seaborn as sns
 
 import xarray as xr
 
@@ -74,7 +75,7 @@ def make_gaussian_energy_distribution(energy_mean, width, mass, number_of_partic
         Array with x-, y-  and z-momenta
     """
     
-    r = (np.random.randn(number_of_particles, 1) * width + energy_mean)*1.6e-19
+    r = (np.random.randn(number_of_particles, 1) * width + energy_mean)*q_e
     phi = np.random.rand(number_of_particles, 1)*2*np.pi
     cos_theta = np.random.rand(number_of_particles, 1)*2-1
     
@@ -87,7 +88,6 @@ def make_gaussian_energy_distribution(energy_mean, width, mass, number_of_partic
     z= r_mom * cos_theta
     
     energy = np.stack([x, y, z], axis=-1)
-    print(energy.shape)
     
     return energy
 
@@ -160,6 +160,7 @@ class mclass:
 
     def __init__(self,  window):
         self.window = window
+        window.title('REMI Analysis Validation')
         style = ttk.Style()
         style.configure('BW.TLabel', background="whitesmoke")
         tabControl = ttk.Notebook(window)
@@ -167,14 +168,15 @@ class mclass:
         tab2 = ttk.Frame(tabControl, width=300, height=300, style='BW.TLabel')
         tab3 = ttk.Frame(tabControl, width=300, height=300, style='BW.TLabel')
         tabControl.add(tab1, text='R vs TOF')
-        tabControl.add(tab2, text='Position')
+        tabControl.add(tab2, text='?')
         tabControl.add(tab3, text='Coincidences')
         tabControl.grid(column=0)
             
         back_color = 'whitesmoke'
         button_color = 'aliceblue'
         frame_color = 'mintcream'
-        
+
+
         self.l_a = 0.188         # acc_length 
         self.U = 190            # electic_field 
         self.B = 5*1e-4           # magnetic_field 
@@ -216,8 +218,10 @@ class mclass:
         self.CHOOSE_MOMENTUM = Radiobutton(self.R_tof_group, command=self.check, text="Momentum", variable=self.v, value=1, background=frame_color)
         self.CHOOSE_ENERGY = Radiobutton(self.R_tof_group, command=self.check, text="Energy", variable=self.v, value=2, background=frame_color)
         self.CHOOSE_MOMENTUM.select()
-        self.CHOOSE_MOMENTUM.grid(row=100, column=110, padx='5', pady='5', sticky='w')
-        self.CHOOSE_ENERGY.grid(row=101, column=110, padx='5', pady='5', sticky='w')
+        self.CHOOSE_MOMENTUM.grid(row=99, column=110, padx='5', pady='5', sticky='w')
+        self.CHOOSE_ENERGY.grid(row=100, column=110, padx='5', pady='5', sticky='w')
+        self.CHOOSE_ENERGY_MULTI = Radiobutton(self.R_tof_group, command=self.check, text="Multiple Prticle", variable=self.v, value=3, background=frame_color)
+        self.CHOOSE_ENERGY_MULTI.grid(row=101, column=110, padx='5', pady='5', sticky='w')
         
         self.LABEL_NUMBER_PART = Label(self.R_tof_group, text='number of Particles:', background=frame_color)
         self.LABEL_PART_MASS = Label(self.R_tof_group, text='Particle mass:', background=frame_color)
@@ -226,7 +230,7 @@ class mclass:
         self.ENTRY_PART_MASS = Entry(self.R_tof_group)
         self.ENTRY_PART_CHARGE = Entry(self.R_tof_group)
         self.BUTTON_R_TOF = Button(self.R_tof_group, text="Calculate radius and tof", command=self.make_R_tof, activebackground = button_color)
-        self.BUTTON_SAVE_MOM = Button(tab1, text="Save Momentum Data", command=self.export_momenta, activebackground = button_color)
+        
         
         #if selecting calculation with energy
         self.LABEL_MEAN_ENERGY = Label(self.R_tof_group, text='Mean Energy:', background=frame_color)
@@ -253,9 +257,24 @@ class mclass:
         self.ENTRY_PART_MASS.grid(row=103, column=111, padx='5', pady='5', sticky='w')
         self.ENTRY_PART_CHARGE.grid(row=104, column=111, padx='5', pady='5', sticky='w')
         self.BUTTON_R_TOF.grid(row=105, column=110, columnspan=2, padx='5', pady='5', sticky='w')
-        self.BUTTON_SAVE_MOM.grid(row=104, column=100, columnspan=2, padx='5', pady='5', sticky='w')
+       
         
         self.ENTRY_NUMBER_PART.insert(0, 1000)
+        
+        #if multiple particles
+        self.LABEL_MULTI_PART_ENERGY_STEP = Label(self.R_tof_group, text='Energy Step:', background=frame_color)
+        self.LABEL_MULTI_PART_NUMBER = Label(self.R_tof_group, text='Number of Particles', background=frame_color)
+        self.ENTRY_MULTI_PART_ENERGY_STEP = Entry(self.R_tof_group)
+        self.ENTRY_MULTI_PART_NUMBER = Entry(self.R_tof_group)
+        self.LABEL_MULTI_PART_ENERGY_STEP.grid(row=103, column=114, padx='5', pady='5', sticky='w')
+        self.LABEL_MULTI_PART_NUMBER.grid(row=104, column=114, padx='5', pady='5', sticky='w')
+        self.ENTRY_MULTI_PART_ENERGY_STEP.grid(row=103, column=115, padx='5', pady='5', sticky='w')
+        self.ENTRY_MULTI_PART_NUMBER.grid(row=104, column=115, padx='5', pady='5', sticky='w')
+        
+        self.LABEL_MULTI_PART_NUMBER.grid_remove()
+        self.LABEL_MULTI_PART_ENERGY_STEP.grid_remove()
+        self.ENTRY_MULTI_PART_ENERGY_STEP.grid_remove()
+        self.ENTRY_MULTI_PART_NUMBER.grid_remove()
         
     ######## R tof simulation ##########################
         self.R_tof_sim_group = LabelFrame(tab1, text="R-tof simulation", padx=5, pady=5, bd=3, background=frame_color)
@@ -304,12 +323,33 @@ class mclass:
         self.LABEL_TOF.grid(row=110, column=110, padx='5', pady='5', sticky='w')
         self.BUTTON_R_TOF_SIM.grid(row=106, column=114, columnspan=1, rowspan=5, padx='5', pady='5', sticky='ns')
         
-        self.R_tof_plot_group = LabelFrame(tab1, text="R-tof", padx=5, pady=5, bd=3, background=frame_color)
-        self.R_tof_plot_group.grid(row=100, column=120, columnspan=2, rowspan=30, padx='5', pady='5', sticky='nwe')
+        #### Plots and Slidebars ##############
+        
+        self.R_tof_plot_group = LabelFrame(tab1, text="Electron plots", padx=5, pady=5, bd=3, background=frame_color)
+        self.R_tof_plot_group.grid(row=100, column=120, columnspan=2, rowspan=40, padx='5', pady='5', sticky='nwe')
+        self.R_tof_plot_group.grid_remove()
+        
+        self.v_ir = IntVar()
+        self.v_ir.set(0)
+        self.CHECK_IR_PLOT = Checkbutton(self.R_tof_plot_group, text="Enable IR plot Mode", variable=self.v_ir, onvalue=1, background=frame_color)
+        self.CHECK_IR_PLOT.grid(row=105, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
+        
+        self.LABEL_SLIDE_U = Label(self.R_tof_plot_group, text="Voltage", background=frame_color)
+        self.LABEL_SLIDE_U.grid(row=106, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
+        
+        self.SLIDE_U = Scale(self.R_tof_plot_group, from_=0, to=200, orient=HORIZONTAL, command=self.set_new_u)
+        self.SLIDE_U.grid(row=107, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
+        
+        self.LABEL_SLIDE_B = Label(self.R_tof_plot_group, text="Magnetic Field", background=frame_color)
+        self.LABEL_SLIDE_B.grid(row=108, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
+        
+        self.SLIDE_B = Scale(self.R_tof_plot_group, from_=0, to=100, orient=HORIZONTAL, command=self.set_new_b)
+        self.SLIDE_B.grid(row=109, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
+        
         
         #### IR mode #####
         self.ir_mode_group = LabelFrame(tab1, text="IR-Mode", padx=5, pady=5, bd=3, background=frame_color)
-        self.ir_mode_group.grid(row=120, column=110, columnspan=2, rowspan=6, padx='5', pady='5', sticky='we')
+        self.ir_mode_group.grid(row=111, column=110, columnspan=2, rowspan=6, padx='5', pady='5', sticky='we')
         
         self.LABEL_KIN_ENERGY_START = Label(self.ir_mode_group, text="First Kin Energy [eV]", background=frame_color)
         self.LABEL_KIN_ENERGY_STEP = Label(self.ir_mode_group, text="Kin Energy Stepsize [eV]", background=frame_color)
@@ -322,6 +362,12 @@ class mclass:
         self.ENTRY_NUMBER_OF_PART = Entry(self.ir_mode_group)
         self.ENTRY_MASS_IR = Entry(self.ir_mode_group)
         self.ENTRY_CHARGE_IR = Entry(self.ir_mode_group)
+        
+        self.ENTRY_KIN_ENERGY_START.insert(0, 1.3)
+        self.ENTRY_KIN_ENERGY_STEP.insert(0, 1.55)
+        self.ENTRY_NUMBER_OF_PART.insert(0, 10)
+        self.ENTRY_MASS_IR.insert(0, 1)
+        self.ENTRY_CHARGE_IR.insert(0, 1)
         
         self.BUTTON_SIM_IR_MODE = Button(self.ir_mode_group, text="Simulate Particle IR Mode", command=self.R_tof_sim_ir, activebackground = button_color)
         self.BUTTON_SIM_IR_MODE.grid(row=10, column=15, columnspan=2, rowspan=4, padx='5', pady='5', sticky='ns')
@@ -339,24 +385,22 @@ class mclass:
         self.ENTRY_CHARGE_IR.grid(row=13, column=11, columnspan=1, padx='5', pady='5', sticky='w')
         
         
-    ######### Position reconstruction ######################
-        self.position_group = LabelFrame(tab2, text="Calculate Position", padx=5, pady=5, bd=3, background=frame_color)
-        self.position_group.grid(row=100, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='nw')
+    ######### Electron position reconstruction ######################
+        # self.position_group = LabelFrame(tab1, text="Electron Position", padx=5, pady=5, bd=3, background=frame_color)
+        # self.position_group.grid(row=126, column=120, columnspan=4, rowspan=30, padx='5', pady='5', sticky='nw')
         
-        self.BUTTON_PLOT_POSITION = Button(self.position_group, text='Plot Postitions', command=self.plot_position, activebackground = button_color)
-        self.BUTTON_EXPORT_DATA = Button(self.position_group, text='Export Data', command=self.export_data, activebackground = button_color)
+    ######### SAVES FOR VALIDATION ########################
+        self.valid_group = LabelFrame(tab1, text="Save Data for validation", padx=5, pady=5, bd=3, background=frame_color)
+        self.valid_group.grid(row=105, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='new')
         
-        self.BUTTON_PLOT_POSITION.grid(row=105, column=105, columnspan=2, padx='5', pady='5', sticky='w')
-        self.BUTTON_EXPORT_DATA.grid(row=107, column=105, columnspan=2, padx='5', pady='5', sticky='w')
+        self.BUTTON_SAVE_MOM = Button(self.valid_group, text="Save Momentum Data", command=self.export_momenta, activebackground = button_color)
+        self.BUTTON_SAVE_MOM.grid(row=10, column=100, columnspan=2, padx='5', pady='5', sticky='w')
         
-    ######### MCP TIMES CALCULATION ########################
-        self.mcp_group = LabelFrame(tab2, text="Calculate MCP times", padx=5, pady=5, bd=3, background=frame_color)
-        self.mcp_group.grid(row=110, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='nw')
+        self.BUTTON_CALC_MCP_TIMES = Button(self.valid_group, text='Save MCP times', command=self.calc_mcp, activebackground = button_color)
+        self.BUTTON_CALC_MCP_TIMES.grid(row=11, column=100, columnspan=2, padx='5', pady='5', sticky='w')
         
-        
-        self.BUTTON_CALC_MCP_TIMES = Button(self.mcp_group, text='Calculate MCP times', command=self.calc_mcp, activebackground = button_color)
-        self.BUTTON_CALC_MCP_TIMES.grid(row=105, column=105, columnspan=2, padx='5', pady='5', sticky='w')
-        
+        self.BUTTON_EXPORT_DATA = Button(self.valid_group, text='Save Electron Position', command=self.export_data, activebackground = button_color)
+        self.BUTTON_EXPORT_DATA.grid(row=12, column=100, columnspan=2, padx='5', pady='5', sticky='w')
     ######## Coincidences ##################################
         #### REMI parameter for Ion ####
         remi_ion_conf_group = LabelFrame(tab3, text="REMI Configuration for Ion", padx=5, pady=5, bd=3, background=frame_color)
@@ -409,13 +453,18 @@ class mclass:
         
         self.BUTTON_ION_POSITION = Button(self.ion_pos_group, text='Calculate Ion Positions', command=self.calc_ion_position, activebackground = button_color)
         self.BUTTON_ION_POSITION.grid(row=110, column=100, padx='5', pady='5', sticky='w')
-    def make_plot_xarray(self, data, row, column, master, sorting=False, sort='time', rowspan=1, columnspan=1, figsize=(4,4), color='blue', marker='.', ls=''):
+   
+    def make_plot_xarray(self, data, row, column, master, sorting=False, sort='time', rowspan=1, columnspan=1, figsize=(4,4), color='blue', marker='.', ls='', title=''):
         fig = Figure(figsize=figsize, facecolor='whitesmoke')
         a = fig.add_subplot(111)
         if sorting==False:
             data.plot(ax=a, marker=marker, ls=ls, color=color)
         else:
-            data.sortby(sort).plot.line(ax=a, marker=marker, ls=ls, color=color)
+            # data.sortby(sort).plot.line(ax=a, marker=marker, ls=ls, color=color)
+            time = data.sortby(sort).time
+            rad = data.sortby(sort).values
+            a.hexbin(time, rad, mincnt=1, edgecolors='face', gridsize=50, cmap='PuBuGn')
+            a.set_title(title)
             
         a.autoscale(tight=True)
         canvas = FigureCanvasTkAgg(fig, master=master)
@@ -423,10 +472,11 @@ class mclass:
         canvas.draw()
         return fig, a, canvas
     
-    def make_plot(self, x, y, row, column, master, rowspan=1, columnspan=1, figsize=(4,4), color='blue', marker='.', ls=''):
+    def make_plot(self, x, y, row, column, master, rowspan=1, columnspan=1, figsize=(4,4), title=''):
         fig = Figure(figsize=figsize, facecolor='whitesmoke')
         a = fig.add_subplot(111)
-        a.plot(x, y, color=color, marker=marker, ls=ls)
+        a.hexbin(x, y, mincnt=1, edgecolors='face', gridsize=50, cmap='PuBuGn')
+        a.set_title(title)
         a.autoscale(tight=True)
         canvas = FigureCanvasTkAgg(fig, master=master)
         canvas.get_tk_widget().grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, padx='5', pady='5', sticky='ew')
@@ -445,13 +495,31 @@ class mclass:
             self.LABEL_WIDTH.grid_remove()
             self.ENTRY_MEAN_ENERGY.grid_remove()
             self.ENTRY_WIDTH.grid_remove()
+            self.LABEL_MULTI_PART_NUMBER.grid_remove()
+            self.LABEL_MULTI_PART_ENERGY_STEP.grid_remove()
+            self.ENTRY_MULTI_PART_ENERGY_STEP.grid_remove()
+            self.ENTRY_MULTI_PART_NUMBER.grid_remove()
         elif self.v.get()==2:
             self.LABEL_MEAN_ENERGY.grid()
             self.LABEL_WIDTH.grid()
             self.ENTRY_MEAN_ENERGY.grid()
             self.ENTRY_WIDTH.grid()
-    
+            self.LABEL_MULTI_PART_NUMBER.grid_remove()
+            self.LABEL_MULTI_PART_ENERGY_STEP.grid_remove()
+            self.ENTRY_MULTI_PART_ENERGY_STEP.grid_remove()
+            self.ENTRY_MULTI_PART_NUMBER.grid_remove()
+        elif self.v.get()==3:
+            self.LABEL_MEAN_ENERGY.grid()
+            self.LABEL_WIDTH.grid()
+            self.ENTRY_MEAN_ENERGY.grid()
+            self.ENTRY_WIDTH.grid()
+            self.LABEL_MULTI_PART_NUMBER.grid()
+            self.LABEL_MULTI_PART_ENERGY_STEP.grid()
+            self.ENTRY_MULTI_PART_ENERGY_STEP.grid()
+            self.ENTRY_MULTI_PART_NUMBER.grid()
+            
     def make_R_tof(self):
+        self.R_tof_plot_group.grid()
         self.particle_params=(float(self.ENTRY_PART_MASS.get())*m_e, float(self.ENTRY_PART_CHARGE.get())*q_e)
         if self.v.get()==1:
             self.momenta = make_gaussian_momentum_distribution(int(self.ENTRY_NUMBER_PART.get()))
@@ -459,14 +527,46 @@ class mclass:
             energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
             width = float(self.ENTRY_WIDTH.get())
             self.momenta = make_gaussian_energy_distribution(energy_mean, width, self.particle_params[0], number_of_particles=int(self.ENTRY_NUMBER_PART.get()))
+        elif self.v.get()==3:
+            energy_step = float(self.ENTRY_MULTI_PART_ENERGY_STEP.get())
+            energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
+            width = float(self.ENTRY_WIDTH.get())
+            part_num = int(self.ENTRY_MULTI_PART_NUMBER.get())
+            self.momenta = make_gaussian_energy_distribution(energy_mean, width, self.particle_params[0], number_of_particles=int(self.ENTRY_NUMBER_PART.get()))
+            for i in range(1, part_num):
+                self.momenta = np.concatenate([self.momenta, make_gaussian_energy_distribution(energy_mean+(i*energy_step), width, self.particle_params[0], number_of_particles=int(self.ENTRY_NUMBER_PART.get()))])
+           
         self.R_tof = make_R_tof_array(self.momenta, self.remi_params, self.particle_params)
-        self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof = self.make_plot_xarray(self.R_tof, 104, 110, self.R_tof_plot_group, sorting=True, sort='time', columnspan=2, color='powderblue', figsize=(6,6))  
+        self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof = self.make_plot_xarray(self.R_tof, 100, 100, self.R_tof_plot_group, sorting=True, sort='time', columnspan=2, color='powderblue', figsize=(6,6), title='Rad vs Time') 
+        self.plot_position()
+        
+    def update_R_tof(self):
+        self.particle_params=(float(self.ENTRY_PART_MASS.get())*m_e, float(self.ENTRY_PART_CHARGE.get())*q_e)
+        if self.v.get()==1:
+            self.momenta = make_gaussian_momentum_distribution(int(self.ENTRY_NUMBER_PART.get()))
+        elif self.v.get()==2:
+            energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
+            width = float(self.ENTRY_WIDTH.get())
+            self.momenta = make_gaussian_energy_distribution(energy_mean, width, self.particle_params[0], number_of_particles=int(self.ENTRY_NUMBER_PART.get()))
+        elif self.v.get()==3:
+            energy_step = float(self.ENTRY_MULTI_PART_ENERGY_STEP.get())
+            energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
+            width = float(self.ENTRY_WIDTH.get())
+            part_num = int(self.ENTRY_MULTI_PART_NUMBER.get())
+            self.momenta = make_gaussian_energy_distribution(energy_mean, width, self.particle_params[0], number_of_particles=int(self.ENTRY_NUMBER_PART.get()))
+            for i in range(1, part_num):
+                self.momenta = np.concatenate([self.momenta, make_gaussian_energy_distribution(energy_mean+(i*energy_step), width, self.particle_params[0], number_of_particles=int(self.ENTRY_NUMBER_PART.get()))])
+        self.R_tof = make_R_tof_array(self.momenta, self.remi_params, self.particle_params)
+        
+        self.ax_R_tof.cla()
+        self.ax_R_tof.hexbin(self.R_tof.time, self.R_tof.values, mincnt=1, edgecolors='face', gridsize=50, cmap='PuBuGn')
+        if self.v_ir.get()==1:
+            self.R_tof_sim_ir()
+        self.canvas_R_tof.draw()    
         
     def R_tof_sim(self):
         tof_max = float(self.ENTRY_TOF.get())*1e-9
         tof = np.linspace(0, tof_max, int(tof_max*1000e9))
-        print(tof)
-        print(len(self.ax_R_tof.lines))
         while len(self.ax_R_tof.lines)>1:
             self.ax_R_tof.lines[-1].remove()
 
@@ -500,7 +600,7 @@ class mclass:
         
     def calc_position(self):
         U, B, l_a = self.remi_params
-        q, m = self.particle_params
+        m, q = self.particle_params
         tof = self.R_tof.time
         R = self.R_tof.values
         
@@ -521,7 +621,7 @@ class mclass:
     
     def plot_position(self):
         x,y = self.calc_position()
-        self.make_plot(x, y, 106, 105, self.position_group)
+        self.make_plot(x, y, 110, 100, self.R_tof_plot_group, figsize=(6,6), title='Electron Positions')
     
     def export_data(self):
         x, y = self.calc_position()
@@ -580,7 +680,7 @@ class mclass:
         start_energy = float(self.ENTRY_KIN_ENERGY_START.get())*1.6e-19
         step_energy = float(self.ENTRY_KIN_ENERGY_STEP.get())*1.6e-19
         number_sim = int(self.ENTRY_NUMBER_OF_PART.get())
-        energys = np.linspace(start_energy, (number_sim*step_energy)+start_energy, number_sim)
+        energys = np.linspace(start_energy, (number_sim*step_energy)+start_energy, number_sim+1)
         mass = float(self.ENTRY_MASS_IR.get())*m_e
         charge = float(self.ENTRY_CHARGE_IR.get())*q_e
         particle_params = (mass, charge)
@@ -593,6 +693,27 @@ class mclass:
             R = calc_R_fit(K, tof, self.remi_params, particle_params)
             self.ax_R_tof.plot(tof, R, color='firebrick')
         self.canvas_R_tof.draw()
+        
+    def set_new_u(self, U):
+        U = int(self.SLIDE_U.get())
+        B = float(self.ENTRY_SET_B.get())*1e-4 
+        l_a = float(self.ENTRY_SET_l_a.get())
+        self.ENTRY_SET_U.delete(0, END)
+        self.ENTRY_SET_U.insert(0, str(U))
+        self.remi_params = np.array([U, B, l_a])
+        self.update_R_tof()
+        return self.remi_params
+    
+    def set_new_b(self, B):
+        U = float(self.ENTRY_SET_U.get())
+        B = int(self.SLIDE_B.get())
+        self.ENTRY_SET_B.delete(0, END)
+        self.ENTRY_SET_B.insert(0, str(B))
+        B = B*1e-4 
+        l_a = float(self.ENTRY_SET_l_a.get())
+        self.remi_params = np.array([U, B, l_a])
+        self.update_R_tof()
+        return self.remi_params
         
     
 window = Tk()
