@@ -182,9 +182,16 @@ class mclass:
         self.B = 5*1e-4           # magnetic_field 
         self.omega = q_e * self.B / m_e
         
+    ######## higher groups ####################
+        left_bar_group = LabelFrame(tab1, text="", padx=5, pady=5, bd=3, background=frame_color)
+        left_bar_group.grid(row=100, column=100, columnspan=2, rowspan=20, padx='5', pady='5', sticky='new')
+        
+        top_bar_group = LabelFrame(tab1, text="", padx=5, pady=5, bd=3, background=frame_color)
+        top_bar_group.grid(row=100, column=103, columnspan=20, rowspan=2, padx='5', pady='5', sticky='new')
+        
     ######## REMI configurations ##############
-        remi_conf_group = LabelFrame(tab1, text="REMI Configuration for Electrons", padx=5, pady=5, bd=3, background=frame_color)
-        remi_conf_group.grid(row=100, column=100, columnspan=2, rowspan=6, padx='5', pady='5', sticky='nw')
+        remi_conf_group = LabelFrame(left_bar_group, text="REMI Configuration for Electrons", padx=5, pady=5, bd=3, background=frame_color)
+        remi_conf_group.grid(row=100, column=100, columnspan=2, padx='5', pady='5', sticky='new')
         
         self.LABEL_SET_U = Label(remi_conf_group, text='U[V]:', background=frame_color)
         self.LABEL_SET_B = Label(remi_conf_group, text='B[Gauss]:', background=frame_color)
@@ -210,8 +217,8 @@ class mclass:
         self.BUTTON_CHANGE_REMI_CONF.grid(row=106, column=101, columnspan=2, padx='5', pady='5', sticky='w')
         
     ######## momentum, R, tof calculation #############
-        self.R_tof_group = LabelFrame(tab1, text="R-tof calculation", padx=5, pady=5, bd=3, background=frame_color)
-        self.R_tof_group.grid(row=100, column=110, columnspan=2, rowspan=5, padx='5', pady='5', sticky='we')
+        self.R_tof_group = LabelFrame(left_bar_group, text="R-tof calculation", padx=5, pady=5, bd=3, background=frame_color)
+        self.R_tof_group.grid(row=102, column=100, columnspan=2, rowspan=5, padx='5', pady='5', sticky='nwe')
         
         self.v = IntVar()
         self.v.set(1)
@@ -238,10 +245,10 @@ class mclass:
         self.ENTRY_MEAN_ENERGY = Entry(self.R_tof_group)
         self.ENTRY_WIDTH = Entry(self.R_tof_group)
         
-        self.LABEL_MEAN_ENERGY.grid(row=103, column=112, padx='5', pady='5', sticky='w')
-        self.LABEL_WIDTH.grid(row=104, column=112, padx='5', pady='5', sticky='w')
-        self.ENTRY_MEAN_ENERGY.grid(row=103, column=113, padx='5', pady='5', sticky='w')
-        self.ENTRY_WIDTH.grid(row=104, column=113, padx='5', pady='5', sticky='w')
+        self.LABEL_MEAN_ENERGY.grid(row=105, column=110, padx='5', pady='5', sticky='w')
+        self.LABEL_WIDTH.grid(row=106, column=110, padx='5', pady='5', sticky='w')
+        self.ENTRY_MEAN_ENERGY.grid(row=105, column=111, padx='5', pady='5', sticky='w')
+        self.ENTRY_WIDTH.grid(row=106, column=111, padx='5', pady='5', sticky='w')
         self.LABEL_MEAN_ENERGY.grid_remove()
         self.LABEL_WIDTH.grid_remove()
         self.ENTRY_MEAN_ENERGY.grid_remove()
@@ -256,7 +263,7 @@ class mclass:
         self.ENTRY_NUMBER_PART.grid(row=102, column=111, padx='5', pady='5', sticky='w')
         self.ENTRY_PART_MASS.grid(row=103, column=111, padx='5', pady='5', sticky='w')
         self.ENTRY_PART_CHARGE.grid(row=104, column=111, padx='5', pady='5', sticky='w')
-        self.BUTTON_R_TOF.grid(row=105, column=110, columnspan=2, padx='5', pady='5', sticky='w')
+        self.BUTTON_R_TOF.grid(row=109, column=110, columnspan=2, padx='5', pady='5', sticky='w')
        
         
         self.ENTRY_NUMBER_PART.insert(0, 1000)
@@ -266,19 +273,32 @@ class mclass:
         self.LABEL_MULTI_PART_NUMBER = Label(self.R_tof_group, text='Number of Particles', background=frame_color)
         self.ENTRY_MULTI_PART_ENERGY_STEP = Entry(self.R_tof_group)
         self.ENTRY_MULTI_PART_NUMBER = Entry(self.R_tof_group)
-        self.LABEL_MULTI_PART_ENERGY_STEP.grid(row=103, column=114, padx='5', pady='5', sticky='w')
-        self.LABEL_MULTI_PART_NUMBER.grid(row=104, column=114, padx='5', pady='5', sticky='w')
-        self.ENTRY_MULTI_PART_ENERGY_STEP.grid(row=103, column=115, padx='5', pady='5', sticky='w')
-        self.ENTRY_MULTI_PART_NUMBER.grid(row=104, column=115, padx='5', pady='5', sticky='w')
+        self.LABEL_MULTI_PART_ENERGY_STEP.grid(row=107, column=110, padx='5', pady='5', sticky='w')
+        self.LABEL_MULTI_PART_NUMBER.grid(row=108, column=110, padx='5', pady='5', sticky='w')
+        self.ENTRY_MULTI_PART_ENERGY_STEP.grid(row=107, column=111, padx='5', pady='5', sticky='w')
+        self.ENTRY_MULTI_PART_NUMBER.grid(row=108, column=111, padx='5', pady='5', sticky='w')
         
         self.LABEL_MULTI_PART_NUMBER.grid_remove()
         self.LABEL_MULTI_PART_ENERGY_STEP.grid_remove()
         self.ENTRY_MULTI_PART_ENERGY_STEP.grid_remove()
         self.ENTRY_MULTI_PART_NUMBER.grid_remove()
         
+    ######### SAVES FOR VALIDATION ########################
+        self.valid_group = LabelFrame(left_bar_group, text="Save Data for validation", padx=5, pady=5, bd=3, background=frame_color)
+        self.valid_group.grid(row=115, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='new')
+        
+        self.BUTTON_SAVE_MOM = Button(self.valid_group, text="Save Momentum Data", command=self.export_momenta, activebackground = button_color)
+        self.BUTTON_SAVE_MOM.grid(row=10, column=100, columnspan=2, padx='5', pady='5', sticky='w')
+        
+        self.BUTTON_CALC_MCP_TIMES = Button(self.valid_group, text='Save MCP times', command=self.calc_mcp, activebackground = button_color)
+        self.BUTTON_CALC_MCP_TIMES.grid(row=11, column=100, columnspan=2, padx='5', pady='5', sticky='w')
+        
+        self.BUTTON_EXPORT_DATA = Button(self.valid_group, text='Save Electron Position', command=self.export_data, activebackground = button_color)
+        self.BUTTON_EXPORT_DATA.grid(row=12, column=100, columnspan=2, padx='5', pady='5', sticky='w')
+        
     ######## R tof simulation ##########################
-        self.R_tof_sim_group = LabelFrame(tab1, text="R-tof simulation", padx=5, pady=5, bd=3, background=frame_color)
-        self.R_tof_sim_group.grid(row=105, column=110, columnspan=4, rowspan=6, padx='5', pady='5', sticky='we')
+        self.R_tof_sim_group = LabelFrame(top_bar_group, text="R-tof simulation", padx=5, pady=5, bd=3, background=frame_color)
+        self.R_tof_sim_group.grid(row=100, column=110, columnspan=4, rowspan=6, padx='5', pady='5', sticky='nwe')
         
         self.LABEL_KIN_ENERGY = Label(self.R_tof_sim_group, text="Kinetic Energy [EV]:", background=frame_color)
         self.ENTRY_KIN_ENERGY_1 = Entry(self.R_tof_sim_group, fg='firebrick')
@@ -321,12 +341,12 @@ class mclass:
         self.ENTRY_CHARGE_3.grid(row=109, column=112, padx='5', pady='5', sticky='w')
         self.ENTRY_TOF.grid(row=110, column=111, padx='5', pady='5', sticky='w')
         self.LABEL_TOF.grid(row=110, column=110, padx='5', pady='5', sticky='w')
-        self.BUTTON_R_TOF_SIM.grid(row=106, column=114, columnspan=1, rowspan=5, padx='5', pady='5', sticky='ns')
+        self.BUTTON_R_TOF_SIM.grid(row=110, column=112, columnspan=1, rowspan=5, padx='5', pady='5', sticky='ns')
         
         #### Plots and Slidebars ##############
         
         self.R_tof_plot_group = LabelFrame(tab1, text="Electron plots", padx=5, pady=5, bd=3, background=frame_color)
-        self.R_tof_plot_group.grid(row=100, column=120, columnspan=2, rowspan=40, padx='5', pady='5', sticky='nwe')
+        self.R_tof_plot_group.grid(row=110, column=110, columnspan=2, rowspan=40, padx='5', pady='5', sticky='nwe')
         self.R_tof_plot_group.grid_remove()
         
         self.v_ir = IntVar()
@@ -348,8 +368,8 @@ class mclass:
         
         
         #### IR mode #####
-        self.ir_mode_group = LabelFrame(tab1, text="IR-Mode", padx=5, pady=5, bd=3, background=frame_color)
-        self.ir_mode_group.grid(row=111, column=110, columnspan=2, rowspan=6, padx='5', pady='5', sticky='we')
+        self.ir_mode_group = LabelFrame(top_bar_group, text="IR-Mode", padx=5, pady=5, bd=3, background=frame_color)
+        self.ir_mode_group.grid(row=100, column=120, columnspan=2, padx='5', pady='5', sticky='nwe')
         
         self.LABEL_KIN_ENERGY_START = Label(self.ir_mode_group, text="First Kin Energy [eV]", background=frame_color)
         self.LABEL_KIN_ENERGY_STEP = Label(self.ir_mode_group, text="Kin Energy Stepsize [eV]", background=frame_color)
@@ -370,37 +390,26 @@ class mclass:
         self.ENTRY_CHARGE_IR.insert(0, 1)
         
         self.BUTTON_SIM_IR_MODE = Button(self.ir_mode_group, text="Simulate Particle IR Mode", command=self.R_tof_sim_ir, activebackground = button_color)
-        self.BUTTON_SIM_IR_MODE.grid(row=10, column=15, columnspan=2, rowspan=4, padx='5', pady='5', sticky='ns')
+        self.BUTTON_SIM_IR_MODE.grid(row=4, column=4, padx='5', pady='5', sticky='ns')
         
-        self.LABEL_KIN_ENERGY_START.grid(row=10, column=10, columnspan=1, padx='5', pady='5', sticky='w')
-        self.LABEL_KIN_ENERGY_STEP.grid(row=10, column=11, columnspan=1, padx='5', pady='5', sticky='w')
-        self.LABEL_NUMBER_OF_PART.grid(row=10, column=12, columnspan=1, padx='5', pady='5', sticky='w')
-        self.LABEL_MASS_IR.grid(row=12, column=10, columnspan=1, padx='5', pady='5', sticky='w')
-        self.LABEL_CHARGE_IR.grid(row=12, column=11, columnspan=1, padx='5', pady='5', sticky='w')
+        self.LABEL_KIN_ENERGY_START.grid(row=6, column=2, columnspan=1, padx='5', pady='5', sticky='w')
+        self.LABEL_KIN_ENERGY_STEP.grid(row=7, column=2, columnspan=1, padx='5', pady='5', sticky='w')
+        self.LABEL_NUMBER_OF_PART.grid(row=8, column=2, columnspan=1, padx='5', pady='5', sticky='w')
+        self.LABEL_MASS_IR.grid(row=4, column=2, columnspan=1, padx='5', pady='5', sticky='w')
+        self.LABEL_CHARGE_IR.grid(row=5, column=2, columnspan=1, padx='5', pady='5', sticky='w')
         
-        self.ENTRY_KIN_ENERGY_START.grid(row=11, column=10, columnspan=1, padx='5', pady='5', sticky='w')
-        self.ENTRY_KIN_ENERGY_STEP.grid(row=11, column=11, columnspan=1, padx='5', pady='5', sticky='w')
-        self.ENTRY_NUMBER_OF_PART.grid(row=11, column=12, columnspan=1, padx='5', pady='5', sticky='w')
-        self.ENTRY_MASS_IR.grid(row=13, column=10, columnspan=1, padx='5', pady='5', sticky='w')
-        self.ENTRY_CHARGE_IR.grid(row=13, column=11, columnspan=1, padx='5', pady='5', sticky='w')
+        self.ENTRY_KIN_ENERGY_START.grid(row=6, column=3, columnspan=1, padx='5', pady='5', sticky='w')
+        self.ENTRY_KIN_ENERGY_STEP.grid(row=7, column=3, columnspan=1, padx='5', pady='5', sticky='w')
+        self.ENTRY_NUMBER_OF_PART.grid(row=8, column=3, columnspan=1, padx='5', pady='5', sticky='w')
+        self.ENTRY_MASS_IR.grid(row=4, column=3, columnspan=1, padx='5', pady='5', sticky='w')
+        self.ENTRY_CHARGE_IR.grid(row=5, column=3, columnspan=1, padx='5', pady='5', sticky='w')
         
         
     ######### Electron position reconstruction ######################
         # self.position_group = LabelFrame(tab1, text="Electron Position", padx=5, pady=5, bd=3, background=frame_color)
         # self.position_group.grid(row=126, column=120, columnspan=4, rowspan=30, padx='5', pady='5', sticky='nw')
         
-    ######### SAVES FOR VALIDATION ########################
-        self.valid_group = LabelFrame(tab1, text="Save Data for validation", padx=5, pady=5, bd=3, background=frame_color)
-        self.valid_group.grid(row=105, column=100, columnspan=4, rowspan=6, padx='5', pady='5', sticky='new')
-        
-        self.BUTTON_SAVE_MOM = Button(self.valid_group, text="Save Momentum Data", command=self.export_momenta, activebackground = button_color)
-        self.BUTTON_SAVE_MOM.grid(row=10, column=100, columnspan=2, padx='5', pady='5', sticky='w')
-        
-        self.BUTTON_CALC_MCP_TIMES = Button(self.valid_group, text='Save MCP times', command=self.calc_mcp, activebackground = button_color)
-        self.BUTTON_CALC_MCP_TIMES.grid(row=11, column=100, columnspan=2, padx='5', pady='5', sticky='w')
-        
-        self.BUTTON_EXPORT_DATA = Button(self.valid_group, text='Save Electron Position', command=self.export_data, activebackground = button_color)
-        self.BUTTON_EXPORT_DATA.grid(row=12, column=100, columnspan=2, padx='5', pady='5', sticky='w')
+ 
     ######## Coincidences ##################################
         #### REMI parameter for Ion ####
         remi_ion_conf_group = LabelFrame(tab3, text="REMI Configuration for Ion", padx=5, pady=5, bd=3, background=frame_color)
@@ -472,15 +481,18 @@ class mclass:
         canvas.draw()
         return fig, a, canvas
     
-    def make_plot(self, x, y, row, column, master, rowspan=1, columnspan=1, figsize=(4,4), title=''):
+    def make_plot(self, x, y, row, column, master, rowspan=1, columnspan=1, figsize=(4,4), title='', xlim=None, ylim=None, extent=None):
         fig = Figure(figsize=figsize, facecolor='whitesmoke')
         a = fig.add_subplot(111)
-        a.hexbin(x, y, mincnt=1, edgecolors='face', gridsize=50, cmap='PuBuGn')
+        a.hexbin(x, y, mincnt=1, edgecolors='face', gridsize=100, cmap='PuBuGn', extent=extent)
         a.set_title(title)
-        a.autoscale(tight=True)
+        a.set_xlim(xlim)
+        a.set_ylim(ylim)
+#        a.autoscale(tight=True)
         canvas = FigureCanvasTkAgg(fig, master=master)
         canvas.get_tk_widget().grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, padx='5', pady='5', sticky='ew')
         canvas.draw()
+        return fig, a, canvas
         
     def change_remi_conf(self):
         U = float(self.ENTRY_SET_U.get())
@@ -562,7 +574,22 @@ class mclass:
         self.ax_R_tof.hexbin(self.R_tof.time, self.R_tof.values, mincnt=1, edgecolors='face', gridsize=50, cmap='PuBuGn')
         if self.v_ir.get()==1:
             self.R_tof_sim_ir()
-        self.canvas_R_tof.draw()    
+        self.canvas_R_tof.draw() 
+        
+        self.ele_pos_a.cla()
+        x,y = self.calc_position()
+
+        self.ele_pos_a.hexbin(x, y, mincnt=1, edgecolors='face', gridsize=100, cmap='PuBuGn', extent=(-0.1,0.1,-0.1,0.1))
+#        self.ele_pos_a.spines['left'].set_position('zero')
+#        self.ele_pos_a.spines['right'].set_color('none')
+#        self.ele_pos_a.spines['bottom'].set_position('zero')
+#        self.ele_pos_a.spines['top'].set_color('none')
+        self.ele_pos_a.set_xlim(-0.1,0.1)
+        self.ele_pos_a.set_ylim(-0.1,0.1)
+        detector = plt.Circle((0, 0), 0.04, color='cadetblue', fill=False, figure=self.ele_pos_fig)
+        self.ele_pos_a.add_artist(detector)
+        self.ele_pos_canvas.draw()
+
         
     def R_tof_sim(self):
         tof_max = float(self.ENTRY_TOF.get())*1e-9
@@ -621,7 +648,13 @@ class mclass:
     
     def plot_position(self):
         x,y = self.calc_position()
-        self.make_plot(x, y, 110, 100, self.R_tof_plot_group, figsize=(6,6), title='Electron Positions')
+        detector_radius = 0.04
+        self.ele_pos_fig, self.ele_pos_a, self.ele_pos_canvas = self.make_plot(x, y, 100, 110, self.R_tof_plot_group, figsize=(6,6), title='Electron Positions', extent=(-0.1,0.1,-0.1,0.1))
+        self.ele_pos_a.set_xlim(-0.1,0.1)
+        self.ele_pos_a.set_ylim(-0.1,0.1)
+        detector = plt.Circle((0, 0), detector_radius, color='cadetblue', fill=False, figure=self.ele_pos_fig)
+        self.ele_pos_a.add_artist(detector)
+        self.ele_pos_canvas.draw()
     
     def export_data(self):
         x, y = self.calc_position()
