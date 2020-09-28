@@ -23,8 +23,6 @@ except:
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-import seaborn as sns
-
 import xarray as xr
 
 
@@ -171,8 +169,7 @@ class mclass:
         tabControl.add(tab2, text='?')
         tabControl.add(tab3, text='Coincidences')
         tabControl.grid(column=0)
-            
-        back_color = 'whitesmoke'
+
         button_color = 'aliceblue'
         frame_color = 'mintcream'
 
@@ -221,10 +218,10 @@ class mclass:
         self.R_tof_group.grid(row=102, column=100, columnspan=2, rowspan=5, padx='5', pady='5', sticky='nwe')
         
         self.v = IntVar()
-        self.v.set(1)
+        self.v.set(2)
         self.CHOOSE_MOMENTUM = Radiobutton(self.R_tof_group, command=self.check, text="Momentum", variable=self.v, value=1, background=frame_color)
         self.CHOOSE_ENERGY = Radiobutton(self.R_tof_group, command=self.check, text="Energy", variable=self.v, value=2, background=frame_color)
-        self.CHOOSE_MOMENTUM.select()
+        self.CHOOSE_ENERGY.select()
         self.CHOOSE_MOMENTUM.grid(row=99, column=110, padx='5', pady='5', sticky='w')
         self.CHOOSE_ENERGY.grid(row=100, column=110, padx='5', pady='5', sticky='w')
         self.CHOOSE_ENERGY_MULTI = Radiobutton(self.R_tof_group, command=self.check, text="Multiple Prticle", variable=self.v, value=3, background=frame_color)
@@ -249,10 +246,8 @@ class mclass:
         self.LABEL_WIDTH.grid(row=106, column=110, padx='5', pady='5', sticky='w')
         self.ENTRY_MEAN_ENERGY.grid(row=105, column=111, padx='5', pady='5', sticky='w')
         self.ENTRY_WIDTH.grid(row=106, column=111, padx='5', pady='5', sticky='w')
-        self.LABEL_MEAN_ENERGY.grid_remove()
-        self.LABEL_WIDTH.grid_remove()
-        self.ENTRY_MEAN_ENERGY.grid_remove()
-        self.ENTRY_WIDTH.grid_remove()
+        self.ENTRY_MEAN_ENERGY.insert(0,1)
+        self.ENTRY_WIDTH.insert(0,0.1)
         
         self.ENTRY_PART_MASS.insert(0,1)
         self.ENTRY_PART_CHARGE.insert(0,1)
@@ -316,9 +311,9 @@ class mclass:
         self.ENTRY_TOF = Entry(self.R_tof_sim_group)
         self.BUTTON_R_TOF_SIM = Button(self.R_tof_sim_group, text="Simulate Particle", command=self.R_tof_sim, activebackground = button_color)
         
-        self.ENTRY_KIN_ENERGY_1.insert(0, 10)
-        self.ENTRY_KIN_ENERGY_2.insert(0, 20)
-        self.ENTRY_KIN_ENERGY_3.insert(0, 30)
+        self.ENTRY_KIN_ENERGY_1.insert(0, 1)
+        self.ENTRY_KIN_ENERGY_2.insert(0, 2)
+        self.ENTRY_KIN_ENERGY_3.insert(0, 3)
         self.ENTRY_MASS_1.insert(0, 1)
         self.ENTRY_MASS_2.insert(0, 1)
         self.ENTRY_MASS_3.insert(0, 1)
@@ -404,11 +399,6 @@ class mclass:
         self.ENTRY_MASS_IR.grid(row=4, column=3, columnspan=1, padx='5', pady='5', sticky='w')
         self.ENTRY_CHARGE_IR.grid(row=5, column=3, columnspan=1, padx='5', pady='5', sticky='w')
         
-        
-    ######### Electron position reconstruction ######################
-        # self.position_group = LabelFrame(tab1, text="Electron Position", padx=5, pady=5, bd=3, background=frame_color)
-        # self.position_group.grid(row=126, column=120, columnspan=4, rowspan=30, padx='5', pady='5', sticky='nw')
-        
  
     ######## Coincidences ##################################
         #### REMI parameter for Ion ####
@@ -464,12 +454,40 @@ class mclass:
         self.BUTTON_ION_POSITION.grid(row=110, column=100, padx='5', pady='5', sticky='w')
    
     def make_plot_xarray(self, data, row, column, master, sorting=False, sort='time', rowspan=1, columnspan=1, figsize=(4,4), color='blue', marker='.', ls='', title=''):
+        """
+        Plots the data at the given position
+        
+        Parameters
+        ----------
+        data: xarray
+            data to be plottet
+        row: int
+            row to place the plot
+        column: int
+            column to place the plot
+        master: Frame
+        sorting: Bool, optional
+        sort: string, optional
+        rowspan: int, optional
+        columnspan: int, optional
+        figsize: tuple, optional
+        color: string, optional
+        marker: string, optional
+        ls: string, optional
+        title: string, optional
+        
+        Returns
+        -------
+        fig : Figure
+        a : axis
+        canvas : canvas
+        """
+        
         fig = Figure(figsize=figsize, facecolor='whitesmoke')
         a = fig.add_subplot(111)
         if sorting==False:
             data.plot(ax=a, marker=marker, ls=ls, color=color)
         else:
-            # data.sortby(sort).plot.line(ax=a, marker=marker, ls=ls, color=color)
             time = data.sortby(sort).time
             rad = data.sortby(sort).values
             a.hexbin(time, rad, mincnt=1, edgecolors='face', gridsize=50, cmap='PuBuGn')
@@ -482,19 +500,31 @@ class mclass:
         return fig, a, canvas
     
     def make_plot(self, x, y, row, column, master, rowspan=1, columnspan=1, figsize=(4,4), title='', xlim=None, ylim=None, extent=None):
+        """
+        Makes a hexbin-plot of x and y
+        
+        Returns
+        -------
+        fig : Figure
+        a : axis
+        canvas : canvas
+        """
         fig = Figure(figsize=figsize, facecolor='whitesmoke')
         a = fig.add_subplot(111)
         a.hexbin(x, y, mincnt=1, edgecolors='face', gridsize=100, cmap='PuBuGn', extent=extent)
         a.set_title(title)
         a.set_xlim(xlim)
         a.set_ylim(ylim)
-#        a.autoscale(tight=True)
+        a.autoscale(tight=True)
         canvas = FigureCanvasTkAgg(fig, master=master)
         canvas.get_tk_widget().grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, padx='5', pady='5', sticky='ew')
         canvas.draw()
         return fig, a, canvas
         
     def change_remi_conf(self):
+        """
+        Changes the setings of the Remi (Voltage, Magnetic-field, acceleration length)
+        """
         U = float(self.ENTRY_SET_U.get())
         B = float(self.ENTRY_SET_B.get())*1e-4 
         l_a = float(self.ENTRY_SET_l_a.get())
@@ -531,6 +561,9 @@ class mclass:
             self.ENTRY_MULTI_PART_NUMBER.grid()
             
     def make_R_tof(self):
+        """
+        Generates the R vs tof plot and the electron position plot with random data points
+        """
         self.R_tof_plot_group.grid()
         self.particle_params=(float(self.ENTRY_PART_MASS.get())*m_e, float(self.ENTRY_PART_CHARGE.get())*q_e)
         if self.v.get()==1:
@@ -552,7 +585,16 @@ class mclass:
         self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof = self.make_plot_xarray(self.R_tof, 100, 100, self.R_tof_plot_group, sorting=True, sort='time', columnspan=2, color='powderblue', figsize=(6,6), title='Rad vs Time') 
         self.plot_position()
         
+        max_tof = self.calc_max_tof()
+        self.ax_R_tof.axvline(max_tof, 0, 1, color='darkgrey')
+        no_mom_tof = self.calc_no_momentum_tof()
+        self.ax_R_tof.axvline(no_mom_tof, 0, 1, ls='--', color='darkgrey')
+        self.canvas_R_tof.draw()
+        
     def update_R_tof(self):
+        """
+        Updates the R vs tof and the position plot, while moving the sliders for B and U
+        """
         self.particle_params=(float(self.ENTRY_PART_MASS.get())*m_e, float(self.ENTRY_PART_CHARGE.get())*q_e)
         if self.v.get()==1:
             self.momenta = make_gaussian_momentum_distribution(int(self.ENTRY_NUMBER_PART.get()))
@@ -574,16 +616,19 @@ class mclass:
         self.ax_R_tof.hexbin(self.R_tof.time, self.R_tof.values, mincnt=1, edgecolors='face', gridsize=50, cmap='PuBuGn')
         if self.v_ir.get()==1:
             self.R_tof_sim_ir()
-        self.canvas_R_tof.draw() 
+
+        max_tof = self.calc_max_tof()
+        self.ax_R_tof.axvline(max_tof, 0, 1, color='darkgrey')
+        
+        no_mom_tof = self.calc_no_momentum_tof()
+        self.ax_R_tof.axvline(no_mom_tof, 0, 1, ls='--', color='darkgrey')
+        self.canvas_R_tof.draw()
+
         
         self.ele_pos_a.cla()
         x,y = self.calc_position()
 
         self.ele_pos_a.hexbin(x, y, mincnt=1, edgecolors='face', gridsize=100, cmap='PuBuGn', extent=(-0.1,0.1,-0.1,0.1))
-#        self.ele_pos_a.spines['left'].set_position('zero')
-#        self.ele_pos_a.spines['right'].set_color('none')
-#        self.ele_pos_a.spines['bottom'].set_position('zero')
-#        self.ele_pos_a.spines['top'].set_color('none')
         self.ele_pos_a.set_xlim(-0.1,0.1)
         self.ele_pos_a.set_ylim(-0.1,0.1)
         detector = plt.Circle((0, 0), 0.04, color='cadetblue', fill=False, figure=self.ele_pos_fig)
@@ -592,6 +637,9 @@ class mclass:
 
         
     def R_tof_sim(self):
+        """
+        Generates a R vs tof plot
+        """
         tof_max = float(self.ENTRY_TOF.get())*1e-9
         tof = np.linspace(0, tof_max, int(tof_max*1000e9))
         while len(self.ax_R_tof.lines)>1:
@@ -623,9 +671,18 @@ class mclass:
             K_3 = np.sqrt(2*mass_3*energy_3)
             R_3 = calc_R_fit(K_3, tof, self.remi_params, particle_params_3)
             self.ax_R_tof.plot(tof, R_3, color='darkorange')
+            
+        
+        max_tof = self.calc_max_tof()
+        self.ax_R_tof.axvline(max_tof, 0, 1, color='darkgrey')
+        no_mom_tof = self.calc_no_momentum_tof()
+        self.ax_R_tof.axvline(no_mom_tof, 0, 1, ls='--', color='darkgrey')
         self.canvas_R_tof.draw()
         
     def calc_position(self):
+        """
+        calculates the electron positions (x,y)
+        """
         U, B, l_a = self.remi_params
         m, q = self.particle_params
         tof = self.R_tof.time
@@ -647,6 +704,9 @@ class mclass:
         return x,y
     
     def plot_position(self):
+        """
+        generates a hex-plot of the electron positions with random distribution
+        """
         x,y = self.calc_position()
         detector_radius = 0.04
         self.ele_pos_fig, self.ele_pos_a, self.ele_pos_canvas = self.make_plot(x, y, 100, 110, self.R_tof_plot_group, figsize=(6,6), title='Electron Positions', extent=(-0.1,0.1,-0.1,0.1))
@@ -655,8 +715,32 @@ class mclass:
         detector = plt.Circle((0, 0), detector_radius, color='cadetblue', fill=False, figure=self.ele_pos_fig)
         self.ele_pos_a.add_artist(detector)
         self.ele_pos_canvas.draw()
+        
+    def calc_max_tof(self):
+        U, B, l_a = self.remi_params
+        m, q = self.particle_params
+        l_ion = 0.0945
+        
+        E = U/l_a
+        time_1 = np.sqrt(2*l_ion*m/(E*q)) # time from reaction point to ion detector
+        time_2 = np.sqrt(2*(l_a+l_ion)*m/(E*q)) # time from ion detector to electron detector
+        tof_max = time_1+time_2
+        return tof_max
+    
+    def calc_no_momentum_tof(self):
+        """
+        calculates the time of flight for a paticle with no z-momentum
+        """
+        U, B, l_a = self.remi_params
+        m, q = self.particle_params
+        E = U/l_a
+        tof_no_mom = np.sqrt(2*l_a*m/(E*q))
+        return tof_no_mom
     
     def export_data(self):
+        """
+        writes electron position data to a file
+        """
         x, y = self.calc_position()
         tof = self.R_tof.time
         data = np.array([x, y, tof])
@@ -665,6 +749,9 @@ class mclass:
             np.savetxt(datafile, data, fmt=['%.3E','%.3E','%.3E'])
             
     def export_momenta(self):
+        """
+        writes electron momentum data to a file
+        """
         p_x = self.momenta[:,0,0]
         p_y = self.momenta[:,0,1]
         p_z = self.momenta[:,0,2]
@@ -674,6 +761,9 @@ class mclass:
             np.savetxt(datafile, mom, fmt=['%.3E','%.3E','%.3E'])
             
     def calc_mcp(self):
+        """
+        calculates the mcp times and write them to a file
+        """
         x, y = self.calc_position()
         tof = self.R_tof.time
         t_mcp = tof
@@ -694,6 +784,9 @@ class mclass:
             np.savetxt(datafile, times, fmt=['%.3E','%.3E','%.3E','%.3E','%.3E'])
             
     def calc_ion_position(self):
+        """
+        calculates the ion position of 
+        """
         p_x = -self.momenta[:,0,0]
         p_y = -self.momenta[:,0,1]
         p_z = -self.momenta[:,0,2]
