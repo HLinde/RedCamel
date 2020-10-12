@@ -16,10 +16,10 @@ import numpy as np
 
 try:
     import ttk
-    from Tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, Radiobutton, IntVar, Scale, HORIZONTAL, Checkbutton
+    from Tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, Radiobutton, IntVar, Scale, HORIZONTAL, Checkbutton, Separator
 except:
     from tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, ttk , Radiobutton, IntVar, Scale, HORIZONTAL, Checkbutton
-
+    from tkinter.ttk import Separator
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -76,7 +76,7 @@ def make_gaussian_energy_distribution(energy_mean, width, mass, number_of_partic
     r = (np.random.randn(number_of_particles, 1) * width + energy_mean)*q_e
     phi = np.random.rand(number_of_particles, 1)*2*np.pi
     cos_theta = np.random.rand(number_of_particles, 1)*2-1
-    
+
     r_mom = np.sqrt(r*2*mass)
     
     theta = np.arccos(cos_theta)
@@ -88,6 +88,20 @@ def make_gaussian_energy_distribution(energy_mean, width, mass, number_of_partic
     energy = np.stack([x, y, z], axis=-1)
     
     return energy
+
+def make_momentum_ion_dis(KER, width, mass_i1, mass_i2, number_of_particles=1000, v_jet=0):
+    # mean_momentum
+    momentum_mean = np.sqrt(2*KER/(1/mass_i1+1/mass_i2))
+    # first ion
+    energy = momentum_mean**2/(2*mass_i1)
+    width = width**2/(2*mass_i1)
+    momentum_i1 = make_gaussian_energy_distribution(energy, width, mass_i1, number_of_particles)
+    # second ion
+    momentum_i2 = -momentum_i1
+    # add initial momentum from gas-jet
+    momentum_i1[:,0,0] += v_jet*mass_i1
+    momentum_i2[:,0,0] += v_jet*mass_i2
+    return momentum_i1, momentum_i2
 
 def calc_tof(momentum, remi_params, particle_params=(m_e, q_e)):
     """
@@ -150,10 +164,19 @@ def calc_R_fit(K, tof, remi_params, particle_params):
     R = 2/(m*calc_omega(B, q, m)) * np.sqrt(D) * np.abs(np.sin(calc_omega(B, q, m)*tof/2))
     return R
 
+########### IONS ###########################################################
+    
+def calc_tof_ion(l_a, m, q, U):
+    """
+    calculates the time of flight for an ion without inertial momentum in z
+    """
+    tof = 2*l_a*m/(np.sqrt(2*m*q*U))
+    return tof
+
 #############################
 #### GUI ####################
 ############################
-    
+frame_color = 'mintcream' 
 class mclass:
 
     def __init__(self,  window):
@@ -166,13 +189,12 @@ class mclass:
         tab2 = ttk.Frame(tabControl, width=300, height=300, style='BW.TLabel')
         tab3 = ttk.Frame(tabControl, width=300, height=300, style='BW.TLabel')
         tabControl.add(tab1, text='R vs TOF')
-        tabControl.add(tab2, text='?')
+        tabControl.add(tab2, text='PIPICO')
         tabControl.add(tab3, text='Coincidences')
         tabControl.grid(column=0)
 
         button_color = 'aliceblue'
-        frame_color = 'mintcream'
-
+        
 
         self.l_a = 0.188         # acc_length 
         self.U = 190            # electic_field 
@@ -452,7 +474,109 @@ class mclass:
         
         self.BUTTON_ION_POSITION = Button(self.ion_pos_group, text='Calculate Ion Positions', command=self.calc_ion_position, activebackground = button_color)
         self.BUTTON_ION_POSITION.grid(row=110, column=100, padx='5', pady='5', sticky='w')
-   
+        
+        
+        ######################################################################
+        ###################      TAB 2      ##################################
+        ######################################################################
+        
+        ######## higher groups ####################
+        left_tab2_group = LabelFrame(tab2, text="", padx=5, pady=5, bd=3, background=frame_color)
+        left_tab2_group.grid(row=100, column=100, columnspan=2, rowspan=2, padx='5', pady='5', sticky='new')
+        
+        ker_group = LabelFrame(left_tab2_group, text="Calculate KER", padx=5, pady=5, bd=3, background=frame_color)
+        ker_group.grid(row=100, column=100, columnspan=2, rowspan=2, padx='5', pady='5', sticky='new')
+        
+        remi_ion_conf_group = LabelFrame(left_tab2_group, text="REMI Configuration for Ion", padx=5, pady=5, bd=3, background=frame_color)
+        remi_ion_conf_group.grid(row=90, column=100, columnspan=2, rowspan=2, padx='5', pady='5', sticky='new')
+        
+        self.ion_generation_group = LabelFrame(left_tab2_group, text="Ion generation", padx=5, pady=5, bd=3, background=frame_color)
+        self.ion_generation_group.grid(row=110, column=100, columnspan=2, rowspan=2, padx='5', pady='5', sticky='new')
+        
+        self.pipico_plot_group = LabelFrame(tab2, text="PIPICO", padx=5, pady=5, bd=3, background=frame_color)
+        self.pipico_plot_group.grid(row=90, column=110, columnspan=2, rowspan=50, padx='5', pady='5', sticky='new')
+        
+        ######## KER ##############################
+        self.LABEL_DISTANCE = Label(ker_group, text="internuclear distance R:", background=frame_color)
+        self.LABEL_CHARGE_ION_1 = Label(ker_group, text="Charge Ion 1:", background=frame_color)
+        self.LABEL_CHARGE_ION_2 = Label(ker_group, text="Charge Ion 2:", background=frame_color)
+        self.BUTTON_CALC_KER = Button(ker_group,command=self.calc_ker, text="Kinetic Energy Release:", activebackground = button_color)
+        
+        self.ENTRY_DISTANCE = Entry(ker_group)
+        self.ENTRY_CHARGE_ION_1 = Entry(ker_group)
+        self.ENTRY_CHARGE_ION_2 = Entry(ker_group)
+        self.LABEL_KER = Label(ker_group, text="", background=frame_color)
+        
+        self.LABEL_DISTANCE.grid(row=1, column=1, padx='5', pady='5', sticky='w')
+        self.LABEL_CHARGE_ION_1.grid(row=2, column=1, padx='5', pady='5', sticky='w')
+        self.LABEL_CHARGE_ION_2.grid(row=3, column=1, padx='5', pady='5', sticky='w')
+        self.BUTTON_CALC_KER.grid(row=4, column=1, padx='5', pady='5', sticky='w')
+        
+        self.ENTRY_DISTANCE.grid(row=1, column=2, padx='5', pady='5', sticky='w')
+        self.ENTRY_CHARGE_ION_1.grid(row=2, column=2, padx='5', pady='5', sticky='w')
+        self.ENTRY_CHARGE_ION_2.grid(row=3, column=2, padx='5', pady='5', sticky='w')
+        self.LABEL_KER.grid(row=4, column=2, padx='5', pady='5', sticky='w')
+        
+        self.ENTRY_DISTANCE.insert(0, 2.52)
+        self.ENTRY_CHARGE_ION_1.insert(0, 1)
+        self.ENTRY_CHARGE_ION_2.insert(0, 1)
+    
+        #### REMI parameter for Ion ####
+        self.LABEL_SET_U_ion = Label(remi_ion_conf_group, text='U[V]:', background=frame_color)
+        self.LABEL_SET_B_ion = Label(remi_ion_conf_group, text='B[Gauss]:', background=frame_color)
+        self.LABEL_SET_l_a_ion = Label(remi_ion_conf_group, text='acc length[m]:', background=frame_color)
+        self.LABEL_SET_v_jet = Label(remi_ion_conf_group, text='v jet[mm/ns]:', background=frame_color)
+        
+        self.LABEL_SET_U_ion.grid(row=103, column=101, padx='5', pady='5', sticky='w')
+        self.LABEL_SET_B_ion.grid(row=104, column=101, padx='5', pady='5', sticky='w')
+        self.LABEL_SET_l_a_ion.grid(row=105, column=101, padx='5', pady='5', sticky='w')
+        self.LABEL_SET_v_jet.grid(row=106, column=101, padx='5', pady='5', sticky='w')
+        
+        self.ENTRY_SET_U_ion = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_B_ion = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_l_a_ion = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_v_jet = Entry(remi_ion_conf_group)
+        
+        self.ENTRY_SET_U_ion.grid(row=103, column=102, padx='5', pady='5', sticky='w')
+        self.ENTRY_SET_B_ion.grid(row=104, column=102, padx='5', pady='5', sticky='w')
+        self.ENTRY_SET_l_a_ion.grid(row=105, column=102, padx='5', pady='5', sticky='w')
+        self.ENTRY_SET_v_jet.grid(row=106, column=102, padx='5', pady='5', sticky='w')
+        
+        self.ENTRY_SET_U_ion.insert(0, 190)
+        self.ENTRY_SET_B_ion.insert(0, 5)
+        self.ENTRY_SET_l_a_ion.insert(0, 0.188)
+        self.ENTRY_SET_v_jet.insert(0, 0.001)
+        
+        ### ion generator ###################
+    
+        self.LABEL_MASS_IONS = Label(self.ion_generation_group, text='Mass [au]:', background=frame_color)
+        self.LABEL_CHARGE_IONS = Label(self.ion_generation_group, text='Charge [au]:', background=frame_color)
+        self.LABEL_KER_IONS = Label(self.ion_generation_group, text="KER [eV]:", background=frame_color)
+        self.LABEL_TOF_IONS = Label(self.ion_generation_group, text='TOF [s]:', background=frame_color)
+        
+        self.ENTRY_NUMBER_IONS = Entry(self.ion_generation_group)
+        self.ENTRY_NUMBER_IONS.grid(row=0, column=2, padx='5', pady='5', sticky='w')
+      
+        self.LABEL_MASS_IONS.grid(row=1, column=1, padx='5', pady='5', sticky='w')
+        self.LABEL_CHARGE_IONS.grid(row=1, column=2, padx='5', pady='5', sticky='w')
+        self.LABEL_KER_IONS.grid(row=1, column=4, padx='5', pady='5', sticky='w')
+        self.LABEL_TOF_IONS.grid(row=1, column=5, padx='5', pady='5', sticky='w')
+        self.LABEL_MASS_IONS.grid_remove()
+        self.LABEL_CHARGE_IONS.grid_remove()
+        self.LABEL_KER_IONS.grid_remove()
+        self.LABEL_TOF_IONS.grid_remove()
+     
+        self.BUTTON_GENERATE_IONS = Button(self.ion_generation_group,command=self.generate_entrys, text="Make Ion Couples", activebackground = button_color)
+        self.BUTTON_GENERATE_IONS.grid(row=0, column=1, padx='5', pady='5', sticky='w')
+        self.last_ion_number = 0
+        self.labels_ion_tof = []
+        self.entries_ker = []
+        
+        self.BUTTON_CALC_ION_TOF = Button(self.ion_generation_group,command=self.calc_ion_tof, text="Calc tof", activebackground=button_color)
+        self.BUTTON_CALC_ION_TOF.grid(row=0, column=5, padx='5', pady='5', sticky='w')
+        
+        
+        
     def make_plot_xarray(self, data, row, column, master, sorting=False, sort='time', rowspan=1, columnspan=1, figsize=(4,4), color='blue', marker='.', ls='', title=''):
         """
         Plots the data at the given position
@@ -717,6 +841,9 @@ class mclass:
         self.ele_pos_canvas.draw()
         
     def calc_max_tof(self):
+        """
+        calculates the maximal tof for the electron to not fly in the ion detector
+        """
         U, B, l_a = self.remi_params
         m, q = self.particle_params
         l_ion = 0.0945
@@ -840,7 +967,124 @@ class mclass:
         self.remi_params = np.array([U, B, l_a])
         self.update_R_tof()
         return self.remi_params
+    
+    ##########################################################################
+    ###############   TAB 2 ##################################################
+    ##########################################################################
+    
+    def calc_ker(self):
+        dis_R = float(self.ENTRY_DISTANCE.get())*1e-10 #angström
+        charge_1 = float(self.ENTRY_CHARGE_ION_1.get())*q_e
+        charge_2 = float(self.ENTRY_CHARGE_ION_2.get())*q_e
+        ele_const = 8.854187e-12
         
+         ### einheiten
+        factor = 4.3597447e-18
+        
+        ker = 1/(4*np.pi*ele_const)*(charge_1*charge_2/dis_R)/factor*27.211
+        self.LABEL_KER.config(text="{:.2f} eV".format(ker))
+       
+        return ker
+    
+    
+    def generate_entrys(self):
+        self.LABEL_MASS_IONS.grid()
+        self.LABEL_CHARGE_IONS.grid()
+        self.LABEL_KER_IONS.grid()
+        ion_number = int(self.ENTRY_NUMBER_IONS.get())*2
+        
+        self.ion_color = plt.cm.YlGnBu(np.linspace(0,0.5,ion_number//2))
+        
+        # saving last entrys
+        masses = np.zeros(self.last_ion_number)
+        charges = np.zeros(self.last_ion_number)
+        for n in range(self.last_ion_number):
+            try:
+                masses[n] = float(self.entries_mass[n].get())
+            except:
+                masses[n] = 0
+            try:
+                charges[n] = float(self.entries_charge[n].get())
+            except:
+                charges[n] = 0
+            self.entries_mass[n].grid_remove()
+            self.entries_charge[n].grid_remove()
+            self.ion_labels[n].grid_remove()
+            
+        for i in range(len(self.labels_ion_tof)):
+            self.labels_ion_tof[i].grid_remove()
+
+        kers = np.zeros(len(self.entries_ker))
+        for i in range(len(self.entries_ker)):
+            try:
+                kers[i] = float(self.entries_ker[i].get())
+            except:
+                kers[i] = 0
+            self.entries_ker[i].grid_remove()
+            
+        self.entries_mass = []
+        self.entries_charge = []
+        self.ion_labels = []
+        for n in range(ion_number):
+            self.ion_labels.append(Label(self.ion_generation_group, text="Ion " + str(n+1), background=frame_color))
+            self.ion_labels[n].grid(row=n+3, column=0)
+
+            self.entries_mass.append(Entry(self.ion_generation_group, bg=matplotlib.colors.to_hex(self.ion_color[n//2])))
+            self.entries_charge.append(Entry(self.ion_generation_group, bg=matplotlib.colors.to_hex(self.ion_color[n//2])))
+            self.entries_mass[n].grid(row=n+3, column=1)
+            self.entries_charge[n].grid(row=n+3, column=2)
+            if n < self.last_ion_number and (masses[n]!=0 or charges[n]!=0):
+                self.entries_mass[n].insert(0, masses[n])
+                self.entries_charge[n].insert(0,charges[n])
+
+        self.entries_ker = []
+        for n in range(ion_number//2):
+            self.entries_ker.append(Entry(self.ion_generation_group, bg=matplotlib.colors.to_hex(self.ion_color[n])))
+            self.entries_ker[n].grid(row=(n*2)+3, column=4, rowspan=2, sticky='ns')
+            if n < self.last_ion_number//2 and kers[n]!=0:
+                self.entries_ker[n].insert(0, kers[n])
+            
+            
+        self.last_ion_number = ion_number
+    
+    def calc_ion_tof(self):
+        for i in range(len(self.labels_ion_tof)):
+            self.labels_ion_tof[i].grid_remove()
+            
+        l_a = float(self.ENTRY_SET_l_a_ion.get())
+        U = float(self.ENTRY_SET_U_ion.get())
+        self.LABEL_TOF_IONS.grid()
+        masses = np.zeros(self.last_ion_number)
+        charges = np.zeros(self.last_ion_number)
+        for n in range(self.last_ion_number):
+            try:
+                masses[n] = float(self.entries_mass[n].get())*m_e
+            except:
+                masses[n] = 0
+            try:
+                charges[n] = float(self.entries_charge[n].get())*q_e
+            except:
+                charges[n] = 0
+        self.labels_ion_tof = []
+        for n in range(self.last_ion_number):
+            this_ion_tof = calc_tof_ion(l_a, masses[n], charges[n], U)
+            self.labels_ion_tof.append(Label(self.ion_generation_group, text="{:.3g}".format(this_ion_tof), background=frame_color))
+            self.labels_ion_tof[n].grid(row=n+3, column=5)
+        self.make_ion_pipico_plot()
+            
+    def make_ion_pipico_plot(self):
+        ion_tof = []
+        for n in range(self.last_ion_number):
+            ion_tof.append(float(self.labels_ion_tof[n].cget("text")))
+        fig = Figure(figsize=(5,5), facecolor='whitesmoke')
+        a = fig.add_subplot(111)
+        a.set_facecolor('black')
+        for n in range(self.last_ion_number):
+            a.plot(ion_tof[n], 0, '.', color=self.ion_color[n//2])
+        canvas = FigureCanvasTkAgg(fig, master=self.pipico_plot_group)
+        canvas.get_tk_widget().grid(row=1, column=1, rowspan=1, columnspan=1, padx='5', pady='5', sticky='ew')
+        canvas.draw()
+
     
 window = Tk()
 window.configure(background = 'whitesmoke')
