@@ -13,6 +13,7 @@ Created on Wed Aug  5 10:58:39 2020
 import matplotlib
 #matplotlib.use('TkAgg')
 import numpy as np
+from matplotlib import cm
 
 try:
     import ttk
@@ -23,6 +24,7 @@ except:
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+from matplotlib.colors import ListedColormap
 import xarray as xr
 
 
@@ -34,7 +36,7 @@ import xarray as xr
 # SI
 m_e = 9.10938356e-31          # electron_mass
 q_e = 1.6021766208e-19           # electron_charge
-
+amu = 1.66053906660e-27         # atomic mass unit
 
 #############################
 #### functions ##############
@@ -164,14 +166,27 @@ def calc_R_fit(K, tof, remi_params, particle_params):
     R = 2/(m*calc_omega(B, q, m)) * np.sqrt(D) * np.abs(np.sin(calc_omega(B, q, m)*tof/2))
     return R
 
+def calc_R_fit_ion(K, tof, remi_params, particle_params):
+    U, B, l_a = remi_params
+    m, q = particle_params
+    D = K**2 - (m*l_a/tof - U*q*tof/(2*l_a))**2
+    R = 2/m * np.sqrt(D)
+    R = 2/(m*calc_omega(B, q, m)) * np.sqrt(D) * np.abs(np.sin(calc_omega(B, q, m)*tof/2))
+    return R
+
 ########### IONS ###########################################################
     
-def calc_tof_ion(l_a, m, q, U):
+def calc_tof_ion(l_a, m, q, U, p=0):
     """
-    calculates the time of flight for an ion without inertial momentum in z
+    calculates the time of flight for an ion 
+    p is in direction of the detector if positive
     """
-    tof = 2*l_a*m/(np.sqrt(2*m*q*U))
+    tof = 2*l_a*m/(np.sqrt(p**2+2*m*q*U)+p)
     return tof
+
+def calc_ion_momenta(KER, m_1, m_2):
+    p = np.sqrt(2*KER/(1/m_1+1/m_2))
+    return p
 
 #############################
 #### GUI ####################
@@ -363,7 +378,7 @@ class mclass:
         #### Plots and Slidebars ##############
         
         self.R_tof_plot_group = LabelFrame(tab1, text="Electron plots", padx=5, pady=5, bd=3, background=frame_color)
-        self.R_tof_plot_group.grid(row=110, column=110, columnspan=2, rowspan=40, padx='5', pady='5', sticky='nwe')
+        self.R_tof_plot_group.grid(row=110, column=105, columnspan=20, rowspan=40, padx='5', pady='5', sticky='nw')
         self.R_tof_plot_group.grid_remove()
         
         self.v_ir = IntVar()
@@ -482,7 +497,7 @@ class mclass:
         
         ######## higher groups ####################
         left_tab2_group = LabelFrame(tab2, text="", padx=5, pady=5, bd=3, background=frame_color)
-        left_tab2_group.grid(row=100, column=100, columnspan=2, rowspan=2, padx='5', pady='5', sticky='new')
+        left_tab2_group.grid(row=90, column=100, columnspan=2, rowspan=80, padx='5', pady='5', sticky='new')
         
         ker_group = LabelFrame(left_tab2_group, text="Calculate KER", padx=5, pady=5, bd=3, background=frame_color)
         ker_group.grid(row=100, column=100, columnspan=2, rowspan=2, padx='5', pady='5', sticky='new')
@@ -549,13 +564,14 @@ class mclass:
         
         ### ion generator ###################
     
-        self.LABEL_MASS_IONS = Label(self.ion_generation_group, text='Mass [au]:', background=frame_color)
+        self.LABEL_MASS_IONS = Label(self.ion_generation_group, text='Mass [amu]:', background=frame_color)
         self.LABEL_CHARGE_IONS = Label(self.ion_generation_group, text='Charge [au]:', background=frame_color)
         self.LABEL_KER_IONS = Label(self.ion_generation_group, text="KER [eV]:", background=frame_color)
         self.LABEL_TOF_IONS = Label(self.ion_generation_group, text='TOF [s]:', background=frame_color)
         
         self.ENTRY_NUMBER_IONS = Entry(self.ion_generation_group)
         self.ENTRY_NUMBER_IONS.grid(row=0, column=2, padx='5', pady='5', sticky='w')
+        self.ENTRY_NUMBER_IONS.insert(0, 2)
       
         self.LABEL_MASS_IONS.grid(row=1, column=1, padx='5', pady='5', sticky='w')
         self.LABEL_CHARGE_IONS.grid(row=1, column=2, padx='5', pady='5', sticky='w')
@@ -571,6 +587,7 @@ class mclass:
         self.last_ion_number = 0
         self.labels_ion_tof = []
         self.entries_ker = []
+        self.generate_entrys()
         
         self.BUTTON_CALC_ION_TOF = Button(self.ion_generation_group,command=self.calc_ion_tof, text="Calc tof", activebackground=button_color)
         self.BUTTON_CALC_ION_TOF.grid(row=0, column=5, padx='5', pady='5', sticky='w')
@@ -994,6 +1011,12 @@ class mclass:
         ion_number = int(self.ENTRY_NUMBER_IONS.get())*2
         
         self.ion_color = plt.cm.YlGnBu(np.linspace(0,0.5,ion_number//2))
+        plasma = cm.get_cmap('plasma', 12)
+        viridis = cm.get_cmap('viridis', 12)
+        a = [1,1,1,2]
+        new_colors = np.concatenate((plasma.colors/a, viridis.colors[::-1,:][2:7]/a))
+        new_colormap = ListedColormap(new_colors)
+        self.ion_color = new_colormap(np.linspace(0,1,ion_number//2))
         
         # saving last entrys
         masses = np.zeros(self.last_ion_number)
@@ -1029,8 +1052,8 @@ class mclass:
             self.ion_labels.append(Label(self.ion_generation_group, text="Ion " + str(n+1), background=frame_color))
             self.ion_labels[n].grid(row=n+3, column=0)
 
-            self.entries_mass.append(Entry(self.ion_generation_group, bg=matplotlib.colors.to_hex(self.ion_color[n//2])))
-            self.entries_charge.append(Entry(self.ion_generation_group, bg=matplotlib.colors.to_hex(self.ion_color[n//2])))
+            self.entries_mass.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[n//2]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[n//2])))
+            self.entries_charge.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[n//2]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[n//2])))
             self.entries_mass[n].grid(row=n+3, column=1)
             self.entries_charge[n].grid(row=n+3, column=2)
             if n < self.last_ion_number and (masses[n]!=0 or charges[n]!=0):
@@ -1039,7 +1062,7 @@ class mclass:
 
         self.entries_ker = []
         for n in range(ion_number//2):
-            self.entries_ker.append(Entry(self.ion_generation_group, bg=matplotlib.colors.to_hex(self.ion_color[n])))
+            self.entries_ker.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[n]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[n])))
             self.entries_ker[n].grid(row=(n*2)+3, column=4, rowspan=2, sticky='ns')
             if n < self.last_ion_number//2 and kers[n]!=0:
                 self.entries_ker[n].insert(0, kers[n])
@@ -1058,7 +1081,7 @@ class mclass:
         charges = np.zeros(self.last_ion_number)
         for n in range(self.last_ion_number):
             try:
-                masses[n] = float(self.entries_mass[n].get())*m_e
+                masses[n] = float(self.entries_mass[n].get())*amu
             except:
                 masses[n] = 0
             try:
@@ -1073,17 +1096,91 @@ class mclass:
         self.make_ion_pipico_plot()
             
     def make_ion_pipico_plot(self):
+        l_a = float(self.ENTRY_SET_l_a_ion.get())
+        U = float(self.ENTRY_SET_U_ion.get())
+        B = float(self.ENTRY_SET_B_ion.get())*1e-4 
+        
+        # read in charge, mass, and KER
         ion_tof = []
+        ion_mass_1 = []
+        ion_mass_2 = []
+        ion_charge_1 = []
+        ion_charge_2 = []
+        ion_ker = []
         for n in range(self.last_ion_number):
             ion_tof.append(float(self.labels_ion_tof[n].cget("text")))
-        fig = Figure(figsize=(5,5), facecolor='whitesmoke')
+            if n%2 == 0:
+                try:
+                    mass = float(self.entries_mass[n].get())
+                    charge = float(self.entries_charge[n].get())
+                    ker = float(self.entries_ker[n//2].get())
+                    ion_mass_1.append(mass)
+                    ion_charge_1.append(charge)
+                    ion_ker.append(ker)
+                except:
+                    ion_mass_1.append(0)
+                    ion_charge_1.append(0)
+                    ion_ker.append(0)
+            elif n%2 == 1:
+                try:
+                    mass = float(self.entries_mass[n].get())
+                    charge = float(self.entries_charge[n].get())
+                    ion_mass_2.append(mass)
+                    ion_charge_2.append(charge)
+                except:
+                    ion_mass_2.append(0)
+                    ion_charge_2.append(0)
+        ion_mass_1 = np.array(ion_mass_1)*amu
+        ion_charge_1 = np.array(ion_charge_1)*q_e
+        ion_mass_2 = np.array(ion_mass_2)*amu
+        ion_charge_2 = np.array(ion_charge_2)*q_e
+        ion_ker = np.array(ion_ker)*q_e
+
+        # calc R tof for ions
+        p_ion = calc_ion_momenta(ion_ker, ion_mass_1, ion_mass_2)
+
+
+        
+        tof = []
+        R_ion = []
+        for n in range(len(p_ion)):
+            tof_min = (calc_tof_ion(l_a=l_a, m=ion_mass_1[n], q=ion_charge_1[n], U=U, p=p_ion[n]))
+            tof_max = (calc_tof_ion(l_a=l_a, m=ion_mass_1[n], q=ion_charge_1[n], U=U, p=-p_ion[n]))
+            tof.append(np.linspace(tof_min, tof_max, 10000))
+            R_ion.append(calc_R_fit_ion(p_ion[n], tof[-1], remi_params=(U, B, l_a), particle_params=(ion_mass_1[n], ion_charge_1[n])))
+            
+            tof_min = (calc_tof_ion(l_a=l_a, m=ion_mass_2[n], q=ion_charge_2[n], U=U, p=p_ion[n]))
+            tof_max = (calc_tof_ion(l_a=l_a, m=ion_mass_2[n], q=ion_charge_2[n], U=U, p=-p_ion[n]))
+            tof.append(np.linspace(tof_min, tof_max, 10000))
+            R_ion.append(calc_R_fit_ion(p_ion[n], tof[-1], remi_params=(U, B, l_a), particle_params=(ion_mass_2[n], ion_charge_2[n])))
+            
+        print(p_ion)
+        
+        v_jet = float(self.ENTRY_SET_v_jet.get())*1e-3
+        # plot
+        fig = Figure(figsize=(7,7), facecolor='whitesmoke')
         a = fig.add_subplot(111)
-        a.set_facecolor('black')
+        # a.set_facecolor('black')
         for n in range(self.last_ion_number):
-            a.plot(ion_tof[n], 0, '.', color=self.ion_color[n//2])
+            tof[n] = tof[n]*1e9
+            # a.plot(ion_tof[n], 0, '.', color=self.ion_color[n//2])
+            a.plot(tof[n], R_ion[n]+(v_jet*tof[n]), color=self.ion_color[n//2], lw=3)
+            if n%2 == 0:
+                a.plot(tof[n], -R_ion[n]+(v_jet*tof[n]), color=self.ion_color[n//2], lw=3, label='ion-pair '+str(n+1)+', '+str(n+2))
+            else:
+                a.plot(tof[n], -R_ion[n]+(v_jet*tof[n]), color=self.ion_color[n//2], lw=3)
+            a.set_xlabel('tof [ns]')
+            a.set_ylabel('x')
+        shared_tof = np.linspace(np.min(tof)-np.max(tof)/10, np.max(tof)+np.max(tof)/10,100)
+        a.plot(shared_tof, shared_tof*v_jet, label='Jet')
+        a.axhline(0.06, color='red')
+        a.axhline(-0.06, color='red')
+        a.legend()    
         canvas = FigureCanvasTkAgg(fig, master=self.pipico_plot_group)
         canvas.get_tk_widget().grid(row=1, column=1, rowspan=1, columnspan=1, padx='5', pady='5', sticky='ew')
         canvas.draw()
+        
+        
 
     
 window = Tk()
