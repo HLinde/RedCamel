@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2025 Patrizia Schoch
+# SPDX-FileContributor: Hannes Lindenblatt
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 Created on Wed Aug  5 10:58:39 2020

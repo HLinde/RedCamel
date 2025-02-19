@@ -1,3 +1,9 @@
+# SPDX-FileCopyrightText: 2025 Based on gitea template for python
+# SPDX-FileContributor: Hannes Lindenblatt
+# SPDX-FileContributor: Patrizia Schoch
+#
+# SPDX-License-Identifier: CC0-1.0
+
 # ---> Python
 # Byte-compiled / optimized / DLL files
 __pycache__/
