@@ -94,22 +94,22 @@ def make_gaussian_energy_distribution(energy_mean, width, mass, number_of_partic
     y= r_mom * np.sin(theta) * np.sin(phi)
     z= r_mom * cos_theta
     
-    energy = np.stack([x, y, z], axis=-1)
+    momentum = np.stack([x, y, z], axis=-1)
     
-    return energy
+    return momentum
 
-def make_momentum_ion_dis(KER, width, mass_i1, mass_i2, number_of_particles=1000, v_jet=0):
+def make_momentum_ion_dis(KER, mass_i1, mass_i2, number_of_particles=1000, v_jet=0):
     # mean_momentum
     momentum_mean = np.sqrt(2*KER/(1/mass_i1+1/mass_i2))
     # first ion
-    energy = momentum_mean**2/(2*mass_i1)
-    width = width**2/(2*mass_i1)
-    momentum_i1 = make_gaussian_energy_distribution(energy, width, mass_i1, number_of_particles)
+    energy_mean = momentum_mean**2/(2*mass_i1)
+    width = energy_mean / 10
+    momentum_i1 = make_gaussian_energy_distribution(energy_mean, width, mass_i1, number_of_particles)[:, 0, :]
     # second ion
     momentum_i2 = -momentum_i1
     # add initial momentum from gas-jet
-    momentum_i1[:,0,0] += v_jet*mass_i1
-    momentum_i2[:,0,0] += v_jet*mass_i2
+    momentum_i1[:,0] += v_jet*mass_i1
+    momentum_i2[:,0] += v_jet*mass_i2
     return momentum_i1, momentum_i2
 
 def calc_tof(momentum, remi_params, particle_params=(m_e, q_e)):
@@ -548,38 +548,57 @@ class mclass:
         self.LABEL_SET_B_ion = Label(remi_ion_conf_group, text='B[Gauss]:', background=frame_color)
         self.LABEL_SET_l_a_ion = Label(remi_ion_conf_group, text='acc length[m]:', background=frame_color)
         self.LABEL_SET_v_jet = Label(remi_ion_conf_group, text='v jet[mm/ns]:', background=frame_color)
+        self.LABEL_SET_bunch_modulo = Label(remi_ion_conf_group, text='bunch modulo [ns]:', background=frame_color)
+        self.LABEL_SET_detector_diameter = Label(remi_ion_conf_group, text='detector diameter [mm]:', background=frame_color)
         
         self.LABEL_SET_U_ion.grid(row=103, column=101, padx='5', pady='5', sticky='w')
         self.LABEL_SET_B_ion.grid(row=104, column=101, padx='5', pady='5', sticky='w')
         self.LABEL_SET_l_a_ion.grid(row=105, column=101, padx='5', pady='5', sticky='w')
         self.LABEL_SET_v_jet.grid(row=106, column=101, padx='5', pady='5', sticky='w')
+        self.LABEL_SET_bunch_modulo.grid(row=107, column=101, padx='5', pady='5', sticky='w')
+        self.LABEL_SET_detector_diameter.grid(row=108, column=101, padx='5', pady='5', sticky='w')
         
         self.ENTRY_SET_U_ion = Entry(remi_ion_conf_group)
         self.ENTRY_SET_B_ion = Entry(remi_ion_conf_group)
         self.ENTRY_SET_l_a_ion = Entry(remi_ion_conf_group)
         self.ENTRY_SET_v_jet = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_bunch_modulo = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_detector_diameter = Entry(remi_ion_conf_group)
         
         self.ENTRY_SET_U_ion.grid(row=103, column=102, padx='5', pady='5', sticky='w')
         self.ENTRY_SET_B_ion.grid(row=104, column=102, padx='5', pady='5', sticky='w')
         self.ENTRY_SET_l_a_ion.grid(row=105, column=102, padx='5', pady='5', sticky='w')
         self.ENTRY_SET_v_jet.grid(row=106, column=102, padx='5', pady='5', sticky='w')
+        self.ENTRY_SET_bunch_modulo.grid(row=107, column=102, padx='5', pady='5', sticky='w')
+        self.ENTRY_SET_detector_diameter.grid(row=108, column=102, padx='5', pady='5', sticky='w')
         
         self.ENTRY_SET_U_ion.insert(0, 190)
         self.ENTRY_SET_B_ion.insert(0, 5)
         self.ENTRY_SET_l_a_ion.insert(0, 0.188)
         self.ENTRY_SET_v_jet.insert(0, 0.001)
+        self.ENTRY_SET_bunch_modulo.insert(0, 5316.9231)
+        self.ENTRY_SET_detector_diameter.insert(0, 120)
         
+        self.LABEL_SLIDE_U_pipco = Label(self.pipico_plot_group, text="Voltage", background=frame_color)
+        self.LABEL_SLIDE_U_pipco.grid(row=2, column=1, columnspan=2, padx='5', pady='5', sticky='ew')
+        
+        self.SLIDE_U_pipco = Scale(self.pipico_plot_group, from_=0, to=3000, orient=HORIZONTAL,
+                                   resolution=0.1,
+                                   command=self.set_new_u_pipico)
+        self.SLIDE_U_pipco.grid(row=3, column=1, columnspan=2, padx='5', pady='5', sticky='ew')
+        self.SLIDE_U_pipco.set(self.ENTRY_SET_U_ion.get())
+
         ### ion generator ###################
     
         self.LABEL_FORMULA_IONS = Label(self.ion_generation_group, text='ChemFormula:', background=frame_color)
         self.LABEL_MASS_IONS = Label(self.ion_generation_group, text='Mass [amu]:', background=frame_color)
         self.LABEL_CHARGE_IONS = Label(self.ion_generation_group, text='Charge [au]:', background=frame_color)
         self.LABEL_KER_IONS = Label(self.ion_generation_group, text="KER [eV]:", background=frame_color)
-        self.LABEL_TOF_IONS = Label(self.ion_generation_group, text='TOF [s]:', background=frame_color)
+        self.LABEL_TOF_IONS = Label(self.ion_generation_group, text='TOF [ns]:', background=frame_color)
         
         self.ENTRY_NUMBER_IONS = Entry(self.ion_generation_group)
         self.ENTRY_NUMBER_IONS.grid(row=0, column=2, padx='5', pady='5', sticky='w')
-        self.ENTRY_NUMBER_IONS.insert(0, 2)
+        self.ENTRY_NUMBER_IONS.insert(0, 7)
       
         self.LABEL_FORMULA_IONS.grid(row=1, column=1, padx='5', pady='5', sticky='w')
         self.LABEL_MASS_IONS.grid(row=1, column=2, padx='5', pady='5', sticky='w')
@@ -602,8 +621,28 @@ class mclass:
         self.BUTTON_CALC_ION_TOF = Button(self.ion_generation_group,command=self.calc_ion_tof, text="Calc tof", activebackground=button_color)
         self.BUTTON_CALC_ION_TOF.grid(row=0, column=5, padx='5', pady='5', sticky='w')
         
-        
-        
+        fig, axes = plt.subplot_mosaic(
+            [["xtof",]*4,
+             ["pipico",]*3+[".",],
+             ["pipico",]*3+[".",],
+             ],
+            figsize=(10, 9),
+            facecolor='whitesmoke',
+            sharex=True,
+            )
+        self.pipico_fig = fig
+        self.xtof_ax = axes["xtof"]
+        self.pipico_ax = axes["pipico"]
+        self.pipico_ax.set_aspect("equal")
+        self.pipico_canvas = FigureCanvasTkAgg(self.pipico_fig, master=self.pipico_plot_group)
+        self.pipico_canvas.get_tk_widget().grid(row=1, column=1, rowspan=1, columnspan=1, padx='5', pady='5', sticky='ew')
+
+        self.change_remi_conf()
+        self.make_R_tof()
+        self.calc_ker()
+        self.generate_entrys()
+        self.calc_ion_tof()
+          
     def make_plot_xarray(self, data, row, column, master, sorting=False, sort='time', rowspan=1, columnspan=1, figsize=(4,4), color='blue', marker='.', ls='', title=''):
         """
         Plots the data at the given position
@@ -985,7 +1024,13 @@ class mclass:
         self.remi_params = np.array([U, B, l_a])
         self.update_R_tof()
         return self.remi_params
-    
+
+    def set_new_u_pipico(self, U):
+        self.ENTRY_SET_U_ion.delete(0, END)
+        self.ENTRY_SET_U_ion.insert(0, U)
+        self.calc_ion_tof()
+        return
+
     def set_new_b(self, B):
         U = float(self.ENTRY_SET_U.get())
         B = int(self.SLIDE_B.get())
@@ -1052,7 +1097,7 @@ class mclass:
                 charges[n] = float(self.entries_charge[n].get())
             except:
                 charges[n] = 0
-            self.entries_mass[n].grid_remove()
+            self.labels_mass[n].grid_remove()
             self.entries_charge[n].grid_remove()
             self.ion_labels[n].grid_remove()
         for n in range(self.last_ion_number, ion_number):
@@ -1099,8 +1144,6 @@ class mclass:
             kers[i] = 15
             try:
                 kers[i] = float(self.entries_ker[i].get())
-            except:
-                kers[i] = 0
                 self.entries_ker[i].grid_remove()
             except:
                 pass
@@ -1220,52 +1263,69 @@ class mclass:
         ion_ker_eV = np.array(ion_ker)
 
         # calc R tof for ions
-        p_ion = calc_ion_momenta(ion_ker, ion_mass_1, ion_mass_2)
-
-
         
+        # p_ion = calc_ion_momenta(ion_ker, ion_mass_1, ion_mass_2)
+        v_jet = float(self.ENTRY_SET_v_jet.get())*1e-3/1e-9
         tof = []
-        R_ion = []
-        for n in range(len(p_ion)):
-            tof_min = (calc_tof_ion(l_a=l_a, m=ion_mass_1[n], q=ion_charge_1[n], U=U, p=p_ion[n]))
-            tof_max = (calc_tof_ion(l_a=l_a, m=ion_mass_1[n], q=ion_charge_1[n], U=U, p=-p_ion[n]))
-            tof.append(np.linspace(tof_min, tof_max, 10000))
-            R_ion.append(calc_R_fit_ion(p_ion[n], tof[-1], remi_params=(U, B, l_a), particle_params=(ion_mass_1[n], ion_charge_1[n])))
-            
-            tof_min = (calc_tof_ion(l_a=l_a, m=ion_mass_2[n], q=ion_charge_2[n], U=U, p=p_ion[n]))
-            tof_max = (calc_tof_ion(l_a=l_a, m=ion_mass_2[n], q=ion_charge_2[n], U=U, p=-p_ion[n]))
-            tof.append(np.linspace(tof_min, tof_max, 10000))
-            R_ion.append(calc_R_fit_ion(p_ion[n], tof[-1], remi_params=(U, B, l_a), particle_params=(ion_mass_2[n], ion_charge_2[n])))
-            
-        print(p_ion)
-        
-        v_jet = float(self.ENTRY_SET_v_jet.get())*1e-3
+        X = []
+        for mass_1, mass_2, charge_1, charge_2, ker in zip(ion_mass_1, ion_mass_2, ion_charge_1, ion_charge_2, ion_ker_eV):
+            p_ion_1, p_ion_2 = make_momentum_ion_dis(ker, mass_1, mass_2, v_jet=v_jet, number_of_particles=500)
+            X_1, tof_1 = calc_X_tof_ion(p_ion_1, remi_params=(U, 0, l_a, l_d), particle_params=(mass_1, charge_1))
+            X_2, tof_2 = calc_X_tof_ion(p_ion_2, remi_params=(U, 0, l_a, l_d), particle_params=(mass_2, charge_2))
+            tof.append(tof_1)
+            X.append(X_1)
+            tof.append(tof_2)
+            X.append(X_2)
+
         # plot
-        fig = Figure(figsize=(7,7), facecolor='whitesmoke')
-        a = fig.add_subplot(111)
+
+        a = self.xtof_ax
+        a.cla()
         # a.set_facecolor('black')
+        modulo = float(self.ENTRY_SET_bunch_modulo.get())
         for n in range(self.last_ion_number):
             tof[n] = tof[n]*1e9
             # a.plot(ion_tof[n], 0, '.', color=self.ion_color[n//2])
-            a.plot(tof[n], R_ion[n]+(v_jet*tof[n]), color=self.ion_color[n//2], lw=3)
+            # a.scatter(tof[n] % modulo, X[n], color=self.ion_color[n//2])
             if n%2 == 0:
-                a.plot(tof[n], -R_ion[n]+(v_jet*tof[n]), color=self.ion_color[n//2], lw=3, label='ion-pair '+str(n+1)+', '+str(n+2))
+                a.scatter(tof[n] % modulo, X[n], color=self.ion_color[n//2],
+                          label=f"{ion_formula_1[n//2]}$^{{{ion_charge_1[n//2]/q_e:.1g}+}}$ & {ion_formula_2[n//2]}$^{{{ion_charge_2[n//2]/q_e:.1g}+}}$",
+                          alpha=0.1, edgecolors="none")
             else:
-                a.plot(tof[n], -R_ion[n]+(v_jet*tof[n]), color=self.ion_color[n//2], lw=3)
-            a.set_xlabel('tof [ns]')
-            a.set_ylabel('x')
-        shared_tof = np.linspace(np.min(tof)-np.max(tof)/10, np.max(tof)+np.max(tof)/10,100)
-        a.plot(shared_tof, shared_tof*v_jet, label='Jet')
-        a.axhline(0.06, color='red')
-        a.axhline(-0.06, color='red')
-        a.legend()    
-        canvas = FigureCanvasTkAgg(fig, master=self.pipico_plot_group)
-        canvas.get_tk_widget().grid(row=1, column=1, rowspan=1, columnspan=1, padx='5', pady='5', sticky='ew')
-        canvas.draw()
-        
-        
+                a.scatter(tof[n] % modulo, X[n], color=self.ion_color[n//2],
+                          alpha=0.1, edgecolors="none")
+        a.set_xlabel('tof [ns]')
+        a.set_ylabel('x [m]')
+        for i in range(5):
+            jettof = np.linspace(modulo * i, modulo * (i+1), 2) * 1e-9
+            label = "Jet" if i == 0 else None
+            a.plot([0, modulo], jettof*v_jet, label=label, color="k", alpha=0.5)
+        detector_diameter = float(self.ENTRY_SET_detector_diameter.get()) * 1e-3
+        a.axhline(detector_diameter / 2, color='red')
+        a.axhline(-detector_diameter / 2, color='red')
+        a.grid()
+        a = self.pipico_ax
+        a.cla()
+        # a.set_facecolor('black')
+        modulo = float(self.ENTRY_SET_bunch_modulo.get())
+        for n in range(self.last_ion_number//2):
+            a.scatter(tof[n*2] % modulo, tof[n*2+1] % modulo,
+                      color=self.ion_color[n],
+                    #   label=f"{ion_formula_1[n]}$^{{{ion_charge_1[n]/q_e:.1g}+}}$ & {ion_formula_2[n]}$^{{{ion_charge_2[n]/q_e:.1g}+}}$",
+                      alpha=0.1, edgecolors="none")
+            a.scatter(tof[n*2+1] % modulo, tof[n*2] % modulo,
+                      color=self.ion_color[n],
+                      alpha=0.1, edgecolors="none")
+        a.plot([0, modulo], [0, modulo], color="black", alpha=0.3)
+        a.grid()
+        a.set_xlabel('tof 1 [ns]')
+        a.set_ylabel('tof 2 [ns]')
+        a.set_xlim(0, modulo)
+        a.set_ylim(0, modulo)
 
-    
+        plt.figlegend(loc=4)
+        self.pipico_canvas.draw()
+
 window = Tk()
 window.configure(background = 'whitesmoke')
 start = mclass(window)
