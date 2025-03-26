@@ -28,3 +28,13 @@ mamba activate remigui
 2. Calculate electron momenta with "Calculate radius and tof" button
 3. Play around with plots and sliders!
 
+# Updating
+- pull changes:
+```bash
+git pull
+```
+- update environment:
+```bash
+mamba activate remigui
+mamba env update
+```
