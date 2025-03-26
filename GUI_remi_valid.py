@@ -32,6 +32,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.colors import ListedColormap
 import xarray as xr
+from chemformula import ChemFormula
 
 
 
@@ -477,10 +478,10 @@ class mclass:
         ion_conf_group = LabelFrame(tab3, text="REMI Configuration for Ion", padx=5, pady=5, bd=3, background=frame_color)
         ion_conf_group.grid(row=110, column=100, columnspan=2, rowspan=6, padx='5', pady='5', sticky='nw')
         
-        self.LABEL_ION_MASS = Label(ion_conf_group, text='Ion Mass [a.u.]:', background=frame_color)
+        self.LABEL_ION_FORMULA = Label(ion_conf_group, text='Ion ChemFormula:', background=frame_color)
         self.LABEL_ION_CHARGE = Label(ion_conf_group, text="Ion Charge [a.u.]:", background=frame_color)
         
-        self.LABEL_ION_MASS.grid(row=110, column=100, padx='5', pady='5', sticky='w')
+        self.LABEL_ION_FORMULA.grid(row=110, column=100, padx='5', pady='5', sticky='w')
         self.LABEL_ION_CHARGE.grid(row=111, column=100, padx='5', pady='5', sticky='w')
         
         self.ENTRY_ION_MASS = Entry(ion_conf_group)
@@ -570,6 +571,7 @@ class mclass:
         
         ### ion generator ###################
     
+        self.LABEL_FORMULA_IONS = Label(self.ion_generation_group, text='ChemFormula:', background=frame_color)
         self.LABEL_MASS_IONS = Label(self.ion_generation_group, text='Mass [amu]:', background=frame_color)
         self.LABEL_CHARGE_IONS = Label(self.ion_generation_group, text='Charge [au]:', background=frame_color)
         self.LABEL_KER_IONS = Label(self.ion_generation_group, text="KER [eV]:", background=frame_color)
@@ -579,10 +581,12 @@ class mclass:
         self.ENTRY_NUMBER_IONS.grid(row=0, column=2, padx='5', pady='5', sticky='w')
         self.ENTRY_NUMBER_IONS.insert(0, 2)
       
-        self.LABEL_MASS_IONS.grid(row=1, column=1, padx='5', pady='5', sticky='w')
-        self.LABEL_CHARGE_IONS.grid(row=1, column=2, padx='5', pady='5', sticky='w')
+        self.LABEL_FORMULA_IONS.grid(row=1, column=1, padx='5', pady='5', sticky='w')
+        self.LABEL_MASS_IONS.grid(row=1, column=2, padx='5', pady='5', sticky='w')
+        self.LABEL_CHARGE_IONS.grid(row=1, column=3, padx='5', pady='5', sticky='w')
         self.LABEL_KER_IONS.grid(row=1, column=4, padx='5', pady='5', sticky='w')
         self.LABEL_TOF_IONS.grid(row=1, column=5, padx='5', pady='5', sticky='w')
+        self.LABEL_FORMULA_IONS.grid_remove()
         self.LABEL_MASS_IONS.grid_remove()
         self.LABEL_CHARGE_IONS.grid_remove()
         self.LABEL_KER_IONS.grid_remove()
@@ -941,7 +945,9 @@ class mclass:
         p_y = -self.momenta[:,0,1]
         p_z = -self.momenta[:,0,2]
         v_jet = float(self.ENTRY_SET_v_jet.get())*1e6
-        ion_mass = float(self.ENTRY_ION_MASS.get())*m_e
+        ion_formula = ChemFormula(self.ENTRY_ION_MASS.get())
+        ion_mass_amu = ion_formula.formula_weight
+        ion_mass = ion_mass_amu * m_e
         ion_remi_params = (float(self.ENTRY_SET_U_ion.get()), float(self.ENTRY_SET_B_ion.get())*1e-4 , float(self.ENTRY_SET_l_a_ion.get()))
         ion_params = (ion_mass, float(self.ENTRY_ION_CHARGE.get())*1.6e-19)
         tof = calc_tof(-self.momenta, ion_remi_params, ion_params)
@@ -1011,6 +1017,7 @@ class mclass:
     
     
     def generate_entrys(self):
+        self.LABEL_FORMULA_IONS.grid()
         self.LABEL_MASS_IONS.grid()
         self.LABEL_CHARGE_IONS.grid()
         self.LABEL_KER_IONS.grid()
@@ -1025,11 +1032,20 @@ class mclass:
         self.ion_color = new_colormap(np.linspace(0,1,ion_number//2))
         
         # saving last entrys
-        masses = np.zeros(self.last_ion_number)
-        charges = np.zeros(self.last_ion_number)
+        empty_length = max(self.last_ion_number, ion_number)
+        masses = np.zeros(empty_length)
+        charges = np.zeros(empty_length)
+        formulas = ["" for i in range(empty_length)]
+        ker_length = max(len(self.entries_ker), ion_number//2)
+        kers = np.zeros(ker_length)
+
         for n in range(self.last_ion_number):
             try:
-                masses[n] = float(self.entries_mass[n].get())
+                formulas[n] = ChemFormula(self.entries_formula[n].get())
+            except:
+                formulas[n] = ChemFormula("")
+            try:
+                masses[n] = formulas[n].formula_weight
             except:
                 masses[n] = 0
             try:
@@ -1039,65 +1055,118 @@ class mclass:
             self.entries_mass[n].grid_remove()
             self.entries_charge[n].grid_remove()
             self.ion_labels[n].grid_remove()
-            
+        for n in range(self.last_ion_number, ion_number):
+            charges[n] = 1
+            match n:
+                case 0:
+                    formulas[n] = ChemFormula("C4H8O2")
+                case 1:
+                    formulas[n] = ChemFormula("S2")
+                case 2:
+                    formulas[n] = ChemFormula("C4H8SO2")
+                case 3:
+                    formulas[n] = ChemFormula("S")
+                case 4:
+                    formulas[n] = ChemFormula("C4H7S2O2")
+                case 5:
+                    formulas[n] = ChemFormula("H")
+                case 6:
+                    formulas[n] = ChemFormula("H2")
+                case 7:
+                    formulas[n] = ChemFormula("H")
+                case 8:
+                    formulas[n] = ChemFormula("C4H8S2O2")
+                case 9:
+                    formulas[n] = ChemFormula("C4H8S2O2")
+                case 10:
+                    formulas[n] = ChemFormula("C8H16S3O4")
+                case 11:
+                    formulas[n] = ChemFormula("S")
+                case 12:
+                    formulas[n] = ChemFormula("S")
+                    charges[n] = 3
+                case 13:
+                    formulas[n] = ChemFormula("S")
+                    charges[n] = 4
+                case _:
+                    formulas[n] = ChemFormula("H")
+            masses[n] = formulas[n].formula_weight
+
         for i in range(len(self.labels_ion_tof)):
             self.labels_ion_tof[i].grid_remove()
 
-        kers = np.zeros(len(self.entries_ker))
-        for i in range(len(self.entries_ker)):
+        for i in range(ker_length):
+            kers[i] = 15
             try:
                 kers[i] = float(self.entries_ker[i].get())
             except:
                 kers[i] = 0
-            self.entries_ker[i].grid_remove()
-            
-        self.entries_mass = []
+                self.entries_ker[i].grid_remove()
+            except:
+                pass
+
+        self.entries_formula = []
+        self.labels_mass = []
         self.entries_charge = []
         self.ion_labels = []
         for n in range(ion_number):
             self.ion_labels.append(Label(self.ion_generation_group, text="Ion " + str(n+1), background=frame_color))
             self.ion_labels[n].grid(row=n+3, column=0)
 
-            self.entries_mass.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[n//2]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[n//2])))
+            self.entries_formula.append(
+                Entry(self.ion_generation_group,
+                      fg=matplotlib.colors.to_hex(self.ion_color[n//2]),
+                      highlightcolor=matplotlib.colors.to_hex(self.ion_color[n//2])))
             self.entries_charge.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[n//2]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[n//2])))
-            self.entries_mass[n].grid(row=n+3, column=1)
-            self.entries_charge[n].grid(row=n+3, column=2)
-            if n < self.last_ion_number and (masses[n]!=0 or charges[n]!=0):
-                self.entries_mass[n].insert(0, masses[n])
-                self.entries_charge[n].insert(0,charges[n])
+            self.entries_formula[n].grid(row=n+3, column=1)
+            self.entries_charge[n].grid(row=n+3, column=3)
+            self.labels_mass.append(Label(self.ion_generation_group, text="{:.3g}".format(masses[n]), background=frame_color))
+            self.labels_mass[n].grid(row=n+3, column=2)
+
+            self.entries_formula[n].insert(0, formulas[n])
+            self.entries_charge[n].insert(0,charges[n])
 
         self.entries_ker = []
         for n in range(ion_number//2):
             self.entries_ker.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[n]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[n])))
             self.entries_ker[n].grid(row=(n*2)+3, column=4, rowspan=2, sticky='ns')
-            if n < self.last_ion_number//2 and kers[n]!=0:
-                self.entries_ker[n].insert(0, kers[n])
+            self.entries_ker[n].insert(0, kers[n])
             
             
         self.last_ion_number = ion_number
+        self.calc_ion_tof()
     
     def calc_ion_tof(self):
         for i in range(len(self.labels_ion_tof)):
             self.labels_ion_tof[i].grid_remove()
+            self.labels_mass[i].grid_remove()
+        self.labels_ion_tof = []
+        self.labels_mass = []
             
         l_a = float(self.ENTRY_SET_l_a_ion.get())
         U = float(self.ENTRY_SET_U_ion.get())
+        self.SLIDE_U_pipco.set(U)
+
         self.LABEL_TOF_IONS.grid()
+        formulas = ["" for n in range(self.last_ion_number)]
         masses = np.zeros(self.last_ion_number)
         charges = np.zeros(self.last_ion_number)
         for n in range(self.last_ion_number):
             try:
-                masses[n] = float(self.entries_mass[n].get())*amu
+                formulas[n] = ChemFormula(self.entries_formula[n].get())
             except:
-                masses[n] = 0
+                formulas[n] = ChemFormula("")
+            mass_amu = formulas[n].formula_weight
+            masses[n] = mass_amu * amu
+            self.labels_mass.append(Label(self.ion_generation_group, text="{:.4g}".format(mass_amu), background=frame_color))
+            self.labels_mass[n].grid(row=n+3, column=2)
             try:
                 charges[n] = float(self.entries_charge[n].get())*q_e
             except:
                 charges[n] = 0
-        self.labels_ion_tof = []
         for n in range(self.last_ion_number):
             this_ion_tof = calc_tof_ion(l_a, masses[n], charges[n], U)
-            self.labels_ion_tof.append(Label(self.ion_generation_group, text="{:.3g}".format(this_ion_tof), background=frame_color))
+            self.labels_ion_tof.append(Label(self.ion_generation_group, text="{:.4g}".format(this_ion_tof*1e9), background=frame_color))
             self.labels_ion_tof[n].grid(row=n+3, column=5)
         self.make_ion_pipico_plot()
             
@@ -1108,6 +1177,8 @@ class mclass:
         
         # read in charge, mass, and KER
         ion_tof = []
+        ion_formula_1 = []
+        ion_formula_2 = []
         ion_mass_1 = []
         ion_mass_2 = []
         ion_charge_1 = []
@@ -1117,30 +1188,36 @@ class mclass:
             ion_tof.append(float(self.labels_ion_tof[n].cget("text")))
             if n%2 == 0:
                 try:
-                    mass = float(self.entries_mass[n].get())
+                    formula = ChemFormula(self.entries_formula[n].get())
+                    mass = formula.formula_weight
                     charge = float(self.entries_charge[n].get())
                     ker = float(self.entries_ker[n//2].get())
+                    ion_formula_1.append(formula)
                     ion_mass_1.append(mass)
                     ion_charge_1.append(charge)
                     ion_ker.append(ker)
                 except:
+                    ion_formula_1.append(ChemFormula(""))
                     ion_mass_1.append(0)
                     ion_charge_1.append(0)
                     ion_ker.append(0)
             elif n%2 == 1:
                 try:
-                    mass = float(self.entries_mass[n].get())
+                    formula = ChemFormula(self.entries_formula[n].get())
+                    mass = formula.formula_weight
                     charge = float(self.entries_charge[n].get())
+                    ion_formula_2.append(formula)
                     ion_mass_2.append(mass)
                     ion_charge_2.append(charge)
                 except:
+                    ion_formula_2.append(ChemFormula(""))
                     ion_mass_2.append(0)
                     ion_charge_2.append(0)
         ion_mass_1 = np.array(ion_mass_1)*amu
         ion_charge_1 = np.array(ion_charge_1)*q_e
         ion_mass_2 = np.array(ion_mass_2)*amu
         ion_charge_2 = np.array(ion_charge_2)*q_e
-        ion_ker = np.array(ion_ker)*q_e
+        ion_ker_eV = np.array(ion_ker)
 
         # calc R tof for ions
         p_ion = calc_ion_momenta(ion_ker, ion_mass_1, ion_mass_2)
