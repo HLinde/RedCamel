@@ -1285,10 +1285,14 @@ class mclass:
             tof.append(tof_2)
             X.append(X_2)
 
-        # plot
+        # cleanup plot
+        for ax in self.pipico_fig.axes:
+            ax.cla()
+        for legend_object in self.pipico_fig.legends:
+            legend_object.remove()
 
+        # do new plots
         a = self.xtof_ax
-        a.cla()
         # a.set_facecolor('black')
         modulo = float(self.ENTRY_SET_bunch_modulo.get())
         for n in range(self.last_ion_number):
@@ -1313,7 +1317,6 @@ class mclass:
         a.axhline(-detector_diameter / 2, color='red')
         a.grid()
         a = self.pipico_ax
-        a.cla()
         # a.set_facecolor('black')
         modulo = float(self.ENTRY_SET_bunch_modulo.get())
         for n in range(self.last_ion_number//2):
