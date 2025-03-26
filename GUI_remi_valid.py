@@ -628,7 +628,7 @@ class mclass:
         self.labels_ion_tof = []
         self.entries_ker = []
         
-        self.BUTTON_CALC_ION_TOF = Button(self.ion_generation_group,command=self.calc_ion_tof, text="Calc tof", activebackground=button_color)
+        self.BUTTON_CALC_ION_TOF = Button(self.ion_generation_group,command=self.calc_ion_tof, text="Update", activebackground=button_color)
         self.BUTTON_CALC_ION_TOF.grid(row=0, column=5, padx='5', pady='5', sticky='w')
         
         fig, axes = plt.subplot_mosaic(
@@ -646,13 +646,12 @@ class mclass:
         self.pipico_ax.set_aspect("equal")
         self.pipico_canvas = FigureCanvasTkAgg(self.pipico_fig, master=self.pipico_plot_group)
         self.pipico_canvas.get_tk_widget().grid(row=1, column=1, rowspan=1, columnspan=1, padx='5', pady='5', sticky='ew')
-
         self.change_remi_conf()
         self.make_R_tof()
         self.calc_ker()
         self.generate_entrys()
         self.calc_ion_tof()
-          
+
     def make_plot_xarray(self, data, row, column, master, sorting=False, sort='time', rowspan=1, columnspan=1, figsize=(4,4), color='blue', marker='.', ls='', title=''):
         """
         Plots the data at the given position
@@ -1111,9 +1110,12 @@ class mclass:
                 charges[n] = float(self.entries_charge[n].get())
             except:
                 charges[n] = 0
+            self.entries_formula[n].grid_remove()
             self.labels_mass[n].grid_remove()
             self.entries_charge[n].grid_remove()
             self.ion_labels[n].grid_remove()
+            self.labels_ion_tof[n].grid_remove()
+
         for n in range(self.last_ion_number, ion_number):
             charges[n] = 1
             match n:
@@ -1151,9 +1153,6 @@ class mclass:
                     formulas[n] = ChemFormula("H")
             masses[n] = formulas[n].formula_weight
 
-        for i in range(len(self.labels_ion_tof)):
-            self.labels_ion_tof[i].grid_remove()
-
         for i in range(ker_length):
             kers[i] = 15
             try:
@@ -1179,6 +1178,9 @@ class mclass:
             self.entries_charge[n].grid(row=n+3, column=3)
             self.labels_mass.append(Label(self.ion_generation_group, text="{:.3g}".format(masses[n]), background=frame_color))
             self.labels_mass[n].grid(row=n+3, column=2)
+            self.labels_ion_tof.append(Label(self.ion_generation_group, text="", background=frame_color))
+            self.labels_ion_tof[n].grid(row=n+3, column=5)
+
 
             self.entries_formula[n].insert(0, formulas[n])
             self.entries_charge[n].insert(0,charges[n])
@@ -1194,12 +1196,6 @@ class mclass:
         self.calc_ion_tof()
     
     def calc_ion_tof(self):
-        for i in range(len(self.labels_ion_tof)):
-            self.labels_ion_tof[i].grid_remove()
-            self.labels_mass[i].grid_remove()
-        self.labels_ion_tof = []
-        self.labels_mass = []
-            
         l_a = float(self.ENTRY_SET_l_a_ion.get())
         U = float(self.ENTRY_SET_U_ion.get())
         self.SLIDE_U_pipco.set(U)
@@ -1215,18 +1211,16 @@ class mclass:
                 formulas[n] = ChemFormula("")
             mass_amu = formulas[n].formula_weight
             masses[n] = mass_amu * amu
-            self.labels_mass.append(Label(self.ion_generation_group, text="{:.4g}".format(mass_amu), background=frame_color))
-            self.labels_mass[n].grid(row=n+3, column=2)
+            self.labels_mass[n]["text"] = "{:.4g}".format(mass_amu)
             try:
                 charges[n] = float(self.entries_charge[n].get())*q_e
             except:
                 charges[n] = 0
         for n in range(self.last_ion_number):
             this_ion_tof = calc_tof_ion(l_a, masses[n], charges[n], U)
-            self.labels_ion_tof.append(Label(self.ion_generation_group, text="{:.4g}".format(this_ion_tof*1e9), background=frame_color))
-            self.labels_ion_tof[n].grid(row=n+3, column=5)
+            self.labels_ion_tof[n]["text"] = "{:.4g}".format(this_ion_tof*1e9)
         self.make_ion_pipico_plot()
-            
+
     def make_ion_pipico_plot(self):
         l_a = float(self.ENTRY_SET_l_a_ion.get())
         U = float(self.ENTRY_SET_U_ion.get())
