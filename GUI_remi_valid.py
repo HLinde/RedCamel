@@ -17,7 +17,7 @@ Created on Wed Aug  5 10:58:39 2020
 ############################
 
 import matplotlib
-#matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 import numpy as np
 from matplotlib import cm
 
