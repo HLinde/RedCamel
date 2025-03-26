@@ -1081,13 +1081,8 @@ class mclass:
         self.LABEL_KER_IONS.grid()
         ion_number = int(self.ENTRY_NUMBER_IONS.get())*2
         
-        self.ion_color = plt.cm.YlGnBu(np.linspace(0,0.5,ion_number//2))
-        plasma = cm.get_cmap('plasma', 12)
-        viridis = cm.get_cmap('viridis', 12)
-        a = [1,1,1,2]
-        new_colors = np.concatenate((plasma.colors/a, viridis.colors[::-1,:][2:7]/a))
-        new_colormap = ListedColormap(new_colors)
-        self.ion_color = new_colormap(np.linspace(0,1,ion_number//2))
+        colors = np.array(matplotlib.color_sequences["tab20"])
+        self.ion_color = colors[np.arange(ion_number) % len(colors)]
         
         # saving last entrys
         empty_length = max(self.last_ion_number, ion_number)
@@ -1171,9 +1166,9 @@ class mclass:
 
             self.entries_formula.append(
                 Entry(self.ion_generation_group,
-                      fg=matplotlib.colors.to_hex(self.ion_color[n//2]),
-                      highlightcolor=matplotlib.colors.to_hex(self.ion_color[n//2])))
-            self.entries_charge.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[n//2]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[n//2])))
+                      fg=matplotlib.colors.to_hex(self.ion_color[n]),
+                      highlightcolor=matplotlib.colors.to_hex(self.ion_color[n])))
+            self.entries_charge.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[n]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[n])))
             self.entries_formula[n].grid(row=n+3, column=1)
             self.entries_charge[n].grid(row=n+3, column=3)
             self.labels_mass.append(Label(self.ion_generation_group, text="{:.3g}".format(masses[n]), background=frame_color))
@@ -1187,7 +1182,7 @@ class mclass:
 
         self.entries_ker = []
         for n in range(ion_number//2):
-            self.entries_ker.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[n]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[n])))
+            self.entries_ker.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[2*n]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[2*n])))
             self.entries_ker[n].grid(row=(n*2)+3, column=4, rowspan=2, sticky='ns')
             self.entries_ker[n].insert(0, kers[n])
             
