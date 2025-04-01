@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: CC0-1.0
 [workspace]
 authors = ["lindenb <hannes.lindenblatt@desy.de>"]
-channels = ["conda-forge", "nodefaults"]
+channels = ["conda-forge",]
 name = "remigui"
 platforms = ["linux-64"]
 version = "0.1.0"
