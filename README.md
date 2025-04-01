@@ -9,7 +9,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 GUI tool to simulate Reaction Microscope detector images.
 
-# Setup
+# Usage with pixi
+```bash
+pixi run gui
+```
+
+# Usage with mamba / conda
+## Setup
 - install environment with dependencies:
 ```bash
 mamba env create
@@ -19,16 +25,14 @@ mamba env create
 mamba activate remigui
 ```
 
-# Usage
+## Usage
 - run GUI with:
 ```bash
 ./GUI_remi_valid.py
 ```
-1. Set remi configuration with "Change configuration" button
-2. Calculate electron momenta with "Calculate radius and tof" button
-3. Play around with plots and sliders!
+- Play around with plots and sliders!
 
-# Updating
+## Updating
 - pull changes:
 ```bash
 git pull
