@@ -1,9 +1,10 @@
+# SPDX-FileCopyrightText: 2020 Free Software Foundation Europe e.V.
+# SPDX-License-Identifier: CC0-1.0
 version: 6
 environments:
   default:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
-    - url: https://conda.anaconda.org/nodefaults/
     indexes:
     - https://pypi.org/simple
     packages:
