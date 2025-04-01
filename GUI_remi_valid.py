@@ -230,9 +230,8 @@ class mclass:
         
 
         self.l_a = 0.18         # acc_length 
-        self.U = 190            # electic_field 
-        self.B = 5*1e-4           # magnetic_field 
-        self.omega = q_e * self.B / m_e
+        self.U = 135.            # electic_field 
+        self.B = 5           # magnetic_field 
         
     ######## higher groups ####################
         left_bar_group = LabelFrame(tab1, text="", padx=5, pady=5, bd=3, background=frame_color)
@@ -261,8 +260,8 @@ class mclass:
         self.ENTRY_SET_B.grid(row=104, column=102, padx='5', pady='5', sticky='w')
         self.ENTRY_SET_l_a.grid(row=105, column=102, padx='5', pady='5', sticky='w')
         
-        self.ENTRY_SET_U.insert(0, 190)
-        self.ENTRY_SET_B.insert(0, 5)
+        self.ENTRY_SET_U.insert(0, self.U)
+        self.ENTRY_SET_B.insert(0, self.B)
         self.ENTRY_SET_l_a.insert(0, self.l_a)
         
         self.BUTTON_CHANGE_REMI_CONF = Button(remi_conf_group, text="Change configuration", command=self.change_remi_conf, activebackground = button_color)
@@ -407,15 +406,16 @@ class mclass:
         self.LABEL_SLIDE_U = Label(self.R_tof_plot_group, text="Voltage", background=frame_color)
         self.LABEL_SLIDE_U.grid(row=106, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
         
-        self.SLIDE_U = Scale(self.R_tof_plot_group, from_=0, to=200, orient=HORIZONTAL, command=self.set_new_u)
+        self.SLIDE_U = Scale(self.R_tof_plot_group, from_=0, to=200, resolution=0.1, orient=HORIZONTAL, command=self.set_new_u)
         self.SLIDE_U.grid(row=107, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
-        
+        self.SLIDE_U.set(self.U)
+
         self.LABEL_SLIDE_B = Label(self.R_tof_plot_group, text="Magnetic Field", background=frame_color)
         self.LABEL_SLIDE_B.grid(row=108, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
         
-        self.SLIDE_B = Scale(self.R_tof_plot_group, from_=0, to=100, orient=HORIZONTAL, command=self.set_new_b)
+        self.SLIDE_B = Scale(self.R_tof_plot_group, from_=0, to=20, resolution=0.1, orient=HORIZONTAL, command=self.set_new_b)
         self.SLIDE_B.grid(row=109, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
-        
+        self.SLIDE_B.set(self.B)        
         
         #### IR mode #####
         self.ir_mode_group = LabelFrame(top_bar_group, text="IR-Mode", padx=5, pady=5, bd=3, background=frame_color)
@@ -853,7 +853,7 @@ class mclass:
             K_1 = np.sqrt(2*mass_1*energy_1)
             R_1 = calc_R_fit(K_1, tof, self.remi_params, particle_params_1)
             self.ax_R_tof.plot(tof, R_1, color='firebrick')
-            
+
         if len(self.ENTRY_KIN_ENERGY_2.get())!=0:
             energy_2 = float(self.ENTRY_KIN_ENERGY_2.get())*1.6e-19
             mass_2 = float(self.ENTRY_MASS_2.get())*m_e
@@ -1045,7 +1045,7 @@ class mclass:
 
     def set_new_b(self, B):
         U = float(self.ENTRY_SET_U.get())
-        B = int(self.SLIDE_B.get())
+        B = float(self.SLIDE_B.get())
         self.ENTRY_SET_B.delete(0, END)
         self.ENTRY_SET_B.insert(0, str(B))
         B = B*1e-4 
