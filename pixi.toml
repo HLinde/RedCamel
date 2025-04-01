@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2025 Hannes Lindenblatt
+#
+# SPDX-License-Identifier: CC0-1.0
+[workspace]
+authors = ["lindenb <hannes.lindenblatt@desy.de>"]
+channels = ["conda-forge", "nodefaults"]
+name = "remigui"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+gui = "./GUI_remi_valid.py"
+
+[dependencies]
+python = "3.*"
+numpy = "*"
+matplotlib = "*"
+xarray = "*"
+pip = "*"
+
+[pypi-dependencies]
+chemformula = "*"
