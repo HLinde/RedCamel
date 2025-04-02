@@ -406,7 +406,7 @@ class mclass:
         self.LABEL_SLIDE_U = Label(self.R_tof_plot_group, text="Voltage", background=frame_color)
         self.LABEL_SLIDE_U.grid(row=106, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
         
-        self.SLIDE_U = Scale(self.R_tof_plot_group, from_=0, to=200, resolution=0.1, orient=HORIZONTAL, command=self.set_new_u)
+        self.SLIDE_U = Scale(self.R_tof_plot_group, from_=0, to=500, resolution=0.1, orient=HORIZONTAL, command=self.set_new_u)
         self.SLIDE_U.grid(row=107, column=100, columnspan=2, padx='5', pady='5', sticky='ew')
         self.SLIDE_U.set(self.U)
 
@@ -725,10 +725,14 @@ class mclass:
         Changes the setings of the Remi (Voltage, Magnetic-field, acceleration length)
         """
         U = float(self.ENTRY_SET_U.get())
-        B = float(self.ENTRY_SET_B.get())*1e-4 
+        B_gauss = float(self.ENTRY_SET_B.get())
+        B_SI = B_gauss*1e-4 
         l_a = float(self.ENTRY_SET_l_a.get())
         l_d = 0 #TODO: add drift for electrons float(self.ENTRY_SET_l_d.get())
-        self.remi_params = np.array([U, B, l_a, l_d])
+        self.SLIDE_U.set(U)
+        self.SLIDE_B.set(B_gauss)
+        self.remi_params = np.array([U, B_SI, l_a, l_d])
+
         return self.remi_params
     
     def check(self):
@@ -831,7 +835,7 @@ class mclass:
         self.ele_pos_a.hexbin(x, y, mincnt=1, edgecolors='face', gridsize=100, cmap='PuBuGn', extent=(-0.1,0.1,-0.1,0.1))
         self.ele_pos_a.set_xlim(-0.1,0.1)
         self.ele_pos_a.set_ylim(-0.1,0.1)
-        detector = plt.Circle((0, 0), 0.04, color='cadetblue', fill=False, figure=self.ele_pos_fig)
+        detector = plt.Circle((0, 0), 0.06, color='cadetblue', fill=False, figure=self.ele_pos_fig)
         self.ele_pos_a.add_artist(detector)
         self.ele_pos_canvas.draw()
 
@@ -1027,7 +1031,7 @@ class mclass:
         self.canvas_R_tof.draw()
         
     def set_new_u(self, U):
-        U = int(self.SLIDE_U.get())
+        U = float(self.SLIDE_U.get())
         B = float(self.ENTRY_SET_B.get())*1e-4 
         l_a = float(self.ENTRY_SET_l_a.get())
         l_d = 0 #TODO: add drift for electrons float(self.ENTRY_SET_l_d.get())
