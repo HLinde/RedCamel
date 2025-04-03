@@ -825,7 +825,16 @@ class mclass:
         self.ax_R_tof.axvline(max_tof, 0, 1, color='darkgrey')
         
         no_mom_tof = self.calc_no_momentum_tof()
+
+        U, B, l_a, l_d = self.remi_params
+        m, q = self.particle_params
+        cyclotron_period = 2*np.pi / calc_omega(B, q, m)
+
         self.ax_R_tof.axvline(no_mom_tof, 0, 1, ls='--', color='darkgrey')
+
+        for node_tof in np.arange(0, max_tof, cyclotron_period):
+            self.ax_R_tof.axvline(node_tof, 0, 1, ls=':', color='darkgrey')
+
         self.canvas_R_tof.draw()
 
         
