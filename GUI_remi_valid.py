@@ -1175,7 +1175,7 @@ class mclass:
             self.entries_charge.append(Entry(self.ion_generation_group, fg=matplotlib.colors.to_hex(self.ion_color[n]), highlightcolor=matplotlib.colors.to_hex(self.ion_color[n])))
             self.entries_formula[n].grid(row=n+3, column=1)
             self.entries_charge[n].grid(row=n+3, column=3)
-            self.labels_mass.append(Label(self.ion_generation_group, text="{:.3g}".format(masses[n]), background=frame_color))
+            self.labels_mass.append(Label(self.ion_generation_group, text="{:.5g}".format(masses[n]), background=frame_color))
             self.labels_mass[n].grid(row=n+3, column=2)
             self.labels_ion_tof.append(Label(self.ion_generation_group, text="", background=frame_color))
             self.labels_ion_tof[n].grid(row=n+3, column=5)
@@ -1208,8 +1208,12 @@ class mclass:
                 formulas[n] = ChemFormula(self.entries_formula[n].get())
             except:
                 formulas[n] = ChemFormula("")
-            mass_amu = formulas[n].formula_weight
-            masses[n] = mass_amu * amu
+            if formulas[n].formula == "e":
+                masses[n] = m_e
+                mass_amu = m_e / amu
+            else:
+                mass_amu = formulas[n].formula_weight
+                masses[n] = mass_amu * amu
             self.labels_mass[n]["text"] = "{:.4g}".format(mass_amu)
             try:
                 charges[n] = float(self.entries_charge[n].get())*q_e
