@@ -625,13 +625,13 @@ class mclass:
         self.ENTRY_SET_v_jet.grid(row=107, column=102, padx='5', pady='5', sticky='w')
         self.ENTRY_SET_bunch_modulo.grid(row=108, column=102, padx='5', pady='5', sticky='w')
         self.ENTRY_SET_detector_diameter.grid(row=109, column=102, padx='5', pady='5', sticky='w')
-        
-        self.ENTRY_SET_U_ion.insert(0, 200)
+
+        self.ENTRY_SET_U_ion.insert(0, 2200)
         self.ENTRY_SET_B_ion.insert(0, 10)
-        self.ENTRY_SET_l_d_ion.insert(0, 375.9e-3)
-        self.ENTRY_SET_l_a_ion.insert(0, 76.8e-3)
+        self.ENTRY_SET_l_d_ion.insert(0, 0.09)
+        self.ENTRY_SET_l_a_ion.insert(0, 0.09)
         self.ENTRY_SET_v_jet.insert(0, 1.0)
-        self.ENTRY_SET_bunch_modulo.insert(0, 886.15)
+        self.ENTRY_SET_bunch_modulo.insert(0, 5316.9231)
         self.ENTRY_SET_detector_diameter.insert(0, 120)
         
         self.LABEL_SLIDE_U_pipco = Label(self.pipico_plot_group, text="Voltage", background=frame_color)
@@ -905,7 +905,6 @@ class mclass:
 
         for node_tof in np.arange(0, max_tof, cyclotron_period):
             self.ax_R_tof.axvline(node_tof, 0, 1, ls=':', color='darkgrey')
-
         self.canvas_R_tof.draw()
 
         
