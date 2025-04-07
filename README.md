@@ -44,5 +44,5 @@ mamba env update
 ```
 
 # Authors
-Initial implementation by Patrizia Schoch
-Maintained by Hannes Lindenblatt
+- Initial implementation by Patrizia Schoch
+- Maintained by Hannes Lindenblatt
