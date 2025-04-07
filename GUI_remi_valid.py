@@ -28,13 +28,12 @@ except:
     from tkinter import Tk, Button, Entry, Label, Listbox, END, LabelFrame, ttk , Radiobutton, IntVar, Scale, HORIZONTAL, Checkbutton
     from tkinter.ttk import Separator
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
+                                               NavigationToolbar2Tk)
 from matplotlib.figure import Figure
 from matplotlib.colors import ListedColormap
 import xarray as xr
 from chemformula import ChemFormula
-
-
 
 #############################
 #### constants ##############
@@ -643,9 +642,16 @@ class mclass:
         self.pipico_fig = fig
         self.xtof_ax = axes["xtof"]
         self.pipico_ax = axes["pipico"]
-        self.pipico_ax.set_aspect("equal")
+        # self.pipico_ax.set_aspect("equal")
         self.pipico_canvas = FigureCanvasTkAgg(self.pipico_fig, master=self.pipico_plot_group)
         self.pipico_canvas.get_tk_widget().grid(row=1, column=1, rowspan=1, columnspan=1, padx='5', pady='5', sticky='ew')
+        self.pipico_toolbar = NavigationToolbar2Tk(canvas=self.pipico_canvas, window=self.pipico_plot_group, pack_toolbar=False)
+        self.pipico_toolbar.grid(row=2, column=1, rowspan=1, columnspan=1, padx='5', pady='5', sticky='ew')
+        self.pipico_toolbar.update()
+        # canvas.mpl_connect(
+        #     "key_press_event", lambda event: print(f"you pressed {event.key}"))
+        # canvas.mpl_connect("key_press_event", key_press_handler)
+
         self.change_remi_conf()
         self.make_R_tof()
         self.calc_ker()
@@ -696,7 +702,10 @@ class mclass:
         canvas = FigureCanvasTkAgg(fig, master=master)
         canvas.get_tk_widget().grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, padx='5', pady='5', sticky='ew')
         canvas.draw()
-        return fig, a, canvas
+        toolbar = NavigationToolbar2Tk(canvas=canvas, window=master, pack_toolbar=False)
+        toolbar.grid(row=row+1, column=column, rowspan=1, columnspan=columnspan, padx='5', pady='5', sticky='ew')
+        toolbar.update()
+        return fig, a, canvas, toolbar
     
     def make_plot(self, x, y, row, column, master, rowspan=1, columnspan=1, figsize=(4,4), title='', xlim=None, ylim=None, extent=None):
         """
@@ -718,7 +727,10 @@ class mclass:
         canvas = FigureCanvasTkAgg(fig, master=master)
         canvas.get_tk_widget().grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, padx='5', pady='5', sticky='ew')
         canvas.draw()
-        return fig, a, canvas
+        toolbar = NavigationToolbar2Tk(canvas=canvas, window=master, pack_toolbar=False)
+        toolbar.grid(row=row+1, column=column, rowspan=1, columnspan=columnspan, padx='5', pady='5', sticky='ew')
+        toolbar.update()
+        return fig, a, canvas, toolbar
         
     def change_remi_conf(self):
         """
@@ -786,7 +798,7 @@ class mclass:
                 self.momenta = np.concatenate([self.momenta, make_gaussian_energy_distribution(energy_mean+(i*energy_step), width, self.particle_params[0], number_of_particles=int(self.ENTRY_NUMBER_PART.get()))])
            
         self.R_tof = make_R_tof_array(self.momenta, self.remi_params, self.particle_params)
-        self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof = self.make_plot_xarray(self.R_tof, 100, 100, self.R_tof_plot_group, sorting=True, sort='time', columnspan=2, color='powderblue', figsize=(6,6), title='Rad vs Time') 
+        self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof, self.toolbar_R_tof = self.make_plot_xarray(self.R_tof, 100, 100, self.R_tof_plot_group, sorting=True, sort='time', columnspan=2, color='powderblue', figsize=(6,6), title='Rad vs Time') 
         self.plot_position()
         
         max_tof = self.calc_max_tof()
@@ -922,7 +934,7 @@ class mclass:
         """
         x,y = self.calc_position()
         detector_radius = 0.04
-        self.ele_pos_fig, self.ele_pos_a, self.ele_pos_canvas = self.make_plot(x, y, 100, 110, self.R_tof_plot_group, figsize=(6,6), title='Electron Positions', extent=(-0.1,0.1,-0.1,0.1))
+        self.ele_pos_fig, self.ele_pos_a, self.ele_pos_canvas, self.ele_pos_toolbar = self.make_plot(x, y, 100, 110, self.R_tof_plot_group, figsize=(6,6), title='Electron Positions', extent=(-0.1,0.1,-0.1,0.1))
         self.ele_pos_a.set_xlim(-0.1,0.1)
         self.ele_pos_a.set_ylim(-0.1,0.1)
         detector = plt.Circle((0, 0), detector_radius, color='cadetblue', fill=False, figure=self.ele_pos_fig)
