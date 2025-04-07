@@ -32,6 +32,7 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 from matplotlib.figure import Figure
 from matplotlib.colors import ListedColormap
+from matplotlib.legend_handler import HandlerTuple
 import xarray as xr
 from chemformula import ChemFormula
 
@@ -631,18 +632,26 @@ class mclass:
         self.BUTTON_CALC_ION_TOF.grid(row=0, column=5, padx='5', pady='5', sticky='w')
         
         fig, axes = plt.subplot_mosaic(
-            [["xtof",]*4,
-             ["pipico",]*3+[".",],
-             ["pipico",]*3+[".",],
+            [
+             ["xtof",]*5,
+             ["ytof",]*5,
+             ["pipico",]*3+["XY",]*2,
+             ["pipico",]*3+["XY",]*2,
+             ["pipico",]*3+[".",]*2,
              ],
             figsize=(10, 9),
             facecolor='whitesmoke',
-            sharex=True,
+            layout="constrained"
             )
         self.pipico_fig = fig
-        self.xtof_ax = axes["xtof"]
+        self.pipico_XY_ax = axes["XY"]
+        self.pipico_XY_ax.set_aspect("equal")
+        self.pipico_xtof_ax = axes["xtof"]
+        self.pipico_ytof_ax = axes["ytof"]
+        self.pipico_xtof_ax.sharex(self.pipico_ytof_ax)
         self.pipico_ax = axes["pipico"]
-        # self.pipico_ax.set_aspect("equal")
+
+        self.pipico_ax.set_aspect("equal")
         self.pipico_canvas = FigureCanvasTkAgg(self.pipico_fig, master=self.pipico_plot_group)
         self.pipico_canvas.get_tk_widget().grid(row=1, column=1, rowspan=1, columnspan=1, padx='5', pady='5', sticky='ew')
         self.pipico_toolbar = NavigationToolbar2Tk(canvas=self.pipico_canvas, window=self.pipico_plot_group, pack_toolbar=False)
@@ -1019,7 +1028,7 @@ class mclass:
         p_x = -self.momenta[:,0,0]
         p_y = -self.momenta[:,0,1]
         p_z = -self.momenta[:,0,2]
-        v_jet = float(self.ENTRY_SET_v_jet.get())*1e6
+        v_jet = float(self.ENTRY_SET_v_jet.get())*1e3
         ion_formula = ChemFormula(self.ENTRY_ION_MASS.get())
         ion_mass_amu = ion_formula.formula_weight
         ion_mass = ion_mass_amu * m_e
@@ -1297,17 +1306,21 @@ class mclass:
         # calc R tof for ions
         
         # p_ion = calc_ion_momenta(ion_ker, ion_mass_1, ion_mass_2)
-        v_jet = float(self.ENTRY_SET_v_jet.get())*1e-3/1e-9
+        v_jet = float(self.ENTRY_SET_v_jet.get())*1e3
         tof = []
         X = []
+        Y = []
+        remi_params = (U, B, l_a, l_d)
         for mass_1, mass_2, charge_1, charge_2, ker in zip(ion_mass_1, ion_mass_2, ion_charge_1, ion_charge_2, ion_ker_eV):
-            p_ion_1, p_ion_2 = make_momentum_ion_dis(ker, mass_1, mass_2, v_jet=v_jet, number_of_particles=500)
-            X_1, tof_1 = calc_X_tof_ion(p_ion_1, remi_params=(U, 0, l_a, l_d), particle_params=(mass_1, charge_1))
-            X_2, tof_2 = calc_X_tof_ion(p_ion_2, remi_params=(U, 0, l_a, l_d), particle_params=(mass_2, charge_2))
-            tof.append(tof_1)
-            X.append(X_1)
-            tof.append(tof_2)
-            X.append(X_2)
+            p_ion_1, p_ion_2 = make_momentum_ion_dis(ker, mass_1, mass_2, v_jet=v_jet, number_of_particles=10000)
+            X_1, Y_1, tof_1 = calc_xytof(p_ion_1, remi_params=remi_params, particle_params=(mass_1, charge_1))
+            X_2, Y_2, tof_2 = calc_xytof(p_ion_2, remi_params=remi_params, particle_params=(mass_2, charge_2))
+            tof.append(tof_1*1e9)
+            tof.append(tof_2*1e9)
+            X.append(X_1*1e3)
+            X.append(X_2*1e3)
+            Y.append(Y_1*1e3)
+            Y.append(Y_2*1e3)
 
         # cleanup plot
         for ax in self.pipico_fig.axes:
@@ -1316,32 +1329,73 @@ class mclass:
             legend_object.remove()
 
         # do new plots
-        a = self.xtof_ax
-        # a.set_facecolor('black')
+        ax_x_tof = self.pipico_xtof_ax
+        ax_y_tof = self.pipico_ytof_ax
+        counts = 0
         modulo = float(self.ENTRY_SET_bunch_modulo.get())
+        detector_diameter = float(self.ENTRY_SET_detector_diameter.get())
+        x_edges = y_edges = np.linspace(-detector_diameter * 0.6, detector_diameter * 0.6, 500)
+        legend_handles_even = []
+        legend_labels_even = []
+        legend_handles_odd = []
+        legend_labels_odd = []
         for n in range(self.last_ion_number):
-            tof[n] = tof[n]*1e9
-            # a.plot(ion_tof[n], 0, '.', color=self.ion_color[n//2])
-            # a.scatter(tof[n] % modulo, X[n], color=self.ion_color[n//2])
             if n%2 == 0:
-                a.scatter(tof[n] % modulo, X[n], color=self.ion_color[n//2],
-                          label=f"{ion_formula_1[n//2]}$^{{{ion_charge_1[n//2]/q_e:.1g}+}}$ & {ion_formula_2[n//2]}$^{{{ion_charge_2[n//2]/q_e:.1g}+}}$",
-                          alpha=0.1, edgecolors="none")
+                dots = ax_x_tof.scatter(
+                    tof[n] % modulo, X[n], color=self.ion_color[n],
+                    alpha=0.2, edgecolors="none")
+                ax_y_tof.scatter(
+                    tof[n] % modulo, Y[n], color=self.ion_color[n],
+                    alpha=0.2, edgecolors="none")
+                legend_handles_even.append(dots)
+                legend_labels_even.append(f"{ion_formula_1[n//2]}$^{{{ion_charge_1[n//2]/q_e:.1g}+}}$")
             else:
-                a.scatter(tof[n] % modulo, X[n], color=self.ion_color[n//2],
-                          alpha=0.1, edgecolors="none")
-        a.set_xlabel('tof [ns]')
-        a.set_ylabel('x [m]')
+                dots = ax_x_tof.scatter(
+                    tof[n] % modulo, X[n], color=self.ion_color[n],
+                    alpha=0.2, edgecolors="none")
+                ax_y_tof.scatter(
+                    tof[n] % modulo, Y[n], color=self.ion_color[n],
+                    alpha=0.2, edgecolors="none")
+                legend_handles_odd.append(dots)
+                legend_labels_odd.append(f"{ion_formula_2[n//2]}$^{{{ion_charge_2[n//2]/q_e:.1g}+}}$")
+            new_counts, _, _ = np.histogram2d(X[n], Y[n], bins=(x_edges, y_edges))
+            counts += new_counts
+        ax_xy = self.pipico_XY_ax
+        counts[counts < 1] = np.nan
+        ax_xy.pcolormesh(x_edges, y_edges, counts.T)
+        ax_xy.add_artist(
+            plt.Circle((0, 0),
+                       detector_diameter/2,
+                       color='cadetblue',
+                       fill=False,
+                       figure=self.pipico_fig)
+        )
+        ax_xy.set_xlabel('X [mm]')
+        ax_xy.yaxis.set_label_position("right")
+        ax_xy.yaxis.tick_right()
+        ax_xy.set_ylabel('Y [mm]')
+        ax_xy.grid()
+
+        ax_x_tof.xaxis.tick_top()
+        ax_y_tof.xaxis.tick_top()
+        ax_x_tof.xaxis.set_label_position("top")
+        ax_y_tof.xaxis.set_tick_params('both', labelbottom=False, labeltop=False, bottom=False, top=False)
+        ax_x_tof.set_xlabel('tof [ns]')
+        ax_x_tof.set_ylabel('X [mm]')
+        ax_y_tof.set_ylabel('Y [mm]')
+
         for i in range(5):
-            jettof = np.linspace(modulo * i, modulo * (i+1), 2) * 1e-9
+            jettof = np.linspace(modulo * i, modulo * (i+1), 2)
             label = "Jet" if i == 0 else None
-            a.plot([0, modulo], jettof*v_jet, label=label, color="k", alpha=0.5)
-        detector_diameter = float(self.ENTRY_SET_detector_diameter.get()) * 1e-3
-        a.axhline(detector_diameter / 2, color='red')
-        a.axhline(-detector_diameter / 2, color='red')
-        a.grid()
+            ax_x_tof.plot([0, modulo], jettof*v_jet / 1e6, label=label, color="k", alpha=0.3)
+        for ax in [ax_x_tof, ax_y_tof]:
+            ax.axhline(detector_diameter / 2, color='red')
+            ax.axhline(-detector_diameter / 2, color='red')
+            ax.set_xlim(0, modulo)
+            ax.grid()
+
         a = self.pipico_ax
-        # a.set_facecolor('black')
+
         modulo = float(self.ENTRY_SET_bunch_modulo.get())
         for n in range(self.last_ion_number//2):
             a.scatter(tof[n*2] % modulo, tof[n*2+1] % modulo,
@@ -1357,8 +1411,15 @@ class mclass:
         a.set_ylabel('tof 2 [ns]')
         a.set_xlim(0, modulo)
         a.set_ylim(0, modulo)
-
-        plt.figlegend(loc=4)
+        legend_handles = legend_handles_even + legend_handles_odd
+        legend_labels = legend_labels_even + legend_labels_odd 
+        legend = plt.figlegend(
+            legend_handles,
+            legend_labels,
+            loc=4, ncols=2,
+        )
+        for artist in legend.legend_handles:
+            artist.set_alpha(1)
         self.pipico_canvas.draw()
 
 window = Tk()
