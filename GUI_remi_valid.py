@@ -1364,7 +1364,7 @@ class mclass:
         Y = []
         remi_params = (U, B, l_a, l_d)
         for mass_1, mass_2, charge_1, charge_2, ker in zip(ion_mass_1, ion_mass_2, ion_charge_1, ion_charge_2, ion_ker_eV):
-            p_ion_1, p_ion_2 = make_momentum_ion_dis(ker, mass_1, mass_2, v_jet=v_jet, number_of_particles=10000)
+            p_ion_1, p_ion_2 = make_momentum_ion_dis(ker, mass_1, mass_2, v_jet=v_jet, number_of_particles=1000)
             X_1, Y_1, tof_1 = calc_xytof(p_ion_1, remi_params=remi_params, particle_params=(mass_1, charge_1))
             X_2, Y_2, tof_2 = calc_xytof(p_ion_2, remi_params=remi_params, particle_params=(mass_2, charge_2))
             tof.append(tof_1*1e9)
@@ -1386,7 +1386,7 @@ class mclass:
         counts = 0
         modulo = float(self.ENTRY_SET_bunch_modulo.get())
         detector_diameter = float(self.ENTRY_SET_detector_diameter.get())
-        x_edges = y_edges = np.linspace(-detector_diameter * 0.6, detector_diameter * 0.6, 500)
+        x_edges = y_edges = np.linspace(-detector_diameter * 0.55, detector_diameter * 0.55, 250)
         legend_handles_even = []
         legend_labels_even = []
         legend_handles_odd = []
