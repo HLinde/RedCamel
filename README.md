@@ -13,6 +13,7 @@ GUI tool to simulate Reaction Microscope detector images.
 ```bash
 pixi run gui
 ```
+pixi can be found here: https://pixi.sh/latest/#installation
 
 # Usage with mamba / conda
 ## Setup
