@@ -42,3 +42,7 @@ git pull
 mamba activate remigui
 mamba env update
 ```
+
+# Authors
+Initial implementation by Patrizia Schoch
+Maintained by Hannes Lindenblatt
