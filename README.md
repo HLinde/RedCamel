@@ -8,12 +8,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # REMI-Analysis-Validation
 
 GUI tool to simulate Reaction Microscope detector images.
-
 # Usage with pixi
 ```bash
 pixi run gui
 ```
 pixi can be found here: https://pixi.sh/latest/#installation
+
+# Example Outputs
+![Electron Wiggles](Electrons.png)
+![Ion fragmentation](Ions.png)
 
 # Usage with mamba / conda
 ## Setup
