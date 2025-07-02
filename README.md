@@ -4,15 +4,26 @@ SPDX-FileContributor: Hannes Lindenblatt
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
+<style
+  type="text/css">
+hidden {color: rgba(0, 0, 0, 0);}
+default {}
+</style>
 
-# REMI-Analysis-Validation
+# Remi Detector Calculation Toolkit<hidden>ten</hidden>
 
 GUI tool to simulate Reaction Microscope detector images.
 # Usage with pixi
 ```bash
-pixi run gui
+pixi run red-cat
 ```
 pixi can be found here: https://pixi.sh/latest/#installation
+
+# Usage with uv
+```bash
+uv run red-cat
+```
+uv can be found here: https://docs.astral.sh/uv/getting-started/installation/
 
 # Example Outputs
 ![Electron Wiggles](Electrons.png)
@@ -24,15 +35,14 @@ pixi can be found here: https://pixi.sh/latest/#installation
 ```bash
 mamba env create
 ```
+## Usage
 - activate environment:
 ```bash
-mamba activate remigui
+mamba activate red-cat
 ```
-
-## Usage
 - run GUI with:
 ```bash
-./GUI_remi_valid.py
+python src/red_cat/remi_gui.py
 ```
 - Play around with plots and sliders!
 
@@ -43,7 +53,7 @@ git pull
 ```
 - update environment:
 ```bash
-mamba activate remigui
+mamba activate red-cat
 mamba env update
 ```
 
