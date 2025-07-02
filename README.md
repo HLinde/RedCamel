@@ -4,13 +4,7 @@ SPDX-FileContributor: Hannes Lindenblatt
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
-<style
-  type="text/css">
-hidden {color: rgba(0, 0, 0, 0);}
-default {}
-</style>
-
-# Remi Detector Calculation Toolkit<hidden>ten</hidden>
+# Remi Detector Calculation Toolkit $${\color{white}ten}$$
 
 GUI tool to simulate Reaction Microscope detector images.
 # Usage with pixi
