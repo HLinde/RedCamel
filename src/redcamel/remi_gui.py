@@ -15,12 +15,6 @@ Created on Wed Aug  5 10:58:39 2020
 #############################
 #### imports ################
 ############################
-
-import matplotlib
-
-matplotlib.use("TkAgg")
-import numpy as np
-
 from tkinter import (
     Tk,
     Button,
@@ -35,6 +29,10 @@ from tkinter import (
     HORIZONTAL,
     Checkbutton,
 )
+import matplotlib
+
+matplotlib.use("TkAgg")
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
