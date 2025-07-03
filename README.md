@@ -9,13 +9,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 GUI tool to simulate Reaction Microscope detector images.
 # Usage with pixi
 ```bash
-pixi run red-cat
+pixi run redcamel
 ```
 pixi can be found here: https://pixi.sh/latest/#installation
 
 # Usage with uv
 ```bash
-uv run red-cat
+uv run redcamel
 ```
 uv can be found here: https://docs.astral.sh/uv/getting-started/installation/
 
@@ -32,11 +32,11 @@ mamba env create
 ## Usage
 - activate environment:
 ```bash
-mamba activate red-cat
+mamba activate redcamel
 ```
 - run GUI with:
 ```bash
-python src/red_cat/remi_gui.py
+python src/redcamel/remi_gui.py
 ```
 - Play around with plots and sliders!
 
@@ -47,7 +47,7 @@ git pull
 ```
 - update environment:
 ```bash
-mamba activate red-cat
+mamba activate redcamel
 mamba env update
 ```
 

@@ -4058,9 +4058,9 @@ packages:
   size: 252359
   timestamp: 1740379663071
 - pypi: ./
-  name: red-cat
+  name: redcamel
   version: 0.1.0
-  sha256: 1916aa874744a51b279a2cd0fd7d6be83349d8921670e0b670333f88230f8a4e
+  sha256: 65ea9c4c1396bb611441dbdea56bed95543658b7f46880006cb7dad2ba3af423
   requires_dist:
   - chemformula>=1.3.1
   - matplotlib>=3.10.3
