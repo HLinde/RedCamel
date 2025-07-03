@@ -4,7 +4,7 @@ SPDX-FileContributor: Hannes Lindenblatt
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
-# Remi Detector Calculation Toolkit $${\color{white}ten}$$
+# Remi Detector Calculation for Monitoring Electrons
 
 GUI tool to simulate Reaction Microscope detector images.
 # Usage with pixi
