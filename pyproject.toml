@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 [project]
-name = "red-cat"
+name = "redcamel"
 version = "0.1.0"
 description = "GUI tool to simulate Reaction Microscope detector images."
 readme = "README.md"
@@ -34,11 +34,11 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSES/*"]
 
 [project.scripts]
-red-cat = "red_cat:main"
+redcamel = "redcamel:main"
 
 [project.urls]
-Homepage = "https://codeberg.org/FlashREMI/red-cat"
-Repository = "https://codeberg.org/FlashREMI/red-cat.git"
+Homepage = "https://codeberg.org/FlashREMI/RedCamel"
+Repository = "https://codeberg.org/FlashREMI/RedCamel.git"
 
 [build-system]
 requires = ["hatchling"]

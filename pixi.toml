@@ -10,16 +10,16 @@ description = "GUI tool to simulate Reaction Microscope detector images."
 license = "GPL-3.0-or-later"
 license-file = "LICENSES/GPL-3.0-or-later.txt"
 readme = "README.md"
-homepage = "https://codeberg.org/FlashREMI/red-cat"
-repository = "https://codeberg.org/FlashREMI/red-cat.git"
+homepage = "https://codeberg.org/FlashREMI/RedCamel"
+repository = "https://codeberg.org/FlashREMI/RedCamel.git"
 
 channels = ["conda-forge"]
-name = "red-cat"
+name = "redcamel"
 platforms = ["win-64", "linux-64", "osx-arm64", "osx-64"]
 version = "0.1.0"
 
 [tasks]
-red-cat = "red-cat"
+redcamel = "redcamel"
 
 [dependencies]
 python = ">=3.12"
@@ -29,4 +29,4 @@ xarray = ">=2025.6.1"
 
 [pypi-dependencies]
 chemformula = ">=1.3.1"
-red-cat = { path = ".", editable = true }
+redcamel = { path = ".", editable = true }
