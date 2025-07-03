@@ -20,11 +20,11 @@ from tkinter import (
     Button,
     Entry,
     Label,
-    END,
     LabelFrame,
     ttk,
     Radiobutton,
     IntVar,
+    DoubleVar,
     Scale,
     HORIZONTAL,
     Checkbutton,
@@ -74,13 +74,11 @@ def make_gaussian_momentum_distribution(number_of_particles=1000):
         Array with x-, y-  and z-momenta
     """
 
-    momentum = np.random.randn(number_of_particles, 1, 3) * 2e-24
+    momentum = np.random.randn(number_of_particles, 3) * 2e-24
     return momentum
 
 
-def make_gaussian_energy_distribution(
-    energy_mean, width, mass, number_of_particles=1000
-):
+def make_gaussian_energy_distribution(energy_mean, width, mass, number_of_particles=1000):
     """
     Parameters
     ----------
@@ -97,9 +95,9 @@ def make_gaussian_energy_distribution(
         Array with x-, y-  and z-momenta
     """
 
-    r = (np.random.randn(number_of_particles, 1) * width + energy_mean) * q_e
-    phi = np.random.rand(number_of_particles, 1) * 2 * np.pi
-    cos_theta = np.random.rand(number_of_particles, 1) * 2 - 1
+    r = (np.random.randn(number_of_particles) * width + energy_mean) * q_e
+    phi = np.random.rand(number_of_particles) * 2 * np.pi
+    cos_theta = np.random.rand(number_of_particles) * 2 - 1
 
     r_mom = np.sqrt(r * 2 * mass)
 
@@ -122,7 +120,7 @@ def make_momentum_ion_dis(KER, mass_i1, mass_i2, number_of_particles=1000, v_jet
     width = energy_mean / 10
     momentum_i1 = make_gaussian_energy_distribution(
         energy_mean, width, mass_i1, number_of_particles
-    )[:, 0, :]
+    )
     # second ion
     momentum_i2 = -momentum_i1
     # add initial momentum from gas-jet
@@ -131,38 +129,35 @@ def make_momentum_ion_dis(KER, mass_i1, mass_i2, number_of_particles=1000, v_jet
     return momentum_i1, momentum_i2
 
 
-def calc_tof(momentum, remi_params, particle_params=(m_e, q_e)):
+def calc_tof(momentum, voltage, length_acceleration, length_drift, particle_params=(m_e, q_e)):
     """
     Parameters
     ----------
     momentum : ndarray
         momentum for tof calculation
-    remi_params : array
-        configuration of REMI with values for U, B, l_a, l_d
 
     Returns
     -------
     tof : array
         Time of flight for each particle
     """
-    U, B, l_a, l_d = remi_params
     m, q = particle_params
-    p_z = momentum[:, 0, 2]
-    D = p_z**2 + 2 * q * U * m
+    p_z = momentum[:, 2]
+    D = p_z**2 + 2 * q * voltage * m
     rootD = np.sqrt(D)
     # tof = ((p_z) - np.sqrt(D))/(-q*U)*l_a
-    tof = m * (2 * l_a / (rootD + p_z) + l_d / rootD)
+    tof = m * (2 * length_acceleration / (rootD + p_z) + length_drift / rootD)
     return tof
 
 
-def calc_xytof(momentum, remi_params, particle_params=(m_e, q_e)):
+def calc_xytof(
+    momentum, voltage, magnetic_field, length_acceleration, length_drift, particle_params=(m_e, q_e)
+):
     """
     Parameters
     ----------
     momentum : ndarray
         momentum for radius calculation
-    remi_params : array
-        configuration of REMI with values for U, B, l_a, l_d
 
     Returns
     -------
@@ -171,21 +166,19 @@ def calc_xytof(momentum, remi_params, particle_params=(m_e, q_e)):
     y : array
         x coordinate for each particle
     """
-    U, B, l_a, l_d = remi_params
     m, q = particle_params
     p_x = momentum[..., 0]
     p_y = momentum[..., 1]
-    p_z = momentum[..., 2]
-    tof = calc_tof_ion(l_a, m, q, U, p=p_z)
+    tof = calc_tof(momentum, voltage, length_acceleration, length_drift, particle_params)
     p_xy = np.sqrt(p_x**2 + p_y**2)
 
     phi = np.atan2(p_x, p_y)
 
-    omega = calc_omega(B, q, m)
+    omega = calc_omega(magnetic_field, q, m)
     alpha = omega * tof
     theta = phi + alpha / 2
 
-    R = (2 * p_xy * np.abs(np.sin(alpha / 2))) / (q * B)
+    R = (2 * p_xy * np.abs(np.sin(alpha / 2))) / (q * magnetic_field)
 
     x = R * np.sin(theta)
     y = R * np.cos(theta)
@@ -193,33 +186,38 @@ def calc_xytof(momentum, remi_params, particle_params=(m_e, q_e)):
     return x, y, tof
 
 
-def calc_R(momentum, remi_params, particle_params=(m_e, q_e)):
+def calc_R(
+    momentum, voltage, magnetic_field, length_acceleration, length_drift, particle_params=(m_e, q_e)
+):
     """
     Parameters
     ----------
     momentum : ndarray
         momentum for radius calculation
-    remi_params : array
-        configuration of REMI with values for U, B, l_a, l_d
 
     Returns
     -------
     R : array
         Distance from reaction point to detection point in xy for each particle
     """
-    U, B, l_a, l_d = remi_params
     m, q = particle_params
-    p_x = momentum[:, 0, 0]
-    p_y = momentum[:, 0, 1]
+    p_x = momentum[:, 0]
+    p_y = momentum[:, 1]
     p_xy = np.sqrt(p_x**2 + p_y**2)
-    tof = calc_tof(momentum, remi_params, particle_params)
-    R = (2 * p_xy * np.abs(np.sin(calc_omega(B, q, m) * tof / 2))) / (q * B)
+    tof = calc_tof(momentum, voltage, length_acceleration, length_drift, particle_params)
+    R = (2 * p_xy * np.abs(np.sin(calc_omega(magnetic_field, q, m) * tof / 2))) / (
+        q * magnetic_field
+    )
     return R
 
 
-def make_R_tof_array(momentum, remi_params, particle_params=(m_e, q_e)):
-    tof = calc_tof(momentum, remi_params, particle_params)
-    R = calc_R(momentum, remi_params, particle_params)
+def make_R_tof_array(
+    momentum, voltage, magnetic_field, length_acceleration, length_drift, particle_params=(m_e, q_e)
+):
+    tof = calc_tof(momentum, voltage, length_acceleration, length_drift, particle_params)
+    R = calc_R(
+        momentum, voltage, magnetic_field, length_acceleration, length_drift, particle_params
+    )
     ar = xr.DataArray(R, coords=[tof], dims=["time"])
     return ar
 
@@ -228,45 +226,32 @@ def calc_omega(B, q=q_e, m=m_e):
     return q * B / m
 
 
-def calc_R_fit(K, tof, remi_params, particle_params):
-    U, B, l_a, l_d = remi_params
+def calc_R_fit(K, tof, voltage, magnetic_field, length_acceleration, particle_params):
     m, q = particle_params
-    D = K**2 - (m * l_a / tof - U * q * tof / (2 * l_a)) ** 2
+    D = K**2 - (m * length_acceleration / tof - voltage * q * tof / (2 * length_acceleration)) ** 2
     R = (
         2
-        / (m * calc_omega(B, q, m))
+        / (m * calc_omega(magnetic_field, q, m))
         * np.sqrt(D)
-        * np.abs(np.sin(calc_omega(B, q, m) * tof / 2))
+        * np.abs(np.sin(calc_omega(magnetic_field, q, m) * tof / 2))
     )
     return R
 
 
-def calc_R_fit_ion(K, tof, remi_params, particle_params):
-    U, B, l_a, l_d = remi_params
+def calc_R_fit_ion(K, tof, voltage, magnetic_field, length_acceleration, particle_params):
     m, q = particle_params
-    D = K**2 - (m * l_a / tof - U * q * tof / (2 * l_a)) ** 2
+    D = K**2 - (m * length_acceleration / tof - voltage * q * tof / (2 * length_acceleration)) ** 2
     R = 2 / m * np.sqrt(D)
     R = (
         2
-        / (m * calc_omega(B, q, m))
+        / (m * calc_omega(magnetic_field, q, m))
         * np.sqrt(D)
-        * np.abs(np.sin(calc_omega(B, q, m) * tof / 2))
+        * np.abs(np.sin(calc_omega(magnetic_field, q, m) * tof / 2))
     )
     return R
 
 
 ########### IONS ###########################################################
-
-
-def calc_tof_ion(l_a, m, q, U, p=0):
-    """
-    calculates the time of flight for an ion
-    p is in direction of the detector if positive
-    """
-    tof = 2 * l_a * m / (np.sqrt(p**2 + 2 * m * q * U) + p)
-    return tof
-
-
 def calc_ion_momenta(KER, m_1, m_2):
     p = np.sqrt(2 * KER / (1 / m_1 + 1 / m_2))
     return p
@@ -281,7 +266,7 @@ frame_color = "mintcream"
 class mclass:
     def __init__(self, window):
         self.window = window
-        window.title("REMI Analysis Validation")
+        window.title("Red Camel")
         style = ttk.Style()
         style.configure("BW.TLabel", background="whitesmoke")
         tabControl = ttk.Notebook(window)
@@ -295,14 +280,18 @@ class mclass:
 
         button_color = "aliceblue"
 
-        self.l_a = 0.18  # acc_length
-        self.U = 135.0  # electic_field
-        self.B = 5  # magnetic_field
+        ######## global Remi variables ####################
+        self.length_accel_ion = DoubleVar(value=0.11)
+        self.length_drift_ion = DoubleVar(value=0.0)
+        self.length_accel_electron = DoubleVar(value=0.18)
+        self.length_drift_electron = DoubleVar(value=0.0)
+        self.voltage_electron = DoubleVar(value=135.0)
+        self.voltage_ion = DoubleVar(value=2200.0)
+        self.magnetic_field_gauss = DoubleVar(value=5.0)
+        self.velocity_jet = DoubleVar(value=1.0)
 
         ######## higher groups ####################
-        left_bar_group = LabelFrame(
-            tab1, text="", padx=5, pady=5, bd=3, background=frame_color
-        )
+        left_bar_group = LabelFrame(tab1, text="", padx=5, pady=5, bd=3, background=frame_color)
         left_bar_group.grid(
             row=100,
             column=100,
@@ -313,9 +302,7 @@ class mclass:
             sticky="new",
         )
 
-        top_bar_group = LabelFrame(
-            tab1, text="", padx=5, pady=5, bd=3, background=frame_color
-        )
+        top_bar_group = LabelFrame(tab1, text="", padx=5, pady=5, bd=3, background=frame_color)
         top_bar_group.grid(
             row=100,
             column=103,
@@ -335,43 +322,23 @@ class mclass:
             bd=3,
             background=frame_color,
         )
-        remi_conf_group.grid(
-            row=100, column=100, columnspan=2, padx="5", pady="5", sticky="new"
-        )
+        remi_conf_group.grid(row=100, column=100, columnspan=2, padx="5", pady="5", sticky="new")
 
         self.LABEL_SET_U = Label(remi_conf_group, text="U[V]:", background=frame_color)
-        self.LABEL_SET_B = Label(
-            remi_conf_group, text="B[Gauss]:", background=frame_color
-        )
-        self.LABEL_SET_l_a = Label(
-            remi_conf_group, text="acc length[m]:", background=frame_color
-        )
+        self.LABEL_SET_B = Label(remi_conf_group, text="B[Gauss]:", background=frame_color)
+        self.LABEL_SET_l_a = Label(remi_conf_group, text="acc length[m]:", background=frame_color)
 
         self.LABEL_SET_U.grid(row=103, column=101, padx="5", pady="5", sticky="w")
         self.LABEL_SET_B.grid(row=104, column=101, padx="5", pady="5", sticky="w")
         self.LABEL_SET_l_a.grid(row=105, column=101, padx="5", pady="5", sticky="w")
 
-        self.ENTRY_SET_U = Entry(remi_conf_group)
-        self.ENTRY_SET_B = Entry(remi_conf_group)
-        self.ENTRY_SET_l_a = Entry(remi_conf_group)
+        self.ENTRY_SET_U = Entry(remi_conf_group, textvariable=self.voltage_electron)
+        self.ENTRY_SET_B = Entry(remi_conf_group, textvariable=self.magnetic_field_gauss)
+        self.ENTRY_SET_l_a = Entry(remi_conf_group, textvariable=self.length_accel_electron)
 
         self.ENTRY_SET_U.grid(row=103, column=102, padx="5", pady="5", sticky="w")
         self.ENTRY_SET_B.grid(row=104, column=102, padx="5", pady="5", sticky="w")
         self.ENTRY_SET_l_a.grid(row=105, column=102, padx="5", pady="5", sticky="w")
-
-        self.ENTRY_SET_U.insert(0, self.U)
-        self.ENTRY_SET_B.insert(0, self.B)
-        self.ENTRY_SET_l_a.insert(0, self.l_a)
-
-        self.BUTTON_CHANGE_REMI_CONF = Button(
-            remi_conf_group,
-            text="Change configuration",
-            command=self.change_remi_conf,
-            activebackground=button_color,
-        )
-        self.BUTTON_CHANGE_REMI_CONF.grid(
-            row=106, column=101, columnspan=2, padx="5", pady="5", sticky="w"
-        )
 
         ######## momentum, R, tof calculation #############
         self.R_tof_group = LabelFrame(
@@ -421,9 +388,7 @@ class mclass:
             value=3,
             background=frame_color,
         )
-        self.CHOOSE_ENERGY_MULTI.grid(
-            row=101, column=110, padx="5", pady="5", sticky="w"
-        )
+        self.CHOOSE_ENERGY_MULTI.grid(row=101, column=110, padx="5", pady="5", sticky="w")
 
         self.LABEL_NUMBER_PART = Label(
             self.R_tof_group, text="number of Particles:", background=frame_color
@@ -448,9 +413,7 @@ class mclass:
         self.LABEL_MEAN_ENERGY = Label(
             self.R_tof_group, text="Mean Energy:", background=frame_color
         )
-        self.LABEL_WIDTH = Label(
-            self.R_tof_group, text="Width:", background=frame_color
-        )
+        self.LABEL_WIDTH = Label(self.R_tof_group, text="Width:", background=frame_color)
         self.ENTRY_MEAN_ENERGY = Entry(self.R_tof_group)
         self.ENTRY_WIDTH = Entry(self.R_tof_group)
 
@@ -470,9 +433,7 @@ class mclass:
         self.ENTRY_NUMBER_PART.grid(row=102, column=111, padx="5", pady="5", sticky="w")
         self.ENTRY_PART_MASS.grid(row=103, column=111, padx="5", pady="5", sticky="w")
         self.ENTRY_PART_CHARGE.grid(row=104, column=111, padx="5", pady="5", sticky="w")
-        self.BUTTON_R_TOF.grid(
-            row=109, column=110, columnspan=2, padx="5", pady="5", sticky="w"
-        )
+        self.BUTTON_R_TOF.grid(row=109, column=110, columnspan=2, padx="5", pady="5", sticky="w")
 
         self.ENTRY_NUMBER_PART.insert(0, 1000)
 
@@ -485,18 +446,10 @@ class mclass:
         )
         self.ENTRY_MULTI_PART_ENERGY_STEP = Entry(self.R_tof_group)
         self.ENTRY_MULTI_PART_NUMBER = Entry(self.R_tof_group)
-        self.LABEL_MULTI_PART_ENERGY_STEP.grid(
-            row=107, column=110, padx="5", pady="5", sticky="w"
-        )
-        self.LABEL_MULTI_PART_NUMBER.grid(
-            row=108, column=110, padx="5", pady="5", sticky="w"
-        )
-        self.ENTRY_MULTI_PART_ENERGY_STEP.grid(
-            row=107, column=111, padx="5", pady="5", sticky="w"
-        )
-        self.ENTRY_MULTI_PART_NUMBER.grid(
-            row=108, column=111, padx="5", pady="5", sticky="w"
-        )
+        self.LABEL_MULTI_PART_ENERGY_STEP.grid(row=107, column=110, padx="5", pady="5", sticky="w")
+        self.LABEL_MULTI_PART_NUMBER.grid(row=108, column=110, padx="5", pady="5", sticky="w")
+        self.ENTRY_MULTI_PART_ENERGY_STEP.grid(row=107, column=111, padx="5", pady="5", sticky="w")
+        self.ENTRY_MULTI_PART_NUMBER.grid(row=108, column=111, padx="5", pady="5", sticky="w")
 
         self.LABEL_MULTI_PART_NUMBER.grid_remove()
         self.LABEL_MULTI_PART_ENERGY_STEP.grid_remove()
@@ -528,9 +481,7 @@ class mclass:
             command=self.export_momenta,
             activebackground=button_color,
         )
-        self.BUTTON_SAVE_MOM.grid(
-            row=10, column=100, columnspan=2, padx="5", pady="5", sticky="w"
-        )
+        self.BUTTON_SAVE_MOM.grid(row=10, column=100, columnspan=2, padx="5", pady="5", sticky="w")
 
         self.BUTTON_CALC_MCP_TIMES = Button(
             self.valid_group,
@@ -577,9 +528,7 @@ class mclass:
         self.ENTRY_KIN_ENERGY_1 = Entry(self.R_tof_sim_group, fg="firebrick")
         self.ENTRY_KIN_ENERGY_2 = Entry(self.R_tof_sim_group, fg="deepskyblue")
         self.ENTRY_KIN_ENERGY_3 = Entry(self.R_tof_sim_group, fg="darkorange")
-        self.LABEL_MASS = Label(
-            self.R_tof_sim_group, text="Mass [a.u.]:", background=frame_color
-        )
+        self.LABEL_MASS = Label(self.R_tof_sim_group, text="Mass [a.u.]:", background=frame_color)
         self.ENTRY_MASS_1 = Entry(self.R_tof_sim_group, fg="firebrick")
         self.ENTRY_MASS_2 = Entry(self.R_tof_sim_group, fg="deepskyblue")
         self.ENTRY_MASS_3 = Entry(self.R_tof_sim_group, fg="darkorange")
@@ -614,15 +563,9 @@ class mclass:
         self.ENTRY_TOF.insert(0, 1000)
 
         self.LABEL_KIN_ENERGY.grid(row=106, column=110, padx="5", pady="5", sticky="w")
-        self.ENTRY_KIN_ENERGY_1.grid(
-            row=107, column=110, padx="5", pady="5", sticky="w"
-        )
-        self.ENTRY_KIN_ENERGY_2.grid(
-            row=108, column=110, padx="5", pady="5", sticky="w"
-        )
-        self.ENTRY_KIN_ENERGY_3.grid(
-            row=109, column=110, padx="5", pady="5", sticky="w"
-        )
+        self.ENTRY_KIN_ENERGY_1.grid(row=107, column=110, padx="5", pady="5", sticky="w")
+        self.ENTRY_KIN_ENERGY_2.grid(row=108, column=110, padx="5", pady="5", sticky="w")
+        self.ENTRY_KIN_ENERGY_3.grid(row=109, column=110, padx="5", pady="5", sticky="w")
         self.LABEL_MASS.grid(row=106, column=111, padx="5", pady="5", sticky="w")
         self.ENTRY_MASS_1.grid(row=107, column=111, padx="5", pady="5", sticky="w")
         self.ENTRY_MASS_2.grid(row=108, column=111, padx="5", pady="5", sticky="w")
@@ -668,16 +611,10 @@ class mclass:
             onvalue=1,
             background=frame_color,
         )
-        self.CHECK_IR_PLOT.grid(
-            row=105, column=100, columnspan=2, padx="5", pady="5", sticky="ew"
-        )
+        self.CHECK_IR_PLOT.grid(row=105, column=100, columnspan=2, padx="5", pady="5", sticky="ew")
 
-        self.LABEL_SLIDE_U = Label(
-            self.R_tof_plot_group, text="Voltage", background=frame_color
-        )
-        self.LABEL_SLIDE_U.grid(
-            row=106, column=100, columnspan=2, padx="5", pady="5", sticky="ew"
-        )
+        self.LABEL_SLIDE_U = Label(self.R_tof_plot_group, text="Voltage", background=frame_color)
+        self.LABEL_SLIDE_U.grid(row=106, column=100, columnspan=2, padx="5", pady="5", sticky="ew")
 
         self.SLIDE_U = Scale(
             self.R_tof_plot_group,
@@ -686,18 +623,14 @@ class mclass:
             resolution=0.1,
             orient=HORIZONTAL,
             command=self.set_new_u,
+            variable=self.voltage_electron,
         )
-        self.SLIDE_U.grid(
-            row=107, column=100, columnspan=2, padx="5", pady="5", sticky="ew"
-        )
-        self.SLIDE_U.set(self.U)
+        self.SLIDE_U.grid(row=107, column=100, columnspan=2, padx="5", pady="5", sticky="ew")
 
         self.LABEL_SLIDE_B = Label(
             self.R_tof_plot_group, text="Magnetic Field", background=frame_color
         )
-        self.LABEL_SLIDE_B.grid(
-            row=108, column=100, columnspan=2, padx="5", pady="5", sticky="ew"
-        )
+        self.LABEL_SLIDE_B.grid(row=108, column=100, columnspan=2, padx="5", pady="5", sticky="ew")
 
         self.SLIDE_B = Scale(
             self.R_tof_plot_group,
@@ -706,19 +639,15 @@ class mclass:
             resolution=0.1,
             orient=HORIZONTAL,
             command=self.set_new_b,
+            variable=self.magnetic_field_gauss,
         )
-        self.SLIDE_B.grid(
-            row=109, column=100, columnspan=2, padx="5", pady="5", sticky="ew"
-        )
-        self.SLIDE_B.set(self.B)
+        self.SLIDE_B.grid(row=109, column=100, columnspan=2, padx="5", pady="5", sticky="ew")
 
         #### IR mode #####
         self.ir_mode_group = LabelFrame(
             top_bar_group, text="IR-Mode", padx=5, pady=5, bd=3, background=frame_color
         )
-        self.ir_mode_group.grid(
-            row=100, column=120, columnspan=2, padx="5", pady="5", sticky="nwe"
-        )
+        self.ir_mode_group.grid(row=100, column=120, columnspan=2, padx="5", pady="5", sticky="nwe")
 
         self.LABEL_KIN_ENERGY_START = Label(
             self.ir_mode_group, text="First Kin Energy [eV]", background=frame_color
@@ -729,12 +658,8 @@ class mclass:
         self.LABEL_NUMBER_OF_PART = Label(
             self.ir_mode_group, text="Numer of particles", background=frame_color
         )
-        self.LABEL_MASS_IR = Label(
-            self.ir_mode_group, text="Mass", background=frame_color
-        )
-        self.LABEL_CHARGE_IR = Label(
-            self.ir_mode_group, text="Charge", background=frame_color
-        )
+        self.LABEL_MASS_IR = Label(self.ir_mode_group, text="Mass", background=frame_color)
+        self.LABEL_CHARGE_IR = Label(self.ir_mode_group, text="Charge", background=frame_color)
 
         self.ENTRY_KIN_ENERGY_START = Entry(self.ir_mode_group)
         self.ENTRY_KIN_ENERGY_STEP = Entry(self.ir_mode_group)
@@ -765,12 +690,8 @@ class mclass:
         self.LABEL_NUMBER_OF_PART.grid(
             row=8, column=2, columnspan=1, padx="5", pady="5", sticky="w"
         )
-        self.LABEL_MASS_IR.grid(
-            row=4, column=2, columnspan=1, padx="5", pady="5", sticky="w"
-        )
-        self.LABEL_CHARGE_IR.grid(
-            row=5, column=2, columnspan=1, padx="5", pady="5", sticky="w"
-        )
+        self.LABEL_MASS_IR.grid(row=4, column=2, columnspan=1, padx="5", pady="5", sticky="w")
+        self.LABEL_CHARGE_IR.grid(row=5, column=2, columnspan=1, padx="5", pady="5", sticky="w")
 
         self.ENTRY_KIN_ENERGY_START.grid(
             row=6, column=3, columnspan=1, padx="5", pady="5", sticky="w"
@@ -781,16 +702,12 @@ class mclass:
         self.ENTRY_NUMBER_OF_PART.grid(
             row=8, column=3, columnspan=1, padx="5", pady="5", sticky="w"
         )
-        self.ENTRY_MASS_IR.grid(
-            row=4, column=3, columnspan=1, padx="5", pady="5", sticky="w"
-        )
-        self.ENTRY_CHARGE_IR.grid(
-            row=5, column=3, columnspan=1, padx="5", pady="5", sticky="w"
-        )
+        self.ENTRY_MASS_IR.grid(row=4, column=3, columnspan=1, padx="5", pady="5", sticky="w")
+        self.ENTRY_CHARGE_IR.grid(row=5, column=3, columnspan=1, padx="5", pady="5", sticky="w")
 
         ######## Coincidences ##################################
         #### REMI parameter for Ion ####
-        remi_ion_conf_group = LabelFrame(
+        remi_coin_ion_conf_group = LabelFrame(
             tab3,
             text="REMI Configuration for Ion",
             padx=5,
@@ -798,7 +715,7 @@ class mclass:
             bd=3,
             background=frame_color,
         )
-        remi_ion_conf_group.grid(
+        remi_coin_ion_conf_group.grid(
             row=100,
             column=100,
             columnspan=2,
@@ -808,41 +725,40 @@ class mclass:
             sticky="nw",
         )
 
-        self.LABEL_SET_U_ion = Label(
-            remi_ion_conf_group, text="U[V]:", background=frame_color
+        self.COIN_LABEL_SET_U_ion = Label(
+            remi_coin_ion_conf_group, text="U[V]:", background=frame_color
         )
-        self.LABEL_SET_l_d_ion = Label(
-            remi_ion_conf_group, text="drift length[m]:", background=frame_color
+        self.COIN_LABEL_SET_l_d_ion = Label(
+            remi_coin_ion_conf_group, text="drift length[m]:", background=frame_color
         )
-        self.LABEL_SET_l_a_ion = Label(
-            remi_ion_conf_group, text="acc length[m]:", background=frame_color
+        self.COIN_LABEL_SET_l_a_ion = Label(
+            remi_coin_ion_conf_group, text="acc length[m]:", background=frame_color
         )
-        self.LABEL_SET_v_jet = Label(
-            remi_ion_conf_group, text="v jet[mm/µs]:", background=frame_color
+        self.COIN_LABEL_SET_v_jet = Label(
+            remi_coin_ion_conf_group, text="v jet[mm/µs]:", background=frame_color
         )
 
-        self.LABEL_SET_U_ion.grid(row=103, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_l_d_ion.grid(row=104, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_l_a_ion.grid(row=105, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_v_jet.grid(row=106, column=101, padx="5", pady="5", sticky="w")
+        self.COIN_LABEL_SET_U_ion.grid(row=103, column=101, padx="5", pady="5", sticky="w")
+        self.COIN_LABEL_SET_l_d_ion.grid(row=104, column=101, padx="5", pady="5", sticky="w")
+        self.COIN_LABEL_SET_l_a_ion.grid(row=105, column=101, padx="5", pady="5", sticky="w")
+        self.COIN_LABEL_SET_v_jet.grid(row=106, column=101, padx="5", pady="5", sticky="w")
 
-        self.ENTRY_SET_U_ion = Entry(remi_ion_conf_group)
-        self.ENTRY_SET_l_d_ion = Entry(remi_ion_conf_group)
-        self.ENTRY_SET_l_a_ion = Entry(remi_ion_conf_group)
-        self.ENTRY_SET_v_jet = Entry(remi_ion_conf_group)
+        self.COIN_ENTRY_SET_U_ion = Entry(remi_coin_ion_conf_group, textvariable=self.voltage_ion)
+        self.COIN_ENTRY_SET_l_d_ion = Entry(
+            remi_coin_ion_conf_group, textvariable=self.length_drift_ion
+        )
+        self.COIN_ENTRY_SET_l_a_ion = Entry(
+            remi_coin_ion_conf_group, textvariable=self.length_accel_ion
+        )
+        self.COIN_ENTRY_SET_v_jet = Entry(remi_coin_ion_conf_group, textvariable=self.velocity_jet)
 
-        self.ENTRY_SET_U_ion.grid(row=103, column=102, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_l_d_ion.grid(row=104, column=102, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_l_a_ion.grid(row=105, column=102, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_v_jet.grid(row=106, column=102, padx="5", pady="5", sticky="w")
-
-        self.ENTRY_SET_U_ion.insert(0, 190)
-        self.ENTRY_SET_l_d_ion.insert(0, 5)
-        self.ENTRY_SET_l_a_ion.insert(0, self.l_a)
-        self.ENTRY_SET_v_jet.insert(0, 0.001)
+        self.COIN_ENTRY_SET_U_ion.grid(row=103, column=102, padx="5", pady="5", sticky="w")
+        self.COIN_ENTRY_SET_l_d_ion.grid(row=104, column=102, padx="5", pady="5", sticky="w")
+        self.COIN_ENTRY_SET_l_a_ion.grid(row=105, column=102, padx="5", pady="5", sticky="w")
+        self.COIN_ENTRY_SET_v_jet.grid(row=106, column=102, padx="5", pady="5", sticky="w")
 
         #### Ion configuration ####
-        ion_conf_group = LabelFrame(
+        ion_coin_conf_group = LabelFrame(
             tab3,
             text="REMI Configuration for Ion",
             padx=5,
@@ -850,7 +766,7 @@ class mclass:
             bd=3,
             background=frame_color,
         )
-        ion_conf_group.grid(
+        ion_coin_conf_group.grid(
             row=110,
             column=100,
             columnspan=2,
@@ -860,26 +776,26 @@ class mclass:
             sticky="nw",
         )
 
-        self.LABEL_ION_FORMULA = Label(
-            ion_conf_group, text="Ion ChemFormula:", background=frame_color
+        self.COIN_LABEL_ION_FORMULA = Label(
+            ion_coin_conf_group, text="Ion ChemFormula:", background=frame_color
         )
-        self.LABEL_ION_CHARGE = Label(
-            ion_conf_group, text="Ion Charge [a.u.]:", background=frame_color
+        self.COIN_LABEL_ION_CHARGE = Label(
+            ion_coin_conf_group, text="Ion Charge [a.u.]:", background=frame_color
         )
 
-        self.LABEL_ION_FORMULA.grid(row=110, column=100, padx="5", pady="5", sticky="w")
-        self.LABEL_ION_CHARGE.grid(row=111, column=100, padx="5", pady="5", sticky="w")
+        self.COIN_LABEL_ION_FORMULA.grid(row=110, column=100, padx="5", pady="5", sticky="w")
+        self.COIN_LABEL_ION_CHARGE.grid(row=111, column=100, padx="5", pady="5", sticky="w")
 
-        self.ENTRY_ION_MASS = Entry(ion_conf_group)
-        self.ENTRY_ION_CHARGE = Entry(ion_conf_group)
+        self.COIN_ENTRY_ION_MASS = Entry(ion_coin_conf_group)
+        self.COIN_ENTRY_ION_CHARGE = Entry(ion_coin_conf_group)
 
-        self.ENTRY_ION_MASS.grid(row=110, column=101, padx="5", pady="5", sticky="w")
-        self.ENTRY_ION_CHARGE.grid(row=111, column=101, padx="5", pady="5", sticky="w")
+        self.COIN_ENTRY_ION_MASS.grid(row=110, column=101, padx="5", pady="5", sticky="w")
+        self.COIN_ENTRY_ION_CHARGE.grid(row=111, column=101, padx="5", pady="5", sticky="w")
 
-        self.ion_pos_group = LabelFrame(
+        self.ion_coin_pos_group = LabelFrame(
             tab3, text="Ion Postitions", padx=5, pady=5, bd=3, background=frame_color
         )
-        self.ion_pos_group.grid(
+        self.ion_coin_pos_group.grid(
             row=120,
             column=100,
             columnspan=4,
@@ -889,24 +805,20 @@ class mclass:
             sticky="nw",
         )
 
-        self.BUTTON_ION_POSITION = Button(
-            self.ion_pos_group,
+        self.COIN_BUTTON_ION_POSITION = Button(
+            self.ion_coin_pos_group,
             text="Calculate Ion Positions",
             command=self.calc_ion_position,
             activebackground=button_color,
         )
-        self.BUTTON_ION_POSITION.grid(
-            row=110, column=100, padx="5", pady="5", sticky="w"
-        )
+        self.COIN_BUTTON_ION_POSITION.grid(row=110, column=100, padx="5", pady="5", sticky="w")
 
         ######################################################################
         ###################      TAB 2      ##################################
         ######################################################################
 
         ######## higher groups ####################
-        left_tab2_group = LabelFrame(
-            tab2, text="", padx=5, pady=5, bd=3, background=frame_color
-        )
+        left_tab2_group = LabelFrame(tab2, text="", padx=5, pady=5, bd=3, background=frame_color)
         left_tab2_group.grid(
             row=90,
             column=100,
@@ -988,12 +900,8 @@ class mclass:
         self.LABEL_DISTANCE = Label(
             ker_group, text="internuclear distance R [Å]:", background=frame_color
         )
-        self.LABEL_CHARGE_ION_1 = Label(
-            ker_group, text="Charge Ion 1:", background=frame_color
-        )
-        self.LABEL_CHARGE_ION_2 = Label(
-            ker_group, text="Charge Ion 2:", background=frame_color
-        )
+        self.LABEL_CHARGE_ION_1 = Label(ker_group, text="Charge Ion 1:", background=frame_color)
+        self.LABEL_CHARGE_ION_2 = Label(ker_group, text="Charge Ion 2:", background=frame_color)
         self.BUTTON_CALC_KER = Button(
             ker_group,
             command=self.calc_ker,
@@ -1021,12 +929,8 @@ class mclass:
         self.ENTRY_CHARGE_ION_2.insert(0, 1)
 
         #### REMI parameter for Ion ####
-        self.LABEL_SET_U_ion = Label(
-            remi_ion_conf_group, text="U[V]:", background=frame_color
-        )
-        self.LABEL_SET_B_ion = Label(
-            remi_ion_conf_group, text="B[G]:", background=frame_color
-        )
+        self.LABEL_SET_U_ion = Label(remi_ion_conf_group, text="U[V]:", background=frame_color)
+        self.LABEL_SET_B_ion = Label(remi_ion_conf_group, text="B[G]:", background=frame_color)
         self.LABEL_SET_l_d_ion = Label(
             remi_ion_conf_group, text="drift length[m]:", background=frame_color
         )
@@ -1048,18 +952,14 @@ class mclass:
         self.LABEL_SET_l_d_ion.grid(row=105, column=101, padx="5", pady="5", sticky="w")
         self.LABEL_SET_l_a_ion.grid(row=106, column=101, padx="5", pady="5", sticky="w")
         self.LABEL_SET_v_jet.grid(row=107, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_bunch_modulo.grid(
-            row=108, column=101, padx="5", pady="5", sticky="w"
-        )
-        self.LABEL_SET_detector_diameter.grid(
-            row=109, column=101, padx="5", pady="5", sticky="w"
-        )
+        self.LABEL_SET_bunch_modulo.grid(row=108, column=101, padx="5", pady="5", sticky="w")
+        self.LABEL_SET_detector_diameter.grid(row=109, column=101, padx="5", pady="5", sticky="w")
 
-        self.ENTRY_SET_U_ion = Entry(remi_ion_conf_group)
-        self.ENTRY_SET_B_ion = Entry(remi_ion_conf_group)
-        self.ENTRY_SET_l_d_ion = Entry(remi_ion_conf_group)
-        self.ENTRY_SET_l_a_ion = Entry(remi_ion_conf_group)
-        self.ENTRY_SET_v_jet = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_U_ion = Entry(remi_ion_conf_group, textvariable=self.voltage_ion)
+        self.ENTRY_SET_B_ion = Entry(remi_ion_conf_group, textvariable=self.magnetic_field_gauss)
+        self.ENTRY_SET_l_d_ion = Entry(remi_ion_conf_group, textvariable=self.length_drift_ion)
+        self.ENTRY_SET_l_a_ion = Entry(remi_ion_conf_group, textvariable=self.length_accel_ion)
+        self.ENTRY_SET_v_jet = Entry(remi_ion_conf_group, textvariable=self.velocity_jet)
         self.ENTRY_SET_bunch_modulo = Entry(remi_ion_conf_group)
         self.ENTRY_SET_detector_diameter = Entry(remi_ion_conf_group)
 
@@ -1068,18 +968,9 @@ class mclass:
         self.ENTRY_SET_l_d_ion.grid(row=105, column=102, padx="5", pady="5", sticky="w")
         self.ENTRY_SET_l_a_ion.grid(row=106, column=102, padx="5", pady="5", sticky="w")
         self.ENTRY_SET_v_jet.grid(row=107, column=102, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_bunch_modulo.grid(
-            row=108, column=102, padx="5", pady="5", sticky="w"
-        )
-        self.ENTRY_SET_detector_diameter.grid(
-            row=109, column=102, padx="5", pady="5", sticky="w"
-        )
+        self.ENTRY_SET_bunch_modulo.grid(row=108, column=102, padx="5", pady="5", sticky="w")
+        self.ENTRY_SET_detector_diameter.grid(row=109, column=102, padx="5", pady="5", sticky="w")
 
-        self.ENTRY_SET_U_ion.insert(0, 2200)
-        self.ENTRY_SET_B_ion.insert(0, 10)
-        self.ENTRY_SET_l_d_ion.insert(0, 0.09)
-        self.ENTRY_SET_l_a_ion.insert(0, 0.09)
-        self.ENTRY_SET_v_jet.insert(0, 1.0)
         self.ENTRY_SET_bunch_modulo.insert(0, 5316.9231)
         self.ENTRY_SET_detector_diameter.insert(0, 120)
 
@@ -1097,11 +988,9 @@ class mclass:
             orient=HORIZONTAL,
             resolution=0.1,
             command=self.set_new_u_pipico,
+            variable=self.voltage_ion,
         )
-        self.SLIDE_U_pipco.grid(
-            row=3, column=1, columnspan=2, padx="5", pady="5", sticky="ew"
-        )
-        self.SLIDE_U_pipco.set(self.ENTRY_SET_U_ion.get())
+        self.SLIDE_U_pipco.grid(row=3, column=1, columnspan=2, padx="5", pady="5", sticky="ew")
 
         self.SLIDE_B_pipco = Scale(
             self.pipico_plot_group,
@@ -1110,11 +999,9 @@ class mclass:
             orient=HORIZONTAL,
             resolution=0.1,
             command=self.set_new_B_pipico,
+            variable=self.magnetic_field_gauss,
         )
-        self.SLIDE_B_pipco.grid(
-            row=4, column=1, columnspan=2, padx="5", pady="5", sticky="ew"
-        )
-        self.SLIDE_B_pipco.set(self.ENTRY_SET_B_ion.get())
+        self.SLIDE_B_pipco.grid(row=4, column=1, columnspan=2, padx="5", pady="5", sticky="ew")
 
         ### ion generator ###################
 
@@ -1216,9 +1103,7 @@ class mclass:
         self.pipico_ax = axes["pipico"]
 
         self.pipico_ax.set_aspect("equal")
-        self.pipico_canvas = FigureCanvasTkAgg(
-            self.pipico_fig, master=self.pipico_plot_group
-        )
+        self.pipico_canvas = FigureCanvasTkAgg(self.pipico_fig, master=self.pipico_plot_group)
         self.pipico_canvas.get_tk_widget().grid(
             row=1, column=1, rowspan=1, columnspan=1, padx="5", pady="5", sticky="ew"
         )
@@ -1233,7 +1118,6 @@ class mclass:
         #     "key_press_event", lambda event: print(f"you pressed {event.key}"))
         # canvas.mpl_connect("key_press_event", key_press_handler)
 
-        self.change_remi_conf()
         self.make_R_tof()
         self.calc_ker()
         self.generate_entrys()
@@ -1382,20 +1266,13 @@ class mclass:
         toolbar.update()
         return fig, a, canvas, toolbar
 
-    def change_remi_conf(self):
-        """
-        Changes the setings of the Remi (Voltage, Magnetic-field, acceleration length)
-        """
-        U = float(self.ENTRY_SET_U.get())
-        B_gauss = float(self.ENTRY_SET_B.get())
-        B_SI = B_gauss * 1e-4
-        l_a = float(self.ENTRY_SET_l_a.get())
-        l_d = 0  # TODO: add drift for electrons float(self.ENTRY_SET_l_d.get())
-        self.SLIDE_U.set(U)
-        self.SLIDE_B.set(B_gauss)
-        self.remi_params = np.array([U, B_SI, l_a, l_d])
+    @property
+    def magnetic_field_si(self):
+        return self.magnetic_field_gauss.get() * 1e-4
 
-        return self.remi_params
+    @property
+    def velocity_jet_si(self):
+        return self.velocity_jet.get() * 1e3
 
     def check(self):
         if self.v.get() == 1:
@@ -1436,9 +1313,7 @@ class mclass:
             float(self.ENTRY_PART_CHARGE.get()) * q_e,
         )
         if self.v.get() == 1:
-            self.momenta = make_gaussian_momentum_distribution(
-                int(self.ENTRY_NUMBER_PART.get())
-            )
+            self.momenta = make_gaussian_momentum_distribution(int(self.ENTRY_NUMBER_PART.get()))
         elif self.v.get() == 2:
             energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
             width = float(self.ENTRY_WIDTH.get())
@@ -1471,9 +1346,13 @@ class mclass:
                         ),
                     ]
                 )
-
         self.R_tof = make_R_tof_array(
-            self.momenta, self.remi_params, self.particle_params
+            self.momenta,
+            self.voltage_electron.get(),
+            self.magnetic_field_si,
+            self.length_accel_electron.get(),
+            self.length_drift_electron.get(),
+            self.particle_params,
         )
         self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof, self.toolbar_R_tof = (
             self.make_plot_xarray(
@@ -1506,9 +1385,7 @@ class mclass:
             float(self.ENTRY_PART_CHARGE.get()) * q_e,
         )
         if self.v.get() == 1:
-            self.momenta = make_gaussian_momentum_distribution(
-                int(self.ENTRY_NUMBER_PART.get())
-            )
+            self.momenta = make_gaussian_momentum_distribution(int(self.ENTRY_NUMBER_PART.get()))
         elif self.v.get() == 2:
             energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
             width = float(self.ENTRY_WIDTH.get())
@@ -1542,9 +1419,13 @@ class mclass:
                     ]
                 )
         self.R_tof = make_R_tof_array(
-            self.momenta, self.remi_params, self.particle_params
+            self.momenta,
+            self.voltage_electron.get(),
+            self.magnetic_field_si,
+            self.length_accel_electron.get(),
+            self.length_drift_electron.get(),
+            self.particle_params,
         )
-
         self.ax_R_tof.cla()
         self.ax_R_tof.hexbin(
             self.R_tof.time,
@@ -1562,9 +1443,8 @@ class mclass:
 
         no_mom_tof = self.calc_no_momentum_tof()
 
-        U, B, l_a, l_d = self.remi_params
         m, q = self.particle_params
-        cyclotron_period = 2 * np.pi / calc_omega(B, q, m)
+        cyclotron_period = 2 * np.pi / calc_omega(self.magnetic_field_si, q, m)
 
         self.ax_R_tof.axvline(no_mom_tof, 0, 1, ls="--", color="darkgrey")
 
@@ -1586,9 +1466,7 @@ class mclass:
         )
         self.ele_pos_a.set_xlim(-0.1, 0.1)
         self.ele_pos_a.set_ylim(-0.1, 0.1)
-        detector = plt.Circle(
-            (0, 0), 0.06, color="cadetblue", fill=False, figure=self.ele_pos_fig
-        )
+        detector = plt.Circle((0, 0), 0.06, color="cadetblue", fill=False, figure=self.ele_pos_fig)
         self.ele_pos_a.add_artist(detector)
         self.ele_pos_canvas.draw()
 
@@ -1607,7 +1485,14 @@ class mclass:
             charge_1 = float(self.ENTRY_CHARGE_1.get()) * q_e
             particle_params_1 = (mass_1, charge_1)
             K_1 = np.sqrt(2 * mass_1 * energy_1)
-            R_1 = calc_R_fit(K_1, tof, self.remi_params, particle_params_1)
+            R_1 = calc_R_fit(
+                K_1,
+                tof,
+                self.voltage_electron.get(),
+                self.magnetic_field_si,
+                self.length_accel_electron.get(),
+                particle_params_1,
+            )
             self.ax_R_tof.plot(tof, R_1, color="firebrick")
 
         if len(self.ENTRY_KIN_ENERGY_2.get()) != 0:
@@ -1616,7 +1501,14 @@ class mclass:
             charge_2 = float(self.ENTRY_CHARGE_2.get()) * q_e
             particle_params_2 = (mass_2, charge_2)
             K_2 = np.sqrt(2 * mass_2 * energy_2)
-            R_2 = calc_R_fit(K_2, tof, self.remi_params, particle_params_2)
+            R_2 = calc_R_fit(
+                K_2,
+                tof,
+                self.voltage_electron.get(),
+                self.magnetic_field_si,
+                self.length_accel_electron.get(),
+                particle_params_2,
+            )
             self.ax_R_tof.plot(tof, R_2, color="deepskyblue")
 
         if len(self.ENTRY_KIN_ENERGY_3.get()) != 0:
@@ -1625,7 +1517,14 @@ class mclass:
             charge_3 = float(self.ENTRY_CHARGE_3.get()) * q_e
             particle_params_3 = (mass_3, charge_3)
             K_3 = np.sqrt(2 * mass_3 * energy_3)
-            R_3 = calc_R_fit(K_3, tof, self.remi_params, particle_params_3)
+            R_3 = calc_R_fit(
+                K_3,
+                tof,
+                self.voltage_electron.get(),
+                self.magnetic_field_si,
+                self.length_accel_electron.get(),
+                particle_params_3,
+            )
             self.ax_R_tof.plot(tof, R_3, color="darkorange")
 
         max_tof = self.calc_max_tof()
@@ -1638,17 +1537,16 @@ class mclass:
         """
         calculates the electron positions (x,y)
         """
-        U, B, l_a, l_d = self.remi_params
         m, q = self.particle_params
         tof = self.R_tof.time
         R = self.R_tof.values
 
-        alpha = calc_omega(B, q, m) * tof
+        alpha = calc_omega(self.magnetic_field_si, q, m) * tof
         alpha2 = 180 - np.abs(180 - alpha)
         beta = (180 - alpha2) / 2
 
-        p_x = self.momenta[:, 0, 0]
-        p_y = self.momenta[:, 0, 1]
+        p_x = self.momenta[:, 0]
+        p_y = self.momenta[:, 1]
         phi = np.arctan2(p_y, p_x)
 
         theta = phi + 90 + beta
@@ -1690,32 +1588,46 @@ class mclass:
 
     def calc_max_tof(self):
         """
-        calculates the maximal tof for the electron to not fly in the ion detector
+        calculates the maximal tof for the electron to not fly into the ion detector
         """
-        U, B, l_a, l_d = self.remi_params
         m, q = self.particle_params
-        l_ion = 0.0945
 
-        E = U / l_a
-        # TODO fix for drift length
-        time_1 = np.sqrt(
-            2 * l_ion * m / (E * q)
-        )  # time from reaction point to ion detector
-        time_2 = np.sqrt(
-            2 * (l_a + l_ion) * m / (E * q)
-        )  # time from ion detector to electron detector
-        tof_max = time_1 + time_2
+        l_a_ion = self.length_accel_ion.get()
+        l_a_el = self.length_accel_electron.get()
+        l_d_el = self.length_drift_electron.get()
+        U_ion = self.voltage_ion.get()
+        U_el = self.voltage_electron.get()
+        E = (U_ion + U_el) / (l_a_ion + l_a_el)
+
+        # time from reaction point to end of ion acceleration
+        time_1 = np.sqrt(2 * l_a_ion * m / (E * q))
+        # time from ion acceleration end to electron acceleration end
+        time_2 = np.sqrt(2 * (l_a_ion + l_a_el) * m / (E * q))
+        # now kinetic energy is exactly the total potential for the edge case
+        E_kin = np.abs((U_ion + U_el) * q)
+        v_drift = np.sqrt(2 * E_kin / m)
+        time_3 = l_d_el / v_drift
+        tof_max = time_1 + time_2 + time_3
         return tof_max
 
     def calc_no_momentum_tof(self):
         """
         calculates the time of flight for a paticle with no z-momentum
         """
-        U, B, l_a, l_d = self.remi_params
         m, q = self.particle_params
-        E = U / l_a
-        tof_no_mom = np.sqrt(2 * l_a * m / (E * q))
-        return tof_no_mom
+        l_a_ion = self.length_accel_ion.get()
+        l_a_el = self.length_accel_electron.get()
+        l_d_el = self.length_drift_electron.get()
+        U_ion = self.voltage_ion.get()
+        U_el = self.voltage_electron.get()
+        E = (U_ion + U_el) / (l_a_ion + l_a_el)
+        tof_no_mom_acc = np.sqrt(2 * l_a_el * m / (E * q))
+
+        E_kin = np.abs(U_el * q)
+        v_drift = np.sqrt(2 * E_kin / m)
+        tof_no_mom_drift = l_d_el / v_drift
+
+        return tof_no_mom_acc + tof_no_mom_drift
 
     def export_data(self):
         """
@@ -1769,20 +1681,21 @@ class mclass:
         """
         calculates the ion position of
         """
-        p_x = -self.momenta[:, 0, 0]
-        p_y = -self.momenta[:, 0, 1]
-        v_jet = float(self.ENTRY_SET_v_jet.get()) * 1e3
+        p_x = -self.momenta[:, 0]
+        p_y = -self.momenta[:, 1]
+        v_jet = self.velocity_jet_si
         ion_formula = ChemFormula(self.ENTRY_ION_MASS.get())
 
         ion_mass_amu = get_mass_amu(ion_formula)
         ion_mass = ion_mass_amu * m_e
-        ion_remi_params = (
-            float(self.ENTRY_SET_U_ion.get()),
-            float(self.ENTRY_SET_l_d_ion.get()),
-            float(self.ENTRY_SET_l_a_ion.get()),
-        )
         ion_params = (ion_mass, float(self.ENTRY_ION_CHARGE.get()) * 1.6e-19)
-        tof = calc_tof(-self.momenta, ion_remi_params, ion_params)
+        tof = calc_tof(
+            -self.momenta,
+            voltage=self.voltage_ion.get(),
+            length_acceleration=self.length_accel_ion.get(),
+            length_drift=self.length_drift_ion.get(),
+            particle_params=ion_params,
+        )
         x_pos_ion = (p_x / ion_mass + v_jet) * tof
         y_pos_ion = (p_y / ion_mass) * tof
         self.make_plot(x_pos_ion, y_pos_ion, 120, 100, self.ion_pos_group, columnspan=2)
@@ -1806,44 +1719,32 @@ class mclass:
 
         for i in range(number_sim):
             K = np.sqrt(2 * mass * energys[i])
-            R = calc_R_fit(K, tof, self.remi_params, particle_params)
+            R = calc_R_fit(
+                K,
+                tof,
+                self.voltage_electron.get(),
+                self.magnetic_field_si,
+                self.length_accel_electron.get(),
+                particle_params,
+            )
             self.ax_R_tof.plot(tof, R, color="firebrick")
         self.canvas_R_tof.draw()
 
     def set_new_u(self, U):
-        U = float(self.SLIDE_U.get())
-        B = float(self.ENTRY_SET_B.get()) * 1e-4
-        l_a = float(self.ENTRY_SET_l_a.get())
-        l_d = 0  # TODO: add drift for electrons float(self.ENTRY_SET_l_d.get())
-        self.ENTRY_SET_U.delete(0, END)
-        self.ENTRY_SET_U.insert(0, str(U))
-        self.remi_params = np.array([U, B, l_a, l_d])
         self.update_R_tof()
-        return self.remi_params
+        return
 
     def set_new_u_pipico(self, U):
-        self.ENTRY_SET_U_ion.delete(0, END)
-        self.ENTRY_SET_U_ion.insert(0, U)
         self.calc_ion_tof()
         return
 
     def set_new_B_pipico(self, B):
-        self.ENTRY_SET_B_ion.delete(0, END)
-        self.ENTRY_SET_B_ion.insert(0, B)
         self.calc_ion_tof()
         return
 
     def set_new_b(self, B):
-        U = float(self.ENTRY_SET_U.get())
-        B = float(self.SLIDE_B.get())
-        self.ENTRY_SET_B.delete(0, END)
-        self.ENTRY_SET_B.insert(0, str(B))
-        B = B * 1e-4
-        l_a = float(self.ENTRY_SET_l_a.get())
-        l_d = 0  # TODO: add drift for electrons float(self.ENTRY_SET_l_d.get())
-        self.remi_params = np.array([U, B, l_a, l_d])
         self.update_R_tof()
-        return self.remi_params
+        return
 
     ##########################################################################
     ###############   TAB 2 ##################################################
@@ -1858,13 +1759,7 @@ class mclass:
         ### einheiten
         factor = 4.3597447e-18
 
-        ker = (
-            1
-            / (4 * np.pi * ele_const)
-            * (charge_1 * charge_2 / dis_R)
-            / factor
-            * 27.211
-        )
+        ker = 1 / (4 * np.pi * ele_const) * (charge_1 * charge_2 / dis_R) / factor * 27.211
         self.LABEL_KER.config(text="{:.2f} eV".format(ker))
 
         return ker
@@ -2010,12 +1905,6 @@ class mclass:
         self.calc_ion_tof()
 
     def calc_ion_tof(self):
-        l_a = float(self.ENTRY_SET_l_a_ion.get())
-        U = float(self.ENTRY_SET_U_ion.get())
-        self.SLIDE_U_pipco.set(U)
-        B = float(self.ENTRY_SET_B_ion.get())
-        self.SLIDE_B_pipco.set(B)
-
         self.LABEL_TOF_IONS.grid()
         formulas = ["" for n in range(self.last_ion_number)]
         masses = np.zeros(self.last_ion_number)
@@ -2033,16 +1922,17 @@ class mclass:
             except IndexError:
                 charges[n] = 0
         for n in range(self.last_ion_number):
-            this_ion_tof = calc_tof_ion(l_a, masses[n], charges[n], U)
+            this_ion_tof = calc_tof(
+                np.zeros((1, 3)),
+                self.voltage_ion.get(),
+                self.length_accel_ion.get(),
+                self.length_drift_ion.get(),
+                (masses[n], charges[n]),
+            )[0]
             self.labels_ion_tof[n]["text"] = "{:.4g}".format(this_ion_tof * 1e9)
         self.make_ion_pipico_plot()
 
     def make_ion_pipico_plot(self):
-        l_a = float(self.ENTRY_SET_l_a_ion.get())
-        U = float(self.ENTRY_SET_U_ion.get())
-        B = float(self.ENTRY_SET_B_ion.get()) * 1e-4
-        l_d = float(self.ENTRY_SET_l_d_ion.get())
-
         # read in charge, mass, and KER
         ion_tof = []
         ion_formula_1 = []
@@ -2089,12 +1979,14 @@ class mclass:
 
         # calc R tof for ions
 
-        # p_ion = calc_ion_momenta(ion_ker, ion_mass_1, ion_mass_2)
-        v_jet = float(self.ENTRY_SET_v_jet.get()) * 1e3
+        v_jet = self.velocity_jet_si
         tof = []
         X = []
         Y = []
-        remi_params = (U, B, l_a, l_d)
+        voltage = self.voltage_ion.get()
+        magnetic_field = self.magnetic_field_si
+        length_acceleration = self.length_accel_ion.get()
+        length_drift = self.length_drift_ion.get()
         for mass_1, mass_2, charge_1, charge_2, ker in zip(
             ion_mass_1, ion_mass_2, ion_charge_1, ion_charge_2, ion_ker_eV
         ):
@@ -2102,10 +1994,20 @@ class mclass:
                 ker, mass_1, mass_2, v_jet=v_jet, number_of_particles=1000
             )
             X_1, Y_1, tof_1 = calc_xytof(
-                p_ion_1, remi_params=remi_params, particle_params=(mass_1, charge_1)
+                p_ion_1,
+                voltage,
+                magnetic_field,
+                length_acceleration,
+                length_drift,
+                particle_params=(mass_1, charge_1),
             )
             X_2, Y_2, tof_2 = calc_xytof(
-                p_ion_2, remi_params=remi_params, particle_params=(mass_2, charge_2)
+                p_ion_2,
+                voltage,
+                magnetic_field,
+                length_acceleration,
+                length_drift,
+                particle_params=(mass_2, charge_2),
             )
             tof.append(tof_1 * 1e9)
             tof.append(tof_2 * 1e9)
@@ -2126,9 +2028,9 @@ class mclass:
         counts = 0
         modulo = float(self.ENTRY_SET_bunch_modulo.get())
         detector_diameter = float(self.ENTRY_SET_detector_diameter.get())
-        x_edges = y_edges = np.linspace(
-            -detector_diameter * 0.55, detector_diameter * 0.55, 250
-        )
+        ax_x_tof.set_ylim(-1.2 * detector_diameter, 1.2 * detector_diameter)
+        ax_y_tof.set_ylim(-1.2 * detector_diameter, 1.2 * detector_diameter)
+        x_edges = y_edges = np.linspace(-detector_diameter * 0.55, detector_diameter * 0.55, 250)
         legend_handles_even = []
         legend_labels_even = []
         legend_handles_odd = []
@@ -2205,9 +2107,7 @@ class mclass:
         for i in range(5):
             jettof = np.linspace(modulo * i, modulo * (i + 1), 2)
             label = "Jet" if i == 0 else None
-            ax_x_tof.plot(
-                [0, modulo], jettof * v_jet / 1e6, label=label, color="k", alpha=0.3
-            )
+            ax_x_tof.plot([0, modulo], jettof * v_jet / 1e6, label=label, color="k", alpha=0.3)
         for ax in [ax_x_tof, ax_y_tof]:
             ax.axhline(detector_diameter / 2, color="red")
             ax.axhline(-detector_diameter / 2, color="red")
