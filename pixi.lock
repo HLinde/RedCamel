@@ -4060,7 +4060,7 @@ packages:
 - pypi: ./
   name: redcamel
   version: 0.1.0
-  sha256: 65ea9c4c1396bb611441dbdea56bed95543658b7f46880006cb7dad2ba3af423
+  sha256: a0967352fc18eca4c465fcfb510384613acb2f88492772c3cf0cb16a9cbc45ba
   requires_dist:
   - chemformula>=1.3.1
   - matplotlib>=3.10.3
