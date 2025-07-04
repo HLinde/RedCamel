@@ -11,7 +11,7 @@ jobs:
     # Environment and permissions trusted publishing.
     environment:
       # Create this environment in the GitHub repository under Settings -> Environments
-      name: release
+      name: pypi
     permissions:
       id-token: write
     steps:
