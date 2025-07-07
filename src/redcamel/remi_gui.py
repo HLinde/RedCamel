@@ -45,7 +45,7 @@ from chemformula import ChemFormula
 
 # SI
 m_e = 9.10938356e-31  # electron_mass
-q_e = 1.6021766208e-19  # electron_charge
+q_e = 1.6021766208e-19  # elementary_charge
 amu = 1.66053906660e-27  # atomic mass unit
 
 #############################
@@ -129,7 +129,9 @@ def make_momentum_ion_dis(KER, mass_i1, mass_i2, number_of_particles=1000, v_jet
     return momentum_i1, momentum_i2
 
 
-def calc_tof(momentum, voltage, length_acceleration, length_drift, particle_params=(m_e, q_e)):
+def calc_tof(
+    momentum, electric_field, length_acceleration, length_drift, particle_params=(m_e, -q_e)
+):
     """
     Parameters
     ----------
@@ -143,7 +145,8 @@ def calc_tof(momentum, voltage, length_acceleration, length_drift, particle_para
     """
     m, q = particle_params
     p_z = momentum[:, 2]
-    D = p_z**2 + 2 * q * voltage * m
+    voltage_difference = electric_field * length_acceleration
+    D = np.abs(p_z**2 + 2 * q * voltage_difference * m)
     rootD = np.sqrt(D)
     # tof = ((p_z) - np.sqrt(D))/(-q*U)*l_a
     tof = m * (2 * length_acceleration / (rootD + p_z) + length_drift / rootD)
@@ -151,7 +154,12 @@ def calc_tof(momentum, voltage, length_acceleration, length_drift, particle_para
 
 
 def calc_xytof(
-    momentum, voltage, magnetic_field, length_acceleration, length_drift, particle_params=(m_e, q_e)
+    momentum,
+    electric_field,
+    magnetic_field,
+    length_acceleration,
+    length_drift,
+    particle_params=(m_e, -q_e),
 ):
     """
     Parameters
@@ -169,7 +177,7 @@ def calc_xytof(
     m, q = particle_params
     p_x = momentum[..., 0]
     p_y = momentum[..., 1]
-    tof = calc_tof(momentum, voltage, length_acceleration, length_drift, particle_params)
+    tof = calc_tof(momentum, electric_field, length_acceleration, length_drift, particle_params)
     p_xy = np.sqrt(p_x**2 + p_y**2)
 
     phi = np.atan2(p_x, p_y)
@@ -187,7 +195,12 @@ def calc_xytof(
 
 
 def calc_R(
-    momentum, voltage, magnetic_field, length_acceleration, length_drift, particle_params=(m_e, q_e)
+    momentum,
+    electric_field,
+    magnetic_field,
+    length_acceleration,
+    length_drift,
+    particle_params=(m_e, -q_e),
 ):
     """
     Parameters
@@ -204,25 +217,30 @@ def calc_R(
     p_x = momentum[:, 0]
     p_y = momentum[:, 1]
     p_xy = np.sqrt(p_x**2 + p_y**2)
-    tof = calc_tof(momentum, voltage, length_acceleration, length_drift, particle_params)
+    tof = calc_tof(momentum, electric_field, length_acceleration, length_drift, particle_params)
     R = (2 * p_xy * np.abs(np.sin(calc_omega(magnetic_field, q, m) * tof / 2))) / (
-        q * magnetic_field
+        np.abs(q) * magnetic_field
     )
     return R
 
 
 def make_R_tof_array(
-    momentum, voltage, magnetic_field, length_acceleration, length_drift, particle_params=(m_e, q_e)
+    momentum,
+    electric_field,
+    magnetic_field,
+    length_acceleration,
+    length_drift,
+    particle_params=(m_e, -q_e),
 ):
-    tof = calc_tof(momentum, voltage, length_acceleration, length_drift, particle_params)
+    tof = calc_tof(momentum, electric_field, length_acceleration, length_drift, particle_params)
     R = calc_R(
-        momentum, voltage, magnetic_field, length_acceleration, length_drift, particle_params
+        momentum, electric_field, magnetic_field, length_acceleration, length_drift, particle_params
     )
     ar = xr.DataArray(R, coords=[tof], dims=["time"])
     return ar
 
 
-def calc_omega(B, q=q_e, m=m_e):
+def calc_omega(B, q=-q_e, m=m_e):
     return q * B / m
 
 
@@ -1274,6 +1292,12 @@ class mclass:
     def velocity_jet_si(self):
         return self.velocity_jet.get() * 1e3
 
+    @property
+    def electric_field(self):
+        voltage_difference = self.voltage_electron.get() - self.voltage_ion.get()
+        voltage_distance = self.length_accel_electron.get() + self.length_accel_ion.get()
+        return voltage_difference / voltage_distance
+
     def check(self):
         if self.v.get() == 1:
             self.LABEL_MEAN_ENERGY.grid_remove()
@@ -1348,7 +1372,7 @@ class mclass:
                 )
         self.R_tof = make_R_tof_array(
             self.momenta,
-            self.voltage_electron.get(),
+            self.electric_field,
             self.magnetic_field_si,
             self.length_accel_electron.get(),
             self.length_drift_electron.get(),
@@ -1420,7 +1444,7 @@ class mclass:
                 )
         self.R_tof = make_R_tof_array(
             self.momenta,
-            self.voltage_electron.get(),
+            self.electric_field,
             self.magnetic_field_si,
             self.length_accel_electron.get(),
             self.length_drift_electron.get(),
@@ -1444,7 +1468,7 @@ class mclass:
         no_mom_tof = self.calc_no_momentum_tof()
 
         m, q = self.particle_params
-        cyclotron_period = 2 * np.pi / calc_omega(self.magnetic_field_si, q, m)
+        cyclotron_period = np.abs(2 * np.pi / calc_omega(self.magnetic_field_si, q, m))
 
         self.ax_R_tof.axvline(no_mom_tof, 0, 1, ls="--", color="darkgrey")
 
@@ -1480,7 +1504,7 @@ class mclass:
             self.ax_R_tof.lines[-1].remove()
 
         if len(self.ENTRY_KIN_ENERGY_1.get()) != 0:
-            energy_1 = float(self.ENTRY_KIN_ENERGY_1.get()) * 1.6e-19
+            energy_1 = float(self.ENTRY_KIN_ENERGY_1.get()) * q_e
             mass_1 = float(self.ENTRY_MASS_1.get()) * m_e
             charge_1 = float(self.ENTRY_CHARGE_1.get()) * q_e
             particle_params_1 = (mass_1, charge_1)
@@ -1496,7 +1520,7 @@ class mclass:
             self.ax_R_tof.plot(tof, R_1, color="firebrick")
 
         if len(self.ENTRY_KIN_ENERGY_2.get()) != 0:
-            energy_2 = float(self.ENTRY_KIN_ENERGY_2.get()) * 1.6e-19
+            energy_2 = float(self.ENTRY_KIN_ENERGY_2.get()) * q_e
             mass_2 = float(self.ENTRY_MASS_2.get()) * m_e
             charge_2 = float(self.ENTRY_CHARGE_2.get()) * q_e
             particle_params_2 = (mass_2, charge_2)
@@ -1512,7 +1536,7 @@ class mclass:
             self.ax_R_tof.plot(tof, R_2, color="deepskyblue")
 
         if len(self.ENTRY_KIN_ENERGY_3.get()) != 0:
-            energy_3 = float(self.ENTRY_KIN_ENERGY_3.get()) * 1.6e-19
+            energy_3 = float(self.ENTRY_KIN_ENERGY_3.get()) * q_e
             mass_3 = float(self.ENTRY_MASS_3.get()) * m_e
             charge_3 = float(self.ENTRY_CHARGE_3.get()) * q_e
             particle_params_3 = (mass_3, charge_3)
@@ -1597,7 +1621,7 @@ class mclass:
         l_d_el = self.length_drift_electron.get()
         U_ion = self.voltage_ion.get()
         U_el = self.voltage_electron.get()
-        E = (U_ion + U_el) / (l_a_ion + l_a_el)
+        E = self.electric_field
 
         # time from reaction point to end of ion acceleration
         time_1 = np.sqrt(2 * l_a_ion * m / (E * q))
@@ -1614,20 +1638,15 @@ class mclass:
         """
         calculates the time of flight for a paticle with no z-momentum
         """
-        m, q = self.particle_params
-        l_a_ion = self.length_accel_ion.get()
-        l_a_el = self.length_accel_electron.get()
-        l_d_el = self.length_drift_electron.get()
-        U_ion = self.voltage_ion.get()
-        U_el = self.voltage_electron.get()
-        E = (U_ion + U_el) / (l_a_ion + l_a_el)
-        tof_no_mom_acc = np.sqrt(2 * l_a_el * m / (E * q))
-
-        E_kin = np.abs(U_el * q)
-        v_drift = np.sqrt(2 * E_kin / m)
-        tof_no_mom_drift = l_d_el / v_drift
-
-        return tof_no_mom_acc + tof_no_mom_drift
+        no_momentum = np.zeros((1, 3))
+        zero_momentum_tof = calc_tof(
+            no_momentum,
+            self.electric_field,
+            self.length_accel_electron.get(),
+            self.length_drift_electron.get(),
+            particle_params=self.particle_params,
+        )[0]
+        return zero_momentum_tof
 
     def export_data(self):
         """
@@ -1688,10 +1707,10 @@ class mclass:
 
         ion_mass_amu = get_mass_amu(ion_formula)
         ion_mass = ion_mass_amu * m_e
-        ion_params = (ion_mass, float(self.ENTRY_ION_CHARGE.get()) * 1.6e-19)
+        ion_params = (ion_mass, float(self.ENTRY_ION_CHARGE.get()) * q_e)
         tof = calc_tof(
             -self.momenta,
-            voltage=self.voltage_ion.get(),
+            self.electric_field,
             length_acceleration=self.length_accel_ion.get(),
             length_drift=self.length_drift_ion.get(),
             particle_params=ion_params,
@@ -1704,8 +1723,8 @@ class mclass:
     def R_tof_sim_ir(self):
         tof_max = float(self.ENTRY_TOF.get()) * 1e-9
         tof = np.linspace(0, tof_max, int(tof_max * 100e9))
-        start_energy = float(self.ENTRY_KIN_ENERGY_START.get()) * 1.6e-19
-        step_energy = float(self.ENTRY_KIN_ENERGY_STEP.get()) * 1.6e-19
+        start_energy = float(self.ENTRY_KIN_ENERGY_START.get()) * q_e
+        step_energy = float(self.ENTRY_KIN_ENERGY_STEP.get()) * q_e
         number_sim = int(self.ENTRY_NUMBER_OF_PART.get())
         energys = np.linspace(
             start_energy, (number_sim * step_energy) + start_energy, number_sim + 1
@@ -1924,7 +1943,7 @@ class mclass:
         for n in range(self.last_ion_number):
             this_ion_tof = calc_tof(
                 np.zeros((1, 3)),
-                self.voltage_ion.get(),
+                self.electric_field,
                 self.length_accel_ion.get(),
                 self.length_drift_ion.get(),
                 (masses[n], charges[n]),
@@ -1983,7 +2002,7 @@ class mclass:
         tof = []
         X = []
         Y = []
-        voltage = self.voltage_ion.get()
+        electric_field = self.electric_field
         magnetic_field = self.magnetic_field_si
         length_acceleration = self.length_accel_ion.get()
         length_drift = self.length_drift_ion.get()
@@ -1995,7 +2014,7 @@ class mclass:
             )
             X_1, Y_1, tof_1 = calc_xytof(
                 p_ion_1,
-                voltage,
+                electric_field,
                 magnetic_field,
                 length_acceleration,
                 length_drift,
@@ -2003,7 +2022,7 @@ class mclass:
             )
             X_2, Y_2, tof_2 = calc_xytof(
                 p_ion_2,
-                voltage,
+                electric_field,
                 magnetic_field,
                 length_acceleration,
                 length_drift,
