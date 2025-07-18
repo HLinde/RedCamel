@@ -43,8 +43,8 @@ matplotlib.use("TkAgg")
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.figure import Figure
-import xarray as xr
+import scipp as sc
+from scipp import constants
 from chemformula import ChemFormula
 
 #############################
@@ -52,20 +52,22 @@ from chemformula import ChemFormula
 ############################
 
 # SI
-m_e = 9.10938356e-31  # electron_mass
-q_e = 1.6021766208e-19  # elementary_charge
+m_e = constants.m_e.value  # electron_mass
+q_e = constants.e.value  # elementary_charge
 amu = 1.66053906660e-27  # atomic mass unit
+sc.units.aliases["au momentum"] = constants.physical_constants("atomic unit of momentum")
+sc.units.aliases["au mass"] = constants.m_e
 
 #############################
 #### functions ##############
 ############################
 
 
-def get_mass_amu(formula: ChemFormula) -> float:
+def get_mass(formula: ChemFormula) -> sc.Variable:
     if formula.formula == "e":
-        mass_amu = m_e / amu
+        mass_amu = (constants.m_e).to(unit="u")
     else:
-        mass_amu = formula.formula_weight
+        mass_amu = formula.formula_weight * sc.Unit("u")
     return mass_amu
 
 
@@ -186,19 +188,21 @@ def calc_xytof(
     p_x = momentum[..., 0]
     p_y = momentum[..., 1]
     tof = calc_tof(momentum, electric_field, length_acceleration, length_drift, particle_params)
-    p_xy = np.sqrt(p_x**2 + p_y**2)
 
-    phi = np.atan2(p_x, p_y)
-
-    omega = calc_omega(magnetic_field, q, m)
-    alpha = omega * tof
-    theta = phi + alpha / 2
-
-    R = (2 * p_xy * np.abs(np.sin(alpha / 2))) / (q * magnetic_field)
-
-    x = R * np.sin(theta)
-    y = R * np.cos(theta)
-
+    if magnetic_field:  # cyclotron motion during the time-of-flight
+        p_xy = np.sqrt(p_x**2 + p_y**2)
+        phi = np.atan2(p_x, p_y)
+        omega = calc_omega(magnetic_field, q, m)
+        alpha = omega * tof
+        theta = phi + alpha / 2
+        R = (2 * p_xy * np.abs(np.sin(alpha / 2))) / (q * magnetic_field)
+        x = R * np.sin(theta)
+        y = R * np.cos(theta)
+    else:  # for small magnetic field it reduces to this linear motion:
+        v_x = p_x / m
+        v_y = p_y / m
+        x = v_x * tof
+        y = v_y * tof
     return x, y, tof
 
 
@@ -222,30 +226,11 @@ def calc_R(
         Distance from reaction point to detection point in xy for each particle
     """
     m, q = particle_params
-    p_x = momentum[:, 0]
-    p_y = momentum[:, 1]
-    p_xy = np.sqrt(p_x**2 + p_y**2)
-    tof = calc_tof(momentum, electric_field, length_acceleration, length_drift, particle_params)
-    R = (2 * p_xy * np.abs(np.sin(calc_omega(magnetic_field, q, m) * tof / 2))) / (
-        np.abs(q) * magnetic_field
-    )
-    return R
-
-
-def make_R_tof_array(
-    momentum,
-    electric_field,
-    magnetic_field,
-    length_acceleration,
-    length_drift,
-    particle_params=(m_e, -q_e),
-):
-    tof = calc_tof(momentum, electric_field, length_acceleration, length_drift, particle_params)
-    R = calc_R(
+    x, y, tof = calc_xytof(
         momentum, electric_field, magnetic_field, length_acceleration, length_drift, particle_params
     )
-    ar = xr.DataArray(R, coords=[tof], dims=["time"])
-    return ar
+    R = np.sqrt(x**2 + y**2)
+    return R
 
 
 def calc_omega(B, q=-q_e, m=m_e):
@@ -386,6 +371,9 @@ class mclass:
         self.velocity_jet = DoubleVar(value=1.0)
 
         self.number_of_particles = IntVar(value=1000)
+        self.electron_params = (sc.constants.m_e, -sc.constants.e)
+        self.particle_params = (sc.constants.m_e.value, -sc.constants.e.value)
+
         self.fixed_center_potential = IntVar()
         self.fixed_center_potential.set(1)
 
@@ -1008,7 +996,10 @@ class mclass:
         )
         self.pipico_toolbar.update()
 
-        self.make_R_tof()
+        ### initialize data and plots ###################
+        self.make_R_tof_figure()
+        self.init_dataset()
+        write_callback_voltage_electron(None, None, None)  # initalize ion voltages
         self.calc_ker()
         self.generate_entrys()
         self.calc_ion_tof()
@@ -1038,86 +1029,6 @@ class mclass:
         self.BUTTON_EXPORT_DATA.grid(
             row=12, column=100, columnspan=2, padx="5", pady="5", sticky="w"
         )
-
-    def make_plot_xarray(
-        self,
-        data,
-        row,
-        column,
-        master,
-        sorting=False,
-        sort="time",
-        rowspan=1,
-        columnspan=1,
-        figsize=(4, 4),
-        color="blue",
-        marker=".",
-        ls="",
-        title="",
-    ):
-        """
-        Plots the data at the given position
-
-        Parameters
-        ----------
-        data: xarray
-            data to be plottet
-        row: int
-            row to place the plot
-        column: int
-            column to place the plot
-        master: Frame
-        sorting: Bool, optional
-        sort: string, optional
-        rowspan: int, optional
-        columnspan: int, optional
-        figsize: tuple, optional
-        color: string, optional
-        marker: string, optional
-        ls: string, optional
-        title: string, optional
-
-        Returns
-        -------
-        fig : Figure
-        a : axis
-        canvas : canvas
-        """
-
-        fig = Figure(figsize=figsize, facecolor="whitesmoke")
-        a = fig.add_subplot(111)
-        if not sorting:
-            data.plot(ax=a, marker=marker, ls=ls, color=color)
-        else:
-            time = data.sortby(sort).time
-            rad = data.sortby(sort).values
-            a.hexbin(time, rad, mincnt=1, edgecolors="face", gridsize=50, cmap="PuBuGn")
-            a.set_title(title)
-
-        a.autoscale(tight=True)
-        canvas = FigureCanvasTkAgg(fig, master=master)
-        canvas.get_tk_widget().grid(
-            row=row,
-            column=column,
-            rowspan=rowspan,
-            columnspan=columnspan,
-            padx="5",
-            pady="5",
-            sticky="ew",
-        )
-        canvas.draw()
-        toolbar = NavigationToolbar2Tk(canvas=canvas, window=master, pack_toolbar=False)
-        toolbar.grid(
-            row=row + 1,
-            column=column,
-            rowspan=1,
-            columnspan=columnspan,
-            padx="5",
-            pady="5",
-            sticky="ew",
-        )
-        toolbar.update()
-        return fig, a, canvas, toolbar
 
     def make_plot(
         self, row, column, master, rowspan=1, columnspan=1, figsize=(5, 5), withcax=False
@@ -1204,171 +1115,76 @@ class mclass:
             self.ENTRY_MULTI_PART_ENERGY_STEP.grid()
             self.ENTRY_MULTI_PART_NUMBER.grid()
 
-    def make_R_tof(self):
+    def make_R_tof_figure(self):
         """
         Generates the R vs tof plot and the electron position plot with random data points
         """
-        self.R_tof_plot_group.grid()
-        self.particle_params = (
-            float(self.ENTRY_PART_MASS.get()) * m_e,
-            float(self.ENTRY_PART_CHARGE.get()) * q_e,
+        self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof, self.toolbar_R_tof = self.make_plot(
+            100, 100, self.R_tof_plot_group, figsize=(5, 5), columnspan=2
         )
-        if self.v.get() == 1:
-            self.momenta = make_gaussian_momentum_distribution(int(self.ENTRY_NUMBER_PART.get()))
-        elif self.v.get() == 2:
-            energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
-            width = float(self.ENTRY_WIDTH.get())
-            self.momenta = make_gaussian_energy_distribution(
-                energy_mean,
-                width,
-                self.particle_params[0],
-                number_of_particles=int(self.ENTRY_NUMBER_PART.get()),
-            )
-        elif self.v.get() == 3:
-            energy_step = float(self.ENTRY_MULTI_PART_ENERGY_STEP.get())
-            energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
-            width = float(self.ENTRY_WIDTH.get())
-            part_num = int(self.ENTRY_MULTI_PART_NUMBER.get())
-            self.momenta = make_gaussian_energy_distribution(
-                energy_mean,
-                width,
-                self.particle_params[0],
-                number_of_particles=int(self.ENTRY_NUMBER_PART.get()),
-            )
-            for i in range(1, part_num):
-                self.momenta = np.concatenate(
-                    [
-                        self.momenta,
-                        make_gaussian_energy_distribution(
-                            energy_mean + (i * energy_step),
-                            width,
-                            self.particle_params[0],
-                            number_of_particles=int(self.ENTRY_NUMBER_PART.get()),
-                        ),
-                    ]
-                )
-        self.R_tof = make_R_tof_array(
-            self.momenta,
-            self.electric_field,
-            self.magnetic_field_si,
-            self.length_accel_electron.get(),
-            self.length_drift_electron.get(),
-            self.particle_params,
+        self.ele_pos_fig, self.ele_pos_a, self.ele_pos_canvas, self.ele_pos_toolbar = (
+            self.make_plot(100, 110, self.R_tof_plot_group, figsize=(5, 5), columnspan=2)
         )
-        self.fig_R_tof, self.ax_R_tof, self.canvas_R_tof, self.toolbar_R_tof = (
-            self.make_plot_xarray(
-                self.R_tof,
-                100,
-                100,
-                self.R_tof_plot_group,
-                sorting=True,
-                sort="time",
-                columnspan=2,
-                color="powderblue",
-                figsize=(6, 6),
-                title="Rad vs Time",
-            )
-        )
-        self.plot_position()
-
-        max_tof = self.calc_max_tof()
-        self.ax_R_tof.axvline(max_tof, 0, 1, color="darkgrey")
-        no_mom_tof = self.calc_no_momentum_tof()
-        self.ax_R_tof.axvline(no_mom_tof, 0, 1, ls="--", color="darkgrey")
-        self.canvas_R_tof.draw()
 
     def update_R_tof(self):
         """
         Updates the R vs tof and the position plot, while moving the sliders for B and U
         """
-        self.particle_params = (
-            float(self.ENTRY_PART_MASS.get()) * m_e,
-            float(self.ENTRY_PART_CHARGE.get()) * q_e,
+        ax = self.ax_R_tof
+        ax.cla()
+
+        max_tof = sc.scalar(self.calc_max_tof(), unit="s").to(unit="ns")
+        tof_limit = max(max_tof * 1.2, 1e-9 * sc.Unit("ns"))
+        R_limit = sc.scalar(0.07, unit="m").to(unit="mm")
+        pos_bins = 100
+        tof_bins = 200
+
+        self.x_bins_electrons = sc.linspace("x", -R_limit, R_limit, pos_bins)
+        self.y_bins_electrons = sc.linspace("y", -R_limit, R_limit, pos_bins)
+        self.tof_bins_electrons = sc.linspace("tof", sc.scalar(0, unit="ns"), tof_limit, tof_bins)
+        self.R_bins_electrons = sc.linspace("R", sc.scalar(0, unit="mm"), R_limit, pos_bins)
+
+        R_tof_hist = self.electron_hits.hist(
+            R=self.R_bins_electrons, tof=self.tof_bins_electrons, dim=("p", "pulses", "HitNr")
         )
-        if self.v.get() == 1:
-            self.momenta = make_gaussian_momentum_distribution(int(self.ENTRY_NUMBER_PART.get()))
-        elif self.v.get() == 2:
-            energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
-            width = float(self.ENTRY_WIDTH.get())
-            self.momenta = make_gaussian_energy_distribution(
-                energy_mean,
-                width,
-                self.particle_params[0],
-                number_of_particles=int(self.ENTRY_NUMBER_PART.get()),
-            )
-        elif self.v.get() == 3:
-            energy_step = float(self.ENTRY_MULTI_PART_ENERGY_STEP.get())
-            energy_mean = float(self.ENTRY_MEAN_ENERGY.get())
-            width = float(self.ENTRY_WIDTH.get())
-            part_num = int(self.ENTRY_MULTI_PART_NUMBER.get())
-            self.momenta = make_gaussian_energy_distribution(
-                energy_mean,
-                width,
-                self.particle_params[0],
-                number_of_particles=int(self.ENTRY_NUMBER_PART.get()),
-            )
-            for i in range(1, part_num):
-                self.momenta = np.concatenate(
-                    [
-                        self.momenta,
-                        make_gaussian_energy_distribution(
-                            energy_mean + (i * energy_step),
-                            width,
-                            self.particle_params[0],
-                            number_of_particles=int(self.ENTRY_NUMBER_PART.get()),
-                        ),
-                    ]
-                )
-        self.R_tof = make_R_tof_array(
-            self.momenta,
-            self.electric_field,
-            self.magnetic_field_si,
-            self.length_accel_electron.get(),
-            self.length_drift_electron.get(),
-            self.particle_params,
-        )
-        self.ax_R_tof.cla()
-        self.ax_R_tof.hexbin(
-            self.R_tof.time,
-            self.R_tof.values,
-            mincnt=1,
-            edgecolors="face",
-            gridsize=50,
-            cmap="PuBuGn",
-        )
+        R_tof_hist.plot(ax=ax, cbar=False, norm="log", cmap="PuBuGn")
+
         if self.v_ir.get() == 1:
             self.R_tof_sim_ir()
 
-        max_tof = self.calc_max_tof()
-        self.ax_R_tof.axvline(max_tof, 0, 1, color="darkgrey")
+        ax.axvline(max_tof.value, color="darkgrey")
 
-        no_mom_tof = self.calc_no_momentum_tof()
+        no_mom_tof = (self.calc_no_momentum_tof() * sc.Unit("s")).to(unit="ns")
 
         m, q = self.particle_params
-        cyclotron_period = np.abs(2 * np.pi / calc_omega(self.magnetic_field_si, q, m))
+        omega = calc_omega(self.magnetic_field_si, q, m)
+        if omega == 0:
+            cyclotron_period = np.inf
+        else:
+            cyclotron_period = np.abs(2 * np.pi / omega)
+        cyclotron_period = (cyclotron_period * sc.Unit("s")).to(unit="ns")
 
-        self.ax_R_tof.axvline(no_mom_tof, 0, 1, ls="--", color="darkgrey")
+        ax.axvline(no_mom_tof.value, ls="--", color="darkgrey")
+        if sc.isfinite(cyclotron_period) and max_tof > cyclotron_period:
+            for node_tof in np.arange(0.0, max_tof.value, cyclotron_period.value):
+                ax.axvline(node_tof, ls=":", color="darkgrey")
 
-        for node_tof in np.arange(0, max_tof, cyclotron_period):
-            self.ax_R_tof.axvline(node_tof, 0, 1, ls=":", color="darkgrey")
         self.canvas_R_tof.draw()
 
-        self.ele_pos_a.cla()
-        x, y = self.calc_position()
+        ax = self.ele_pos_a
+        ax.cla()
 
-        self.ele_pos_a.hexbin(
-            x,
-            y,
-            mincnt=1,
-            edgecolors="face",
-            gridsize=100,
-            cmap="PuBuGn",
-            extent=(-0.1, 0.1, -0.1, 0.1),
+        x_y_hist = self.electron_hits.hist(
+            x=self.x_bins_electrons, y=self.y_bins_electrons, dim=("p", "pulses", "HitNr")
         )
-        self.ele_pos_a.set_xlim(-0.1, 0.1)
-        self.ele_pos_a.set_ylim(-0.1, 0.1)
-        detector = plt.Circle((0, 0), 0.06, color="cadetblue", fill=False, figure=self.ele_pos_fig)
-        self.ele_pos_a.add_artist(detector)
+        x_y_hist.plot(ax=ax, cbar=False, norm="log", cmap="PuBuGn")
+
+        detector = plt.Circle((0, 0), 60, color="cadetblue", fill=False, figure=self.ele_pos_fig)
+        ax.add_artist(detector)
+
+        ax.set_xlim(-70, 70)
+        ax.set_ylim(-70, 70)
+
         self.ele_pos_canvas.draw()
 
     def R_tof_sim(self):
@@ -1434,59 +1250,6 @@ class mclass:
         self.ax_R_tof.axvline(no_mom_tof, 0, 1, ls="--", color="darkgrey")
         self.canvas_R_tof.draw()
 
-    def calc_position(self):
-        """
-        calculates the electron positions (x,y)
-        """
-        m, q = self.particle_params
-        tof = self.R_tof.time
-        R = self.R_tof.values
-
-        alpha = calc_omega(self.magnetic_field_si, q, m) * tof
-        alpha2 = 180 - np.abs(180 - alpha)
-        beta = (180 - alpha2) / 2
-
-        p_x = self.momenta[:, 0]
-        p_y = self.momenta[:, 1]
-        phi = np.arctan2(p_y, p_x)
-
-        theta = phi + 90 + beta
-
-        x = R * np.sin(180 - theta)
-        y = R * np.cos(180 - theta)
-
-        return x, y
-
-    def plot_position(self):
-        """
-        generates a hex-plot of the electron positions with random distribution
-        """
-        x, y = self.calc_position()
-        detector_radius = 0.04
-        self.ele_pos_fig, self.ele_pos_a, self.ele_pos_canvas, self.ele_pos_toolbar = (
-            self.make_plot(
-                x,
-                y,
-                100,
-                110,
-                self.R_tof_plot_group,
-                figsize=(6, 6),
-                title="Electron Positions",
-                extent=(-0.1, 0.1, -0.1, 0.1),
-            )
-        )
-        self.ele_pos_a.set_xlim(-0.1, 0.1)
-        self.ele_pos_a.set_ylim(-0.1, 0.1)
-        detector = plt.Circle(
-            (0, 0),
-            detector_radius,
-            color="cadetblue",
-            fill=False,
-            figure=self.ele_pos_fig,
-        )
-        self.ele_pos_a.add_artist(detector)
-        self.ele_pos_canvas.draw()
-
     def calc_max_tof(self):
         """
         calculates the maximal tof for the electron to not fly into the ion detector
@@ -1499,16 +1262,33 @@ class mclass:
         U_ion = self.voltage_ion.get()
         U_el = self.voltage_electron.get()
         E = self.electric_field
-
-        # time from reaction point to end of ion acceleration
-        time_1 = np.sqrt(2 * l_a_ion * m / (E * q))
-        # time from ion acceleration end to electron acceleration end
-        time_2 = np.sqrt(2 * (l_a_ion + l_a_el) * m / (E * q))
-        # now kinetic energy is exactly the total potential for the edge case
-        E_kin = np.abs((U_ion + U_el) * q)
-        v_drift = np.sqrt(2 * E_kin / m)
-        time_3 = l_d_el / v_drift
-        tof_max = time_1 + time_2 + time_3
+        if (
+            np.abs(E) < 4 * np.finfo(E).eps
+        ):  # check if field magnitude is above numerical resolution
+            # No acceleration.. anything towards ion detector is lost
+            # assume a tiny kinetic energy towards electron detector..
+            E_kin = 1e-1 * q_e
+            momentum = np.array([[0, 0, np.sqrt(2 * E_kin * m)]])
+            tof_max = calc_tof(momentum, E, l_a_el, l_d_el, particle_params=self.particle_params)[0]
+        elif E > 0:
+            # Start with kinetic energy towards ion detector equal to the potential difference
+            # time from reaction point to end of ion acceleration
+            time_1 = np.sqrt(2 * l_a_ion * m / (-E * q))
+            # time from ion acceleration end to electron acceleration end
+            time_2 = np.sqrt(2 * (l_a_ion + l_a_el) * m / (-E * q))
+            # now kinetic energy is exactly the total potential for the edge case
+            E_kin = np.abs((U_ion + U_el) * q)
+            v_drift = np.sqrt(2 * E_kin / m)
+            time_3 = l_d_el / v_drift
+            tof_max = time_1 + time_2 + time_3
+        else:
+            # Field is deccelerating!
+            # Start with kinetic energy towards electron detector equal to the potential difference
+            # time from reaction point to end of ion acceleration
+            # now kinetic energy is exactly the total potential for the edge case
+            E_kin = E * l_a_el
+            momentum = np.array([[0, 0, np.sqrt(2 * E_kin * m)]])
+            tof_max = calc_tof(momentum, E, l_a_el, l_d_el, particle_params=self.particle_params)[0]
         return tof_max
 
     def calc_no_momentum_tof(self):
@@ -1525,12 +1305,30 @@ class mclass:
         )[0]
         return zero_momentum_tof
 
+    def export_pipico(self):
+        pass
+
+    @property
+    def electron_x(self):
+        return self.electron_hits.coords["x"]
+
+    @property
+    def electron_y(self):
+        return self.electron_hits.coords["y"]
+
+    @property
+    def electron_tof(self):
+        return self.electron_hits.coords["tof"]
+
     def export_data(self):
         """
         writes electron position data to a file
         """
-        x, y = self.calc_position()
-        tof = self.R_tof.time
+        x, y, tof = (
+            self.electron_x.values.flatten(),
+            self.electron_y.values.flatten(),
+            self.electron_tof.values.flatten(),
+        )
         data = np.array([x, y, tof])
         data = data.T
         with open("pos_data.txt", "w") as datafile:
@@ -1540,10 +1338,8 @@ class mclass:
         """
         writes electron momentum data to a file
         """
-        p_x = self.momenta[:, 0, 0]
-        p_y = self.momenta[:, 0, 1]
-        p_z = self.momenta[:, 0, 2]
-        mom = np.array([p_x, p_y, p_z])
+        px, py, pz = self.electron_momenta.coords["p"].fields.values()
+        mom = np.array([px.values.flatten(), py.values.flatten(), pz.values.flatten()])
         mom = mom.T
         with open("mom_data.txt", "w") as datafile:
             np.savetxt(datafile, mom, fmt=["%.3E", "%.3E", "%.3E"])
@@ -1552,21 +1348,25 @@ class mclass:
         """
         calculates the mcp times and write them to a file
         """
-        x, y = self.calc_position()
-        tof = self.R_tof.time
+        x, y, tof = self.electron_x, self.electron_y, self.electron_tof
+
+        x = x.to(unit="m").values.flatten()
+        y = y.to(unit="m").values.flatten()
+        tof = tof.to(unit="s").values.flatten()
+
         t_mcp = tof
-        v = 0.857 * 1e6
-        sum_x = 143.8 * 1e-9
-        sum_y = 141.2 * 1e-9
+        v_delayline = 0.857 * 1e6
+        timesum_x = 143.8 * 1e-9
+        timesum_y = 141.2 * 1e-9
 
         def calc_t(time_sum, v, x):
             t = -x / v + time_sum / 2
             return t
 
-        t2_x = calc_t(sum_x, v, x)
-        t2_y = calc_t(sum_y, v, y)
-        t1_x = sum_x - t2_x
-        t1_y = sum_y - t2_y
+        t2_x = calc_t(timesum_x, v_delayline, x)
+        t2_y = calc_t(timesum_y, v_delayline, y)
+        t1_x = timesum_x - t2_x
+        t1_y = timesum_y - t2_y
 
         times = np.array([t_mcp, t1_x, t2_x, t1_y, t2_y])
         times = times.T
@@ -1582,7 +1382,7 @@ class mclass:
         v_jet = self.velocity_jet_si
         ion_formula = ChemFormula(self.ENTRY_ION_MASS.get())
 
-        ion_mass_amu = get_mass_amu(ion_formula)
+        ion_mass_amu = get_mass(ion_formula)
         ion_mass = ion_mass_amu * m_e
         ion_params = (ion_mass, float(self.ENTRY_ION_CHARGE.get()) * q_e)
         tof = calc_tof(
@@ -1667,7 +1467,7 @@ class mclass:
                 formulas[n] = ChemFormula(self.entries_formula[n].get())
             except IndexError:
                 formulas[n] = ChemFormula("")
-            masses[n] = get_mass_amu(formulas[n])
+            masses[n] = get_mass(formulas[n]).value
             try:
                 charges[n] = float(self.entries_charge[n].get())
             except IndexError:
@@ -1713,7 +1513,7 @@ class mclass:
                     charges[n] = 4
                 case _:
                     formulas[n] = ChemFormula("H")
-            masses[n] = get_mass_amu(formulas[n])
+            masses[n] = get_mass(formulas[n]).value
 
         for i in range(ker_length):
             kers[i] = 15
@@ -1795,7 +1595,7 @@ class mclass:
                 formulas[n] = ChemFormula(self.entries_formula[n].get())
             except IndexError:
                 formulas[n] = ChemFormula("")
-            mass_amu = get_mass_amu(formulas[n])
+            mass_amu = get_mass(formulas[n]).value
             masses[n] = mass_amu * amu
             self.labels_mass[n]["text"] = "{:.4g}".format(mass_amu)
             try:
@@ -1828,7 +1628,7 @@ class mclass:
             if n % 2 == 0:
                 try:
                     formula = ChemFormula(self.entries_formula[n].get())
-                    mass = get_mass_amu(formula)
+                    mass = get_mass(formula).value
                     charge = float(self.entries_charge[n].get())
                     ker = float(self.entries_ker[n // 2].get())
                     ion_formula_1.append(formula)
@@ -1843,7 +1643,7 @@ class mclass:
             elif n % 2 == 1:
                 try:
                     formula = ChemFormula(self.entries_formula[n].get())
-                    mass = get_mass_amu(formula)
+                    mass = get_mass(formula).value
                     charge = float(self.entries_charge[n].get())
                     ion_formula_2.append(formula)
                     ion_mass_2.append(mass)
@@ -2024,6 +1824,177 @@ class mclass:
         for artist in legend.legend_handles:
             artist.set_alpha(1)
         self.pipico_canvas.draw()
+
+    def update_electron_momenta(self):
+        mass, charge = self.electron_params
+        number_of_particles = len(self.pulses)
+        if self.v.get() == 1:
+            momentum = sc.vectors(
+                dims=["pulses", "HitNr"],
+                values=np.random.randn(number_of_particles, 1, 3),
+                unit="au momentum",
+            )
+            dataarray = sc.DataArray(
+                data=sc.ones(
+                    sizes={"pulses": number_of_particles, "HitNr": 1, "p": 1}, dtype="int32"
+                ),
+                coords={
+                    "pulses": self.pulses,
+                    "HitNr": sc.array(dims=["HitNr"], values=np.arange(1)),
+                    "p": momentum.to(unit="N*s"),
+                },
+            )
+
+        elif self.v.get() == 2:
+            energy_mean = sc.scalar(float(self.ENTRY_MEAN_ENERGY.get()), unit="eV")
+            width = sc.scalar(float(self.ENTRY_WIDTH.get()), unit="eV")
+            energy = (
+                sc.array(dims=["pulses", "HitNr"], values=np.random.randn(number_of_particles, 1))
+                * width
+                + energy_mean
+            )
+            r_mom = sc.sqrt(energy * 2 * mass)
+
+            phi = sc.array(
+                dims=["pulses", "HitNr"],
+                values=np.random.rand(number_of_particles, 1) * 2 * np.pi,
+                unit="rad",
+            )
+
+            cos_theta = sc.array(
+                dims=["pulses", "HitNr"], values=np.random.rand(number_of_particles, 1) * 2 - 1
+            )
+            theta = sc.acos(cos_theta)
+
+            x = r_mom * sc.sin(theta) * sc.cos(phi)
+            y = r_mom * sc.sin(theta) * sc.sin(phi)
+            z = r_mom * cos_theta
+            dataarray = sc.DataArray(
+                data=sc.ones(
+                    sizes={"pulses": number_of_particles, "HitNr": 1, "p": 1}, dtype="int32"
+                ),
+                coords={
+                    "pulses": self.pulses,
+                    "HitNr": sc.array(dims=["HitNr"], values=np.arange(1)),
+                    "p": sc.spatial.as_vectors(x, y, z).to(unit="N*s"),
+                },
+            )
+        elif self.v.get() == 3:
+            energy_mean = sc.scalar(float(self.ENTRY_MEAN_ENERGY.get()), unit="eV")
+            width = sc.scalar(float(self.ENTRY_WIDTH.get()), unit="eV")
+            energy_step = sc.scalar(float(self.ENTRY_MULTI_PART_ENERGY_STEP.get()), unit="eV")
+            part_num = int(self.ENTRY_MULTI_PART_NUMBER.get())
+            particles = []
+            for i in range(part_num):
+                energy = (
+                    sc.array(
+                        dims=["pulses", "HitNr"], values=np.random.randn(number_of_particles, 1)
+                    )
+                    * width
+                    + energy_mean
+                    + i * energy_step
+                )
+                r_mom = sc.sqrt(energy * 2 * mass)
+
+                phi = sc.array(
+                    dims=["pulses", "HitNr"],
+                    values=np.random.rand(number_of_particles, 1) * 2 * np.pi,
+                    unit="rad",
+                )
+
+                cos_theta = sc.array(
+                    dims=["pulses", "HitNr"], values=np.random.rand(number_of_particles, 1) * 2 - 1
+                )
+                theta = sc.acos(cos_theta)
+
+                x = r_mom * sc.sin(theta) * sc.cos(phi)
+                y = r_mom * sc.sin(theta) * sc.sin(phi)
+                z = r_mom * cos_theta
+                momentum = sc.spatial.as_vectors(x, y, z)
+
+                particles.append(momentum)
+            dataarray = sc.DataArray(
+                data=sc.ones(
+                    sizes={"pulses": number_of_particles, "HitNr": part_num, "p": 1}, dtype="int32"
+                ),
+                coords={
+                    "pulses": self.pulses,
+                    "HitNr": sc.array(dims=["HitNr"], values=np.arange(part_num)),
+                    "p": sc.concat(particles, "HitNr").to(unit="N*s"),
+                },
+            )
+        self.electron_momenta = dataarray
+        self.update_electron_positions()
+
+    def update_electron_positions(self):
+        mass, charge = self.electron_params
+
+        length_acceleration = sc.scalar(self.length_accel_electron.get(), unit="m")
+        length_drift = sc.scalar(self.length_drift_electron.get(), unit="m")
+        electric_field = sc.scalar(self.electric_field, unit="V/m")
+        magnetic_field = sc.scalar(self.magnetic_field_si, unit="T")
+        voltage_difference = electric_field * length_acceleration
+
+        def calc_tof(p):
+            p_z = p.fields.z
+            D = p_z * p_z - 2 * charge * voltage_difference * mass
+            rootD = sc.sqrt(D)
+            tof = sc.where(
+                D < 0 * sc.Unit("J*kg"),
+                sc.scalar(np.nan, unit="s"),
+                mass * (2 * length_acceleration / (rootD + p_z) + length_drift / rootD),
+            )
+            return {"tof": tof.to(unit="ns")}
+
+        def calc_xy(p, tof):
+            p_x = p.fields.x
+            p_y = p.fields.y
+            if magnetic_field > 0 * sc.Unit("T"):  # cyclotron motion during the time-of-flight
+                p_xy = sc.sqrt(p_x**2 + p_y**2)
+                phi = sc.atan2(x=p_x, y=p_y)
+                omega = calc_omega(magnetic_field, charge, mass)
+                alpha = omega * tof.to(unit="s") * sc.scalar(1, unit="rad")
+                theta = phi + alpha / 2
+                R = (2 * p_xy * sc.abs(sc.sin(alpha / 2))) / (charge * magnetic_field)
+                x = R * sc.sin(theta)
+                y = R * sc.cos(theta)
+            else:  # for small magnetic field it reduces to this linear motion:
+                v_x = p_x / mass
+                v_y = p_y / mass
+                x = v_x * tof
+                y = v_y * tof
+            return {"x": x.to(unit="mm"), "y": y.to(unit="mm")}
+
+        def calc_R(x, y):
+            return sc.sqrt(x**2 + y**2)
+
+        graph = {"tof": calc_tof, ("x", "y"): calc_xy, "R": calc_R}
+
+        dataarray = self.electron_momenta.transform_coords(["x", "y", "tof", "R"], graph=graph)
+        self.electron_hits = dataarray
+        self.update_R_tof()
+        self.update_electron_detector_signals()
+
+    def update_electron_detector_signals(self):
+        hits = self.electron_hits
+        self.datagroup["electrons"] = hits
+        pass
+
+    def update_ion_momenta(self):
+        self.update_ion_positions()
+
+    def update_ion_positions(self):
+        self.update_ion_detector_signals()
+
+    def update_ion_detector_signals(self):
+        pass
+
+    def init_dataset(self):
+        n_samples = self.number_of_particles.get()
+        self.pulses = sc.arange("pulses", n_samples)
+        self.datagroup = sc.DataGroup(pulses=self.pulses)
+        self.update_electron_momenta()
+        self.update_ion_momenta()
 
 
 def main():
