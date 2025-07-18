@@ -35,6 +35,7 @@ from tkinter.ttk import (
     Scale,
     Notebook,
     Scrollbar,
+    Sizegrip,
 )
 import matplotlib
 
@@ -293,22 +294,32 @@ class mclass:
         self.window = window
         window.title("Red Camel")
         style = Style()
-        style.configure("BW.TLabel", background="whitesmoke")
+        for labeler in [
+            "TFrame",
+            "TLabel",
+            "TLabelframe",
+            "TRadiobutton",
+            "TLabelframe.Label",
+            "TCheckbutton",
+            "Canvas",
+        ]:
+            style.configure(labeler, background="mintcream")
+        style.map("TButton", background=[("active", "aliceblue")])
         window.columnconfigure(0, weight=1)
         window.rowconfigure(0, weight=1)
-
         tabControl = Notebook(window)
         tabControl.grid(column=0, row=0, sticky="nsew")
         tabs = []
         labels = ["R vs TOF", "PIPICO", "Coincidences"]
         # create scrollable tabs based on https://web.archive.org/web/20170514022131id_/http://tkinter.unpythonic.net/wiki/VerticalScrolledFrame
         for label in labels:
-            tab_frame = Frame(tabControl, style="BW.TLabel")
+            tab_frame = Frame(tabControl)
             tab_frame.columnconfigure(0, weight=1)
             tab_frame.rowconfigure(0, weight=1)
             tabControl.add(tab_frame, text=label)
             h = Scrollbar(tab_frame, orient=HORIZONTAL)
             v = Scrollbar(tab_frame, orient=VERTICAL)
+
             tab_canvas = Canvas(
                 tab_frame,
                 yscrollcommand=v.set,
@@ -316,19 +327,25 @@ class mclass:
                 scrollregion=(0, 0, 1900, 1600),
                 width=1900,
                 height=1600,
+                background="whitesmoke",
             )
             h["command"] = tab_canvas.xview
             v["command"] = tab_canvas.yview
             tab_canvas.grid(column=0, row=0, sticky="nsew")
             h.grid(column=0, row=1, sticky="ew")
             v.grid(column=1, row=0, sticky="ns")
+            sizegrip = Sizegrip(tab_frame)
+            sizegrip.grid(column=1, row=1, sticky="nsew")
 
             # reset the view
             tab_canvas.xview_moveto(0)
             tab_canvas.yview_moveto(0)
 
             # Create a frame inside the canvas which will be scrolled with it.
-            tab = Frame(tab_canvas, style="BW.TLabel")
+            tab = Frame(tab_canvas)
+            tab.columnconfigure(0, weight=1)
+            tab.rowconfigure(0, weight=1)
+
             tab_canvas.create_window(0, 0, window=tab, anchor="nw")
 
             # Track changes to the canvas and frame width and sync them,
@@ -346,8 +363,6 @@ class mclass:
             tabs.append(tab)
 
         tab1, tab2, tab3 = tabs
-
-        # button_color = "aliceblue"
 
         ######## global Remi variables ####################
         self.length_accel_ion = DoubleVar(value=0.11)
