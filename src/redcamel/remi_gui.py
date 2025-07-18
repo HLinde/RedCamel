@@ -695,29 +695,21 @@ class mclass:
         #################################################################################
 
         ######## higher groups ####################
-        left_tab2_group = LabelFrame(tabs["Ions"], text="")
-        left_tab2_group.grid(
-            row=90, column=100, columnspan=2, rowspan=80, padx="5", pady="5", sticky="new"
-        )
+        left_tab2_group = Frame(tabs["Ions"])
+        left_tab2_group.grid(row=0, column=0, columnspan=2, sticky="nsew")
 
         ker_group = LabelFrame(left_tab2_group, text="Calculate KER")
-        ker_group.grid(
-            row=100, column=100, columnspan=2, rowspan=2, padx="5", pady="5", sticky="new"
-        )
+        ker_group.grid(row=0, column=0, padx="5", pady="5", sticky="nsew")
 
         remi_ion_conf_group = LabelFrame(left_tab2_group, text="REMI Configuration for Ion")
-        remi_ion_conf_group.grid(
-            row=90, column=100, columnspan=2, rowspan=2, padx="5", pady="5", sticky="new"
-        )
+        remi_ion_conf_group.grid(row=1, column=0, padx="5", pady="5", sticky="nsew")
 
         self.ion_generation_group = LabelFrame(left_tab2_group, text="Ion generation")
-        self.ion_generation_group.grid(
-            row=110, column=100, columnspan=2, rowspan=2, padx="5", pady="5", sticky="new"
-        )
+        self.ion_generation_group.grid(row=2, column=0, padx="5", pady="5", sticky="nsew")
 
         self.pipico_plot_group = LabelFrame(tabs["Ions"], text="PIPICO")
         self.pipico_plot_group.grid(
-            row=90, column=110, columnspan=2, rowspan=50, padx="5", pady="5", sticky="new"
+            row=0, column=2, columnspan=3, padx="5", pady="5", sticky="nsew"
         )
 
         ######## KER ##############################
