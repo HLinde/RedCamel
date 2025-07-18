@@ -15,14 +15,7 @@ Created on Wed Aug  5 10:58:39 2020
 #############################
 #### imports ################
 ############################
-from tkinter import (
-    Tk,
-    IntVar,
-    DoubleVar,
-    HORIZONTAL,
-    VERTICAL,
-    Canvas,
-)
+from tkinter import Tk, IntVar, DoubleVar, HORIZONTAL, VERTICAL, Canvas
 from tkinter.ttk import (
     Style,
     Button,
@@ -703,55 +696,22 @@ class mclass:
         ######## higher groups ####################
         left_tab2_group = LabelFrame(tabs["Ions"], text="")
         left_tab2_group.grid(
-            row=90,
-            column=100,
-            columnspan=2,
-            rowspan=80,
-            padx="5",
-            pady="5",
-            sticky="new",
+            row=90, column=100, columnspan=2, rowspan=80, padx="5", pady="5", sticky="new"
         )
 
-        ker_group = LabelFrame(
-            left_tab2_group,
-            text="Calculate KER",
-        )
+        ker_group = LabelFrame(left_tab2_group, text="Calculate KER")
         ker_group.grid(
-            row=100,
-            column=100,
-            columnspan=2,
-            rowspan=2,
-            padx="5",
-            pady="5",
-            sticky="new",
+            row=100, column=100, columnspan=2, rowspan=2, padx="5", pady="5", sticky="new"
         )
 
-        remi_ion_conf_group = LabelFrame(
-            left_tab2_group,
-            text="REMI Configuration for Ion",
-        )
+        remi_ion_conf_group = LabelFrame(left_tab2_group, text="REMI Configuration for Ion")
         remi_ion_conf_group.grid(
-            row=90,
-            column=100,
-            columnspan=2,
-            rowspan=2,
-            padx="5",
-            pady="5",
-            sticky="new",
+            row=90, column=100, columnspan=2, rowspan=2, padx="5", pady="5", sticky="new"
         )
 
-        self.ion_generation_group = LabelFrame(
-            left_tab2_group,
-            text="Ion generation",
-        )
+        self.ion_generation_group = LabelFrame(left_tab2_group, text="Ion generation")
         self.ion_generation_group.grid(
-            row=110,
-            column=100,
-            columnspan=2,
-            rowspan=2,
-            padx="5",
-            pady="5",
-            sticky="new",
+            row=110, column=100, columnspan=2, rowspan=2, padx="5", pady="5", sticky="new"
         )
 
         self.pipico_plot_group = LabelFrame(tabs["Ions"], text="PIPICO")
@@ -760,31 +720,17 @@ class mclass:
         )
 
         ######## KER ##############################
-        self.LABEL_DISTANCE = Label(
-            ker_group,
-            text="internuclear distance R [Å]:",
-        )
-        self.LABEL_CHARGE_ION_1 = Label(
-            ker_group,
-            text="Charge Ion 1:",
-        )
-        self.LABEL_CHARGE_ION_2 = Label(
-            ker_group,
-            text="Charge Ion 2:",
-        )
+        self.LABEL_DISTANCE = Label(ker_group, text="internuclear distance R [Å]:")
+        self.LABEL_CHARGE_ION_1 = Label(ker_group, text="Charge Ion 1:")
+        self.LABEL_CHARGE_ION_2 = Label(ker_group, text="Charge Ion 2:")
         self.BUTTON_CALC_KER = Button(
-            ker_group,
-            command=self.calc_ker,
-            text="Kinetic Energy Release:",
+            ker_group, command=self.calc_ker, text="Kinetic Energy Release:"
         )
 
         self.ENTRY_DISTANCE = Entry(ker_group)
         self.ENTRY_CHARGE_ION_1 = Entry(ker_group)
         self.ENTRY_CHARGE_ION_2 = Entry(ker_group)
-        self.LABEL_KER = Label(
-            ker_group,
-            text="",
-        )
+        self.LABEL_KER = Label(ker_group, text="")
 
         self.LABEL_DISTANCE.grid(row=1, column=1, padx="5", pady="5", sticky="w")
         self.LABEL_CHARGE_ION_1.grid(row=2, column=1, padx="5", pady="5", sticky="w")
@@ -879,30 +825,15 @@ class mclass:
             # resolution=0.1,
             variable=self.magnetic_field_gauss,
         )
-        self.SLIDE_B_pipco.grid(row=4, column=1, columnspan=2, padx="5", pady="5", sticky="ew")
+        self.SLIDE_B_pipco.grid(row=6, column=1, columnspan=2, padx="5", pady="5", sticky="ew")
 
         ### ion generator ###################
 
-        self.LABEL_FORMULA_IONS = Label(
-            self.ion_generation_group,
-            text="ChemFormula:",
-        )
-        self.LABEL_MASS_IONS = Label(
-            self.ion_generation_group,
-            text="Mass [amu]:",
-        )
-        self.LABEL_CHARGE_IONS = Label(
-            self.ion_generation_group,
-            text="Charge [au]:",
-        )
-        self.LABEL_KER_IONS = Label(
-            self.ion_generation_group,
-            text="KER [eV]:",
-        )
-        self.LABEL_TOF_IONS = Label(
-            self.ion_generation_group,
-            text="TOF [ns]:",
-        )
+        self.LABEL_FORMULA_IONS = Label(self.ion_generation_group, text="ChemFormula:")
+        self.LABEL_MASS_IONS = Label(self.ion_generation_group, text="Mass [amu]:")
+        self.LABEL_CHARGE_IONS = Label(self.ion_generation_group, text="Charge [au]:")
+        self.LABEL_KER_IONS = Label(self.ion_generation_group, text="KER [eV]:")
+        self.LABEL_TOF_IONS = Label(self.ion_generation_group, text="TOF [ns]:")
 
         self.ENTRY_NUMBER_IONS = Entry(self.ion_generation_group)
         self.ENTRY_NUMBER_IONS.grid(row=0, column=2, padx="5", pady="5", sticky="w")
@@ -920,9 +851,7 @@ class mclass:
         self.LABEL_TOF_IONS.grid_remove()
 
         self.BUTTON_GENERATE_IONS = Button(
-            self.ion_generation_group,
-            command=self.generate_entrys,
-            text="Make Ion Couples",
+            self.ion_generation_group, command=self.generate_entrys, text="Make Ion Couples"
         )
         self.BUTTON_GENERATE_IONS.grid(row=0, column=1, padx="5", pady="5", sticky="w")
         self.last_ion_number = 0
@@ -930,46 +859,17 @@ class mclass:
         self.entries_ker = []
 
         self.BUTTON_CALC_ION_TOF = Button(
-            self.ion_generation_group,
-            command=self.calc_ion_tof,
-            text="Update",
+            self.ion_generation_group, command=self.calc_ion_tof, text="Update"
         )
         self.BUTTON_CALC_ION_TOF.grid(row=0, column=5, padx="5", pady="5", sticky="w")
 
         fig, axes = plt.subplot_mosaic(
             [
-                [
-                    "xtof",
-                ]
-                * 5,
-                [
-                    "ytof",
-                ]
-                * 5,
-                [
-                    "pipico",
-                ]
-                * 3
-                + [
-                    "XY",
-                ]
-                * 2,
-                [
-                    "pipico",
-                ]
-                * 3
-                + [
-                    "XY",
-                ]
-                * 2,
-                [
-                    "pipico",
-                ]
-                * 3
-                + [
-                    ".",
-                ]
-                * 2,
+                ["xtof"] * 5,
+                ["ytof"] * 5,
+                ["pipico"] * 3 + ["XY"] * 2,
+                ["pipico"] * 3 + ["XY"] * 2,
+                ["pipico"] * 3 + ["."] * 2,
             ],
             figsize=(8, 8),
             facecolor="whitesmoke",
@@ -1528,24 +1428,19 @@ class mclass:
         self.entries_charge = []
         self.ion_labels = []
         for n in range(ion_number):
-            self.ion_labels.append(
-                Label(
-                    self.ion_generation_group,
-                    text="Ion " + str(n + 1),
-                )
-            )
+            self.ion_labels.append(Label(self.ion_generation_group, text="Ion " + str(n + 1)))
             self.ion_labels[n].grid(row=n + 3, column=0)
 
             self.entries_formula.append(
                 Entry(
-                    self.ion_generation_group,
+                    self.ion_generation_group
                     # fg=matplotlib.colors.to_hex(self.ion_color[n]),
                     # highlightcolor=matplotlib.colors.to_hex(self.ion_color[n]),
                 )
             )
             self.entries_charge.append(
                 Entry(
-                    self.ion_generation_group,
+                    self.ion_generation_group
                     # fg=matplotlib.colors.to_hex(self.ion_color[n]),
                     # highlightcolor=matplotlib.colors.to_hex(self.ion_color[n]),
                 )
@@ -1553,18 +1448,10 @@ class mclass:
             self.entries_formula[n].grid(row=n + 3, column=1)
             self.entries_charge[n].grid(row=n + 3, column=3)
             self.labels_mass.append(
-                Label(
-                    self.ion_generation_group,
-                    text="{:.5g}".format(masses[n]),
-                )
+                Label(self.ion_generation_group, text="{:.5g}".format(masses[n]))
             )
             self.labels_mass[n].grid(row=n + 3, column=2)
-            self.labels_ion_tof.append(
-                Label(
-                    self.ion_generation_group,
-                    text="",
-                )
-            )
+            self.labels_ion_tof.append(Label(self.ion_generation_group, text=""))
             self.labels_ion_tof[n].grid(row=n + 3, column=5)
 
             self.entries_formula[n].insert(0, formulas[n])
@@ -1574,7 +1461,7 @@ class mclass:
         for n in range(ion_number // 2):
             self.entries_ker.append(
                 Entry(
-                    self.ion_generation_group,
+                    self.ion_generation_group
                     # fg=matplotlib.colors.to_hex(self.ion_color[2 * n]),
                     # highlightcolor=matplotlib.colors.to_hex(self.ion_color[2 * n]),
                 )
