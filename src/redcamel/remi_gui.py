@@ -1615,7 +1615,6 @@ class mclass:
 
     def make_ion_pipico_plot(self):
         # read in charge, mass, and KER
-        ion_tof = []
         ion_formula_1 = []
         ion_formula_2 = []
         ion_mass_1 = []
@@ -1624,7 +1623,6 @@ class mclass:
         ion_charge_2 = []
         ion_ker = []
         for n in range(self.last_ion_number):
-            ion_tof.append(float(self.labels_ion_tof[n].cget("text")))
             if n % 2 == 0:
                 try:
                     formula = ChemFormula(self.entries_formula[n].get())
@@ -1661,9 +1659,12 @@ class mclass:
         # calc R tof for ions
 
         v_jet = self.velocity_jet_si
-        tof = []
-        X = []
-        Y = []
+        ion_tof_1 = []
+        ion_tof_2 = []
+        ion_X_1 = []
+        ion_X_2 = []
+        ion_Y_1 = []
+        ion_Y_2 = []
         electric_field = self.electric_field
         magnetic_field = self.magnetic_field_si
         length_acceleration = self.length_accel_ion.get()
@@ -1690,12 +1691,18 @@ class mclass:
                 length_drift,
                 particle_params=(mass_2, charge_2),
             )
-            tof.append(tof_1 * 1e9)
-            tof.append(tof_2 * 1e9)
-            X.append(X_1 * 1e3)
-            X.append(X_2 * 1e3)
-            Y.append(Y_1 * 1e3)
-            Y.append(Y_2 * 1e3)
+            ion_tof_1.append(tof_1 * 1e9)
+            ion_tof_2.append(tof_2 * 1e9)
+            ion_X_1.append(X_1 * 1e3)
+            ion_X_2.append(X_2 * 1e3)
+            ion_Y_1.append(Y_1 * 1e3)
+            ion_Y_2.append(Y_2 * 1e3)
+        ion_tof_1 = np.array(ion_tof_1)
+        ion_tof_2 = np.array(ion_tof_2)
+        ion_X_1 = np.array(ion_X_1)
+        ion_X_2 = np.array(ion_X_2)
+        ion_Y_1 = np.array(ion_Y_1)
+        ion_Y_2 = np.array(ion_Y_2)
 
         # cleanup plot
         for ax in self.pipico_fig.axes:
@@ -1706,67 +1713,60 @@ class mclass:
         # do new plots
         ax_x_tof = self.pipico_xtof_ax
         ax_y_tof = self.pipico_ytof_ax
-        counts = 0
         modulo = float(self.ENTRY_SET_bunch_modulo.get())
         detector_diameter = float(self.ENTRY_SET_detector_diameter.get())
         ax_x_tof.set_ylim(-1.2 * detector_diameter, 1.2 * detector_diameter)
         ax_y_tof.set_ylim(-1.2 * detector_diameter, 1.2 * detector_diameter)
         x_edges = y_edges = np.linspace(-detector_diameter * 0.55, detector_diameter * 0.55, 250)
+
+        counts = 0
         legend_handles_even = []
         legend_labels_even = []
         legend_handles_odd = []
         legend_labels_odd = []
-        for n in range(self.last_ion_number):
-            if n % 2 == 0:
-                dots = ax_x_tof.scatter(
-                    tof[n] % modulo,
-                    X[n],
-                    color=self.ion_color[n],
-                    alpha=0.2,
-                    edgecolors="none",
-                )
-                ax_y_tof.scatter(
-                    tof[n] % modulo,
-                    Y[n],
-                    color=self.ion_color[n],
-                    alpha=0.2,
-                    edgecolors="none",
-                )
-                legend_handles_even.append(dots)
-                legend_labels_even.append(
-                    f"{ion_formula_1[n // 2]}$^{{{ion_charge_1[n // 2] / q_e:.1g}+}}$"
-                )
-            else:
-                dots = ax_x_tof.scatter(
-                    tof[n] % modulo,
-                    X[n],
-                    color=self.ion_color[n],
-                    alpha=0.2,
-                    edgecolors="none",
-                )
-                ax_y_tof.scatter(
-                    tof[n] % modulo,
-                    Y[n],
-                    color=self.ion_color[n],
-                    alpha=0.2,
-                    edgecolors="none",
-                )
-                legend_handles_odd.append(dots)
-                legend_labels_odd.append(
-                    f"{ion_formula_2[n // 2]}$^{{{ion_charge_2[n // 2] / q_e:.1g}+}}$"
-                )
-            new_counts, _, _ = np.histogram2d(X[n], Y[n], bins=(x_edges, y_edges))
+        for n in range(self.last_ion_number // 2):
+            dots = ax_x_tof.scatter(
+                ion_tof_1[n] % modulo,
+                ion_X_1[n],
+                color=self.ion_color[2 * n],
+                alpha=0.2,
+                edgecolors="none",
+            )
+            legend_handles_even.append(dots)
+            legend_labels_even.append(f"{ion_formula_1[n]}$^{{{ion_charge_1[n] / q_e:.1g}+}}$")
+            dots = ax_x_tof.scatter(
+                ion_tof_2[n] % modulo,
+                ion_X_2[n],
+                color=self.ion_color[2 * n + 1],
+                alpha=0.2,
+                edgecolors="none",
+            )
+            legend_handles_odd.append(dots)
+            legend_labels_odd.append(f"{ion_formula_2[n]}$^{{{ion_charge_2[n] / q_e:.1g}+}}$")
+            ax_y_tof.scatter(
+                ion_tof_1[n] % modulo,
+                ion_Y_1[n],
+                color=self.ion_color[2 * n],
+                alpha=0.2,
+                edgecolors="none",
+            )
+            ax_y_tof.scatter(
+                ion_tof_2[n] % modulo,
+                ion_Y_2[n],
+                color=self.ion_color[2 * n + 1],
+                alpha=0.2,
+                edgecolors="none",
+            )
+            new_counts, _, _ = np.histogram2d(ion_X_1[n], ion_Y_1[n], bins=(x_edges, y_edges))
+            counts += new_counts
+            new_counts, _, _ = np.histogram2d(ion_X_2[n], ion_Y_2[n], bins=(x_edges, y_edges))
             counts += new_counts
         ax_xy = self.pipico_XY_ax
         counts[counts < 1] = np.nan
         ax_xy.pcolormesh(x_edges, y_edges, counts.T)
         ax_xy.add_artist(
             plt.Circle(
-                (0, 0),
-                detector_diameter / 2,
-                color="cadetblue",
-                fill=False,
-                figure=self.pipico_fig,
+                (0, 0), detector_diameter / 2, color="cadetblue", fill=False, figure=self.pipico_fig
             )
         )
         ax_xy.set_xlabel("X [mm]")
@@ -1800,16 +1800,16 @@ class mclass:
         modulo = float(self.ENTRY_SET_bunch_modulo.get())
         for n in range(self.last_ion_number // 2):
             a.scatter(
-                tof[n * 2] % modulo,
-                tof[n * 2 + 1] % modulo,
-                color=self.ion_color[n],
+                ion_tof_1[n] % modulo,
+                ion_tof_2[n] % modulo,
+                color=self.ion_color[2 * n],
                 alpha=0.1,
                 edgecolors="none",
             )
             a.scatter(
-                tof[n * 2 + 1] % modulo,
-                tof[n * 2] % modulo,
-                color=self.ion_color[n],
+                ion_tof_2[n] % modulo,
+                ion_tof_1[n] % modulo,
+                color=self.ion_color[2 * n],
                 alpha=0.1,
                 edgecolors="none",
             )
