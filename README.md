@@ -11,8 +11,8 @@ GUI tool to simulate Reaction Microscope detector images.
 
 # Example Outputs
 
-![Electron Wiggles](https://codeberg.org/FlashREMI/RedCamel/media/branch/main/Electrons.png)
-![Ion fragmentation](https://codeberg.org/FlashREMI/RedCamel/media/branch/main/Ions.png)
+![Electron Wiggles](https://codeberg.org/FlashREMI/RedCamel/media/tag/v0.1.2/Electrons.png)
+![Ion fragmentation](https://codeberg.org/FlashREMI/RedCamel/media/tag/v0.1.2/Ions.png)
 
 # Usage
 
