@@ -286,7 +286,6 @@ def calc_ion_momenta(KER, m_1, m_2):
 #############################
 #### GUI ####################
 ############################
-frame_color = "mintcream"
 
 
 class mclass:
@@ -309,14 +308,28 @@ class mclass:
         window.rowconfigure(0, weight=1)
         tabControl = Notebook(window)
         tabControl.grid(column=0, row=0, sticky="nsew")
-        tabs = []
-        labels = ["R vs TOF", "PIPICO", "Coincidences"]
+        self.tabs = tabs = {}
+        labels = [
+            "Electrons",
+            "Ions",
+            "Spectrometer",
+            "Target",
+            "Background",
+            "Load Data",
+            "Export Data",
+            "Detector Calibration",
+        ]
         # create scrollable tabs based on https://web.archive.org/web/20170514022131id_/http://tkinter.unpythonic.net/wiki/VerticalScrolledFrame
         for label in labels:
             tab_frame = Frame(tabControl)
+
+            # Only enable tabs, that are implemented:
+            tab_implemented = label in ["Electrons", "Ions", "Export Data"]
+            tab_state = "normal" if tab_implemented else "disabled"
+            tabControl.add(tab_frame, text=label, state=tab_state)
+
             tab_frame.columnconfigure(0, weight=1)
             tab_frame.rowconfigure(0, weight=1)
-            tabControl.add(tab_frame, text=label)
             h = Scrollbar(tab_frame, orient=HORIZONTAL)
             v = Scrollbar(tab_frame, orient=VERTICAL)
 
@@ -360,94 +373,135 @@ class mclass:
 
             tab.bind("<Configure>", _configure_tab)
 
-            tabs.append(tab)
-
-        tab1, tab2, tab3 = tabs
+            tabs[label] = tab
 
         ######## global Remi variables ####################
         self.length_accel_ion = DoubleVar(value=0.11)
         self.length_drift_ion = DoubleVar(value=0.0)
         self.length_accel_electron = DoubleVar(value=0.18)
         self.length_drift_electron = DoubleVar(value=0.0)
-        self.voltage_electron = DoubleVar(value=135.0)
-        self.voltage_ion = DoubleVar(value=2200.0)
+        self.voltage_electron = DoubleVar(value=+500.0)
+        self.voltage_ion = DoubleVar()  # gets initialized by ratio of distances
         self.magnetic_field_gauss = DoubleVar(value=5.0)
         self.velocity_jet = DoubleVar(value=1.0)
 
-        ######## higher groups ####################
-        left_bar_group = LabelFrame(tab1, text="", padding=(5, 5, 5, 5))
-        left_bar_group.grid(
-            row=100,
-            column=100,
-            columnspan=2,
-            rowspan=20,
-            padx=5,
-            pady=5,
-            sticky="nsew",
-        )
-
-        top_bar_group = LabelFrame(tab1, text="", padding=(5, 5, 5, 5))
-        top_bar_group.grid(
-            row=100,
-            column=103,
-            columnspan=20,
-            rowspan=2,
-            padx=5,
-            pady=5,
-            sticky="nsew",
-        )
-
-        ######## REMI configurations ##############
-        remi_conf_group = LabelFrame(
-            left_bar_group,
-            text="REMI Configuration for Electrons",
-        )
-        remi_conf_group.grid(row=100, column=100, columnspan=2, padx="5", pady="5", sticky="nsew")
-
-        self.LABEL_SET_U = Label(remi_conf_group, text="U[V]:")
-        self.LABEL_SET_B = Label(remi_conf_group, text="B[Gauss]:")
-        self.LABEL_SET_l_a = Label(remi_conf_group, text="acc length[m]:")
-
-        self.LABEL_SET_U.grid(row=103, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_B.grid(row=104, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_l_a.grid(row=105, column=101, padx="5", pady="5", sticky="w")
-
-        self.ENTRY_SET_U = Entry(remi_conf_group, textvariable=self.voltage_electron)
-        self.ENTRY_SET_B = Entry(remi_conf_group, textvariable=self.magnetic_field_gauss)
-        self.ENTRY_SET_l_a = Entry(remi_conf_group, textvariable=self.length_accel_electron)
-
-        self.ENTRY_SET_U.grid(row=103, column=102, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_B.grid(row=104, column=102, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_l_a.grid(row=105, column=102, padx="5", pady="5", sticky="w")
-
-        ######## momentum, R, tof calculation #############
-        self.R_tof_group = LabelFrame(
-            left_bar_group,
-            text="R-tof calculation",
-        )
-        self.R_tof_group.grid(
-            row=102,
-            column=100,
-            columnspan=2,
-            rowspan=5,
-            sticky="nswe",
-        )
+        self.number_of_particles = IntVar(value=1000)
+        self.fixed_center_potential = IntVar()
+        self.fixed_center_potential.set(1)
 
         self.v = IntVar()
         self.v.set(2)
+
+        ######## variable callback actions ####################
+
+        def write_callback_voltage_electron(var, index, mode):
+            if self.fixed_center_potential.get():
+                new_voltage = self.voltage_electron.get()
+                distance_electron = self.length_accel_electron.get()
+                distance_ion = self.length_accel_ion.get()
+                new_voltage_ion = -new_voltage * distance_ion / distance_electron
+                self.voltage_ion.set(new_voltage_ion)
+            self.update_electron_positions()
+            self.update_ion_positions()
+
+        self.voltage_electron.trace("w", write_callback_voltage_electron)
+        self.length_accel_electron.trace("w", write_callback_voltage_electron)
+        self.fixed_center_potential.trace("w", write_callback_voltage_electron)
+
+        def write_callback_voltage_ion(var, index, mode):
+            if self.fixed_center_potential.get():
+                new_voltage = self.voltage_ion.get()
+                distance_electron = self.length_accel_electron.get()
+                distance_ion = self.length_accel_ion.get()
+                new_voltage_ion = -new_voltage * distance_electron / distance_ion
+                self.voltage_electron.set(new_voltage_ion)
+            self.update_electron_positions()
+            self.update_ion_positions()
+
+        self.voltage_ion.trace("w", write_callback_voltage_ion)
+        self.length_accel_ion.trace("w", write_callback_voltage_ion)
+
+        def write_callback_spectrometer_both(var, index, mode):
+            self.update_electron_positions()
+            self.update_ion_positions()
+
+        self.magnetic_field_gauss.trace("w", write_callback_spectrometer_both)
+        self.velocity_jet.trace("w", write_callback_spectrometer_both)
+
+        def write_callback_spectrometer_electron(var, index, mode):
+            self.update_electron_positions()
+
+        self.length_drift_electron.trace("w", write_callback_spectrometer_electron)
+
+        def write_callback_spectrometer_ion(var, index, mode):
+            self.update_electron_positions()
+
+        self.length_drift_ion.trace("w", write_callback_spectrometer_ion)
+
+        def write_callback_momentum_electrons(var, index, mode):
+            self.update_electron_momenta()
+
+        self.v.trace("w", write_callback_momentum_electrons)
+
+        #################################################################################
+        #############################      Electrons      ###############################
+        #################################################################################
+
+        ######## higher groups ####################
+        left_bar_group = LabelFrame(tabs["Electrons"], text="", padding=(5, 5, 5, 5))
+        left_bar_group.grid(row=0, column=0, columnspan=1, rowspan=5, padx=5, pady=5, sticky="nsew")
+
+        top_bar_group = LabelFrame(tabs["Electrons"], text="", padding=(5, 5, 5, 5))
+        top_bar_group.grid(row=0, column=1, columnspan=5, rowspan=1, padx=5, pady=5, sticky="nsew")
+
+        self.R_tof_plot_group = LabelFrame(tabs["Electrons"], text="Electron plots")
+        self.R_tof_plot_group.grid(
+            row=1, column=1, columnspan=5, rowspan=4, padx="5", pady="5", sticky="nsew"
+        )
+
+        ######## REMI configurations ##############
+        remi_conf_group = LabelFrame(left_bar_group, text="REMI Configuration for Electrons")
+        remi_conf_group.grid(row=100, column=100, columnspan=2, padx="5", pady="5", sticky="nsew")
+
+        self.LABEL_SET_B = Label(remi_conf_group, text="B[Gauss]:")
+        self.LABEL_SET_B.grid(row=103, column=101, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_B = Entry(remi_conf_group, textvariable=self.magnetic_field_gauss)
+        self.ENTRY_SET_B.grid(row=103, column=102, padx="5", pady="5", sticky="ew")
+
+        self.LABEL_SET_l_d = Label(remi_conf_group, text="drift length[m]:")
+        self.LABEL_SET_l_d.grid(row=104, column=101, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_l_d = Entry(remi_conf_group, textvariable=self.length_drift_electron)
+        self.ENTRY_SET_l_d.grid(row=104, column=102, padx="5", pady="5", sticky="ew")
+
+        self.LABEL_SET_l_a = Label(remi_conf_group, text="acc length[m]:")
+        self.LABEL_SET_l_a.grid(row=105, column=101, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_l_a = Entry(remi_conf_group, textvariable=self.length_accel_electron)
+        self.ENTRY_SET_l_a.grid(row=105, column=102, padx="5", pady="5", sticky="ew")
+
+        self.LABEL_SET_U = Label(remi_conf_group, text="U[V]:")
+        self.LABEL_SET_U.grid(row=106, column=101, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_U = Entry(remi_conf_group, textvariable=self.voltage_electron)
+        self.ENTRY_SET_U.grid(row=106, column=102, padx="5", pady="5", sticky="ew")
+
+        self.CHECK_fixed_potential_ele = Checkbutton(
+            remi_conf_group,
+            text="Interaction region on Ground potential",
+            variable=self.fixed_center_potential,
+            onvalue=1,
+        )
+        self.CHECK_fixed_potential_ele.grid(
+            row=107, column=101, columnspan=2, padx="5", pady="5", sticky="ew"
+        )
+
+        ######## momentum, R, tof calculation #############
+        self.R_tof_group = LabelFrame(left_bar_group, text="Electron Momentum Distribution")
+        self.R_tof_group.grid(row=102, column=100, columnspan=2, rowspan=5, sticky="nswe")
+
         self.CHOOSE_MOMENTUM = Radiobutton(
-            self.R_tof_group,
-            command=self.check,
-            text="Momentum",
-            variable=self.v,
-            value=1,
+            self.R_tof_group, command=self.check, text="Momentum", variable=self.v, value=1
         )
         self.CHOOSE_ENERGY = Radiobutton(
-            self.R_tof_group,
-            command=self.check,
-            text="Energy",
-            variable=self.v,
-            value=2,
+            self.R_tof_group, command=self.check, text="Energy", variable=self.v, value=2
         )
         self.CHOOSE_MOMENTUM.grid(row=99, column=110, padx="5", pady="5", sticky="w")
         self.CHOOSE_ENERGY.grid(row=100, column=110, padx="5", pady="5", sticky="w")
@@ -459,38 +513,17 @@ class mclass:
             value=3,
         )
         self.CHOOSE_ENERGY_MULTI.grid(row=101, column=110, padx="5", pady="5", sticky="w")
-        self.v.set(2)
 
-        self.LABEL_NUMBER_PART = Label(
-            self.R_tof_group,
-            text="number of Particles:",
-        )
-        self.LABEL_PART_MASS = Label(
-            self.R_tof_group,
-            text="Particle mass:",
-        )
-        self.LABEL_PART_CHARGE = Label(
-            self.R_tof_group,
-            text="Particle charge:",
-        )
-        self.ENTRY_NUMBER_PART = Entry(self.R_tof_group)
+        self.LABEL_NUMBER_PART = Label(self.R_tof_group, text="number of Particles:")
+        self.LABEL_PART_MASS = Label(self.R_tof_group, text="Particle mass:")
+        self.LABEL_PART_CHARGE = Label(self.R_tof_group, text="Particle charge:")
+        self.ENTRY_NUMBER_PART = Entry(self.R_tof_group, textvariable=self.number_of_particles)
         self.ENTRY_PART_MASS = Entry(self.R_tof_group)
         self.ENTRY_PART_CHARGE = Entry(self.R_tof_group)
-        self.BUTTON_R_TOF = Button(
-            self.R_tof_group,
-            text="Calculate radius and tof",
-            command=self.make_R_tof,
-        )
 
         # if selecting calculation with energy
-        self.LABEL_MEAN_ENERGY = Label(
-            self.R_tof_group,
-            text="Mean Energy:",
-        )
-        self.LABEL_WIDTH = Label(
-            self.R_tof_group,
-            text="Width:",
-        )
+        self.LABEL_MEAN_ENERGY = Label(self.R_tof_group, text="Mean Energy:")
+        self.LABEL_WIDTH = Label(self.R_tof_group, text="Width:")
         self.ENTRY_MEAN_ENERGY = Entry(self.R_tof_group)
         self.ENTRY_WIDTH = Entry(self.R_tof_group)
 
@@ -498,7 +531,7 @@ class mclass:
         self.LABEL_WIDTH.grid(row=106, column=110, padx="5", pady="5", sticky="w")
         self.ENTRY_MEAN_ENERGY.grid(row=105, column=111, padx="5", pady="5", sticky="w")
         self.ENTRY_WIDTH.grid(row=106, column=111, padx="5", pady="5", sticky="w")
-        self.ENTRY_MEAN_ENERGY.insert(0, 1)
+        self.ENTRY_MEAN_ENERGY.insert(0, 10)
         self.ENTRY_WIDTH.insert(0, 0.1)
 
         self.ENTRY_PART_MASS.insert(0, 1)
@@ -510,19 +543,10 @@ class mclass:
         self.ENTRY_NUMBER_PART.grid(row=102, column=111, padx="5", pady="5", sticky="w")
         self.ENTRY_PART_MASS.grid(row=103, column=111, padx="5", pady="5", sticky="w")
         self.ENTRY_PART_CHARGE.grid(row=104, column=111, padx="5", pady="5", sticky="w")
-        self.BUTTON_R_TOF.grid(row=109, column=110, columnspan=2, padx="5", pady="5", sticky="w")
-
-        self.ENTRY_NUMBER_PART.insert(0, 1000)
 
         # if multiple particles
-        self.LABEL_MULTI_PART_ENERGY_STEP = Label(
-            self.R_tof_group,
-            text="Energy Step:",
-        )
-        self.LABEL_MULTI_PART_NUMBER = Label(
-            self.R_tof_group,
-            text="Number of Particles",
-        )
+        self.LABEL_MULTI_PART_ENERGY_STEP = Label(self.R_tof_group, text="Energy Step:")
+        self.LABEL_MULTI_PART_NUMBER = Label(self.R_tof_group, text="Number of Particles")
         self.ENTRY_MULTI_PART_ENERGY_STEP = Entry(self.R_tof_group)
         self.ENTRY_MULTI_PART_ENERGY_STEP.insert(0, 1.5)
         self.ENTRY_MULTI_PART_NUMBER = Entry(self.R_tof_group)
@@ -537,91 +561,28 @@ class mclass:
         self.ENTRY_MULTI_PART_ENERGY_STEP.grid_remove()
         self.ENTRY_MULTI_PART_NUMBER.grid_remove()
 
-        ######### SAVES FOR VALIDATION ########################
-        self.valid_group = LabelFrame(
-            left_bar_group,
-            text="Save Data for validation",
-        )
-        self.valid_group.grid(
-            row=115,
-            column=100,
-            columnspan=4,
-            rowspan=6,
-            padx="5",
-            pady="5",
-            sticky="nsew",
-        )
-
-        self.BUTTON_SAVE_MOM = Button(
-            self.valid_group,
-            text="Save Momentum Data",
-            command=self.export_momenta,
-        )
-        self.BUTTON_SAVE_MOM.grid(row=10, column=100, columnspan=2, padx="5", pady="5", sticky="w")
-
-        self.BUTTON_CALC_MCP_TIMES = Button(
-            self.valid_group,
-            text="Save MCP times",
-            command=self.calc_mcp,
-        )
-        self.BUTTON_CALC_MCP_TIMES.grid(
-            row=11, column=100, columnspan=2, padx="5", pady="5", sticky="w"
-        )
-
-        self.BUTTON_EXPORT_DATA = Button(
-            self.valid_group,
-            text="Save Electron Position",
-            command=self.export_data,
-        )
-        self.BUTTON_EXPORT_DATA.grid(
-            row=12, column=100, columnspan=2, padx="5", pady="5", sticky="w"
-        )
-
         ######## R tof simulation ##########################
-        self.R_tof_sim_group = LabelFrame(
-            top_bar_group,
-            text="R-tof simulation",
-        )
+        self.R_tof_sim_group = LabelFrame(top_bar_group, text="R-tof simulation")
         self.R_tof_sim_group.grid(
-            row=100,
-            column=110,
-            columnspan=4,
-            rowspan=6,
-            padx="5",
-            pady="5",
-            sticky="nwe",
+            row=100, column=110, columnspan=4, rowspan=6, padx="5", pady="5", sticky="nswe"
         )
 
-        self.LABEL_KIN_ENERGY = Label(
-            self.R_tof_sim_group,
-            text="Kinetic Energy [EV]:",
-        )
+        self.LABEL_KIN_ENERGY = Label(self.R_tof_sim_group, text="Kinetic Energy [EV]:")
         self.ENTRY_KIN_ENERGY_1 = Entry(self.R_tof_sim_group)  # , fg="firebrick")
         self.ENTRY_KIN_ENERGY_2 = Entry(self.R_tof_sim_group)  # , fg="deepskyblue")
         self.ENTRY_KIN_ENERGY_3 = Entry(self.R_tof_sim_group)  # , fg="darkorange")
-        self.LABEL_MASS = Label(
-            self.R_tof_sim_group,
-            text="Mass [a.u.]:",
-        )
+        self.LABEL_MASS = Label(self.R_tof_sim_group, text="Mass [a.u.]:")
         self.ENTRY_MASS_1 = Entry(self.R_tof_sim_group)  # , fg="firebrick")
         self.ENTRY_MASS_2 = Entry(self.R_tof_sim_group)  # , fg="deepskyblue")
         self.ENTRY_MASS_3 = Entry(self.R_tof_sim_group)  # , fg="darkorange")
-        self.LABEL_CHARGE = Label(
-            self.R_tof_sim_group,
-            text="Charge [a.u.]:",
-        )
+        self.LABEL_CHARGE = Label(self.R_tof_sim_group, text="Charge [a.u.]:")
         self.ENTRY_CHARGE_1 = Entry(self.R_tof_sim_group)  # , fg="firebrick")
         self.ENTRY_CHARGE_2 = Entry(self.R_tof_sim_group)  # , fg="deepskyblue")
         self.ENTRY_CHARGE_3 = Entry(self.R_tof_sim_group)  # , fg="darkorange")
-        self.LABEL_TOF = Label(
-            self.R_tof_sim_group,
-            text="Time of Flight maximum [ns]:",
-        )
+        self.LABEL_TOF = Label(self.R_tof_sim_group, text="Time of Flight maximum [ns]:")
         self.ENTRY_TOF = Entry(self.R_tof_sim_group)
         self.BUTTON_R_TOF_SIM = Button(
-            self.R_tof_sim_group,
-            text="Simulate Particle",
-            command=self.R_tof_sim,
+            self.R_tof_sim_group, text="Simulate Particle", command=self.R_tof_sim
         )
 
         self.ENTRY_KIN_ENERGY_1.insert(0, 1)
@@ -650,44 +611,22 @@ class mclass:
         self.ENTRY_TOF.grid(row=110, column=111, padx="5", pady="5", sticky="w")
         self.LABEL_TOF.grid(row=110, column=110, padx="5", pady="5", sticky="w")
         self.BUTTON_R_TOF_SIM.grid(
-            row=110,
-            column=112,
-            columnspan=1,
-            rowspan=5,
-            padx="5",
-            pady="5",
-            sticky="ns",
+            row=110, column=112, columnspan=1, rowspan=5, padx="5", pady="5", sticky="ns"
         )
 
         #### Plots and Slidebars ##############
 
-        self.R_tof_plot_group = LabelFrame(tab1, text="Electron plots")
-        self.R_tof_plot_group.grid(
-            row=110,
-            column=105,
-            columnspan=20,
-            rowspan=40,
-            padx="5",
-            pady="5",
-            sticky="nw",
-        )
-        self.R_tof_plot_group.grid_remove()
-
         self.v_ir = IntVar()
         self.v_ir.set(0)
         self.CHECK_IR_PLOT = Checkbutton(
-            self.R_tof_plot_group,
-            text="Enable IR plot Mode",
-            variable=self.v_ir,
-            onvalue=1,
+            self.R_tof_plot_group, text="Enable IR plot Mode", variable=self.v_ir, onvalue=1
         )
         self.CHECK_IR_PLOT.grid(row=105, column=100, columnspan=2, padx="5", pady="5", sticky="ew")
 
-        self.LABEL_SLIDE_U = Label(
-            self.R_tof_plot_group,
-            text="Voltage",
-        )
-        self.LABEL_SLIDE_U.grid(row=106, column=100, columnspan=2, padx="5", pady="5", sticky="ew")
+        self.LABEL_SLIDE_U = Label(self.R_tof_plot_group, text="Voltage electron side [V]")
+        self.LABEL_SLIDE_U.grid(row=106, column=100, padx="5", pady="5", sticky="ew")
+        self.LABEL_VALUE_SLIDE_U = Label(self.R_tof_plot_group, textvariable=self.voltage_electron)
+        self.LABEL_VALUE_SLIDE_U.grid(row=106, column=101, padx="5", pady="5", sticky="w")
 
         self.SLIDE_U = Scale(
             self.R_tof_plot_group,
@@ -695,16 +634,16 @@ class mclass:
             to=500,
             # resolution=0.1,
             orient=HORIZONTAL,
-            command=self.set_new_u,
             variable=self.voltage_electron,
         )
         self.SLIDE_U.grid(row=107, column=100, columnspan=2, padx="5", pady="5", sticky="ew")
 
-        self.LABEL_SLIDE_B = Label(
-            self.R_tof_plot_group,
-            text="Magnetic Field",
+        self.LABEL_SLIDE_B = Label(self.R_tof_plot_group, text="Magnetic Field [G]")
+        self.LABEL_SLIDE_B.grid(row=106, column=110, padx="5", pady="5", sticky="w")
+        self.LABEL_VALUE_SLIDE_B = Label(
+            self.R_tof_plot_group, textvariable=self.magnetic_field_gauss
         )
-        self.LABEL_SLIDE_B.grid(row=108, column=100, columnspan=2, padx="5", pady="5", sticky="ew")
+        self.LABEL_VALUE_SLIDE_B.grid(row=106, column=111, padx="5", pady="5", sticky="w")
 
         self.SLIDE_B = Scale(
             self.R_tof_plot_group,
@@ -712,38 +651,21 @@ class mclass:
             to=100,
             # resolution=0.1,
             orient=HORIZONTAL,
-            command=self.set_new_b,
             variable=self.magnetic_field_gauss,
         )
-        self.SLIDE_B.grid(row=109, column=100, columnspan=2, padx="5", pady="5", sticky="ew")
+        self.SLIDE_B.grid(row=107, column=110, columnspan=2, padx="5", pady="5", sticky="ew")
 
         #### IR mode #####
-        self.ir_mode_group = LabelFrame(
-            top_bar_group,
-            text="IR-Mode",
+        self.ir_mode_group = LabelFrame(top_bar_group, text="IR-Mode")
+        self.ir_mode_group.grid(
+            row=100, column=120, columnspan=2, padx="5", pady="5", sticky="nswe"
         )
-        self.ir_mode_group.grid(row=100, column=120, columnspan=2, padx="5", pady="5", sticky="nwe")
 
-        self.LABEL_KIN_ENERGY_START = Label(
-            self.ir_mode_group,
-            text="First Kin Energy [eV]",
-        )
-        self.LABEL_KIN_ENERGY_STEP = Label(
-            self.ir_mode_group,
-            text="Kin Energy Stepsize [eV]",
-        )
-        self.LABEL_NUMBER_OF_PART = Label(
-            self.ir_mode_group,
-            text="Numer of particles",
-        )
-        self.LABEL_MASS_IR = Label(
-            self.ir_mode_group,
-            text="Mass",
-        )
-        self.LABEL_CHARGE_IR = Label(
-            self.ir_mode_group,
-            text="Charge",
-        )
+        self.LABEL_KIN_ENERGY_START = Label(self.ir_mode_group, text="First Kin Energy [eV]")
+        self.LABEL_KIN_ENERGY_STEP = Label(self.ir_mode_group, text="Kin Energy Stepsize [eV]")
+        self.LABEL_NUMBER_OF_PART = Label(self.ir_mode_group, text="Numer of particles")
+        self.LABEL_MASS_IR = Label(self.ir_mode_group, text="Mass")
+        self.LABEL_CHARGE_IR = Label(self.ir_mode_group, text="Charge")
 
         self.ENTRY_KIN_ENERGY_START = Entry(self.ir_mode_group)
         self.ENTRY_KIN_ENERGY_STEP = Entry(self.ir_mode_group)
@@ -758,9 +680,7 @@ class mclass:
         self.ENTRY_CHARGE_IR.insert(0, 1)
 
         self.BUTTON_SIM_IR_MODE = Button(
-            self.ir_mode_group,
-            text="Simulate Particle IR Mode",
-            command=self.R_tof_sim_ir,
+            self.ir_mode_group, text="Simulate Particle IR Mode", command=self.R_tof_sim_ir
         )
         self.BUTTON_SIM_IR_MODE.grid(row=4, column=4, padx="5", pady="5", sticky="ns")
 
@@ -788,121 +708,12 @@ class mclass:
         self.ENTRY_MASS_IR.grid(row=4, column=3, columnspan=1, padx="5", pady="5", sticky="w")
         self.ENTRY_CHARGE_IR.grid(row=5, column=3, columnspan=1, padx="5", pady="5", sticky="w")
 
-        ######## Coincidences ##################################
-        #### REMI parameter for Ion ####
-        remi_coin_ion_conf_group = LabelFrame(
-            tab3,
-            text="REMI Configuration for Ion",
-        )
-        remi_coin_ion_conf_group.grid(
-            row=100,
-            column=100,
-            columnspan=2,
-            rowspan=6,
-            padx="5",
-            pady="5",
-            sticky="nw",
-        )
-
-        self.COIN_LABEL_SET_U_ion = Label(
-            remi_coin_ion_conf_group,
-            text="U[V]:",
-        )
-        self.COIN_LABEL_SET_l_d_ion = Label(
-            remi_coin_ion_conf_group,
-            text="drift length[m]:",
-        )
-        self.COIN_LABEL_SET_l_a_ion = Label(
-            remi_coin_ion_conf_group,
-            text="acc length[m]:",
-        )
-        self.COIN_LABEL_SET_v_jet = Label(
-            remi_coin_ion_conf_group,
-            text="v jet[mm/µs]:",
-        )
-
-        self.COIN_LABEL_SET_U_ion.grid(row=103, column=101, padx="5", pady="5", sticky="w")
-        self.COIN_LABEL_SET_l_d_ion.grid(row=104, column=101, padx="5", pady="5", sticky="w")
-        self.COIN_LABEL_SET_l_a_ion.grid(row=105, column=101, padx="5", pady="5", sticky="w")
-        self.COIN_LABEL_SET_v_jet.grid(row=106, column=101, padx="5", pady="5", sticky="w")
-
-        self.COIN_ENTRY_SET_U_ion = Entry(remi_coin_ion_conf_group, textvariable=self.voltage_ion)
-        self.COIN_ENTRY_SET_l_d_ion = Entry(
-            remi_coin_ion_conf_group, textvariable=self.length_drift_ion
-        )
-        self.COIN_ENTRY_SET_l_a_ion = Entry(
-            remi_coin_ion_conf_group, textvariable=self.length_accel_ion
-        )
-        self.COIN_ENTRY_SET_v_jet = Entry(remi_coin_ion_conf_group, textvariable=self.velocity_jet)
-
-        self.COIN_ENTRY_SET_U_ion.grid(row=103, column=102, padx="5", pady="5", sticky="w")
-        self.COIN_ENTRY_SET_l_d_ion.grid(row=104, column=102, padx="5", pady="5", sticky="w")
-        self.COIN_ENTRY_SET_l_a_ion.grid(row=105, column=102, padx="5", pady="5", sticky="w")
-        self.COIN_ENTRY_SET_v_jet.grid(row=106, column=102, padx="5", pady="5", sticky="w")
-
-        #### Ion configuration ####
-        ion_coin_conf_group = LabelFrame(
-            tab3,
-            text="REMI Configuration for Ion",
-        )
-        ion_coin_conf_group.grid(
-            row=110,
-            column=100,
-            columnspan=2,
-            rowspan=6,
-            padx="5",
-            pady="5",
-            sticky="nw",
-        )
-
-        self.COIN_LABEL_ION_FORMULA = Label(
-            ion_coin_conf_group,
-            text="Ion ChemFormula:",
-        )
-        self.COIN_LABEL_ION_CHARGE = Label(
-            ion_coin_conf_group,
-            text="Ion Charge [a.u.]:",
-        )
-
-        self.COIN_LABEL_ION_FORMULA.grid(row=110, column=100, padx="5", pady="5", sticky="w")
-        self.COIN_LABEL_ION_CHARGE.grid(row=111, column=100, padx="5", pady="5", sticky="w")
-
-        self.COIN_ENTRY_ION_MASS = Entry(ion_coin_conf_group)
-        self.COIN_ENTRY_ION_CHARGE = Entry(ion_coin_conf_group)
-
-        self.COIN_ENTRY_ION_MASS.grid(row=110, column=101, padx="5", pady="5", sticky="w")
-        self.COIN_ENTRY_ION_CHARGE.grid(row=111, column=101, padx="5", pady="5", sticky="w")
-
-        self.ion_coin_pos_group = LabelFrame(
-            tab3,
-            text="Ion Postitions",
-        )
-        self.ion_coin_pos_group.grid(
-            row=120,
-            column=100,
-            columnspan=4,
-            rowspan=6,
-            padx="5",
-            pady="5",
-            sticky="nw",
-        )
-
-        self.COIN_BUTTON_ION_POSITION = Button(
-            self.ion_coin_pos_group,
-            text="Calculate Ion Positions",
-            command=self.calc_ion_position,
-        )
-        self.COIN_BUTTON_ION_POSITION.grid(row=110, column=100, padx="5", pady="5", sticky="w")
-
-        ######################################################################
-        ###################      TAB 2      ##################################
-        ######################################################################
+        #################################################################################
+        ###############################      Ions      ##################################
+        #################################################################################
 
         ######## higher groups ####################
-        left_tab2_group = LabelFrame(
-            tab2,
-            text="",
-        )
+        left_tab2_group = LabelFrame(tabs["Ions"], text="")
         left_tab2_group.grid(
             row=90,
             column=100,
@@ -955,18 +766,9 @@ class mclass:
             sticky="new",
         )
 
-        self.pipico_plot_group = LabelFrame(
-            tab2,
-            text="PIPICO",
-        )
+        self.pipico_plot_group = LabelFrame(tabs["Ions"], text="PIPICO")
         self.pipico_plot_group.grid(
-            row=90,
-            column=110,
-            columnspan=2,
-            rowspan=50,
-            padx="5",
-            pady="5",
-            sticky="new",
+            row=90, column=110, columnspan=2, rowspan=50, padx="5", pady="5", sticky="new"
         )
 
         ######## KER ##############################
@@ -1011,88 +813,82 @@ class mclass:
         self.ENTRY_CHARGE_ION_2.insert(0, 1)
 
         #### REMI parameter for Ion ####
-        self.LABEL_SET_U_ion = Label(
-            remi_ion_conf_group,
-            text="U[V]:",
-        )
-        self.LABEL_SET_B_ion = Label(
-            remi_ion_conf_group,
-            text="B[G]:",
-        )
-        self.LABEL_SET_l_d_ion = Label(
-            remi_ion_conf_group,
-            text="drift length[m]:",
-        )
-        self.LABEL_SET_l_a_ion = Label(
-            remi_ion_conf_group,
-            text="acc length[m]:",
-        )
-        self.LABEL_SET_v_jet = Label(
-            remi_ion_conf_group,
-            text="v jet[mm/µs]:",
-        )
-        self.LABEL_SET_bunch_modulo = Label(
-            remi_ion_conf_group,
-            text="bunch modulo [ns]:",
-        )
-        self.LABEL_SET_detector_diameter = Label(
-            remi_ion_conf_group,
-            text="detector diameter [mm]:",
-        )
-
-        self.LABEL_SET_U_ion.grid(row=103, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_B_ion.grid(row=104, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_l_d_ion.grid(row=105, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_l_a_ion.grid(row=106, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_v_jet.grid(row=107, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_bunch_modulo.grid(row=108, column=101, padx="5", pady="5", sticky="w")
-        self.LABEL_SET_detector_diameter.grid(row=109, column=101, padx="5", pady="5", sticky="w")
-
-        self.ENTRY_SET_U_ion = Entry(remi_ion_conf_group, textvariable=self.voltage_ion)
-        self.ENTRY_SET_B_ion = Entry(remi_ion_conf_group, textvariable=self.magnetic_field_gauss)
-        self.ENTRY_SET_l_d_ion = Entry(remi_ion_conf_group, textvariable=self.length_drift_ion)
-        self.ENTRY_SET_l_a_ion = Entry(remi_ion_conf_group, textvariable=self.length_accel_ion)
+        self.LABEL_SET_v_jet = Label(remi_ion_conf_group, text="v jet[mm/µs]:")
+        self.LABEL_SET_v_jet.grid(row=101, column=101, padx="5", pady="5", sticky="w")
         self.ENTRY_SET_v_jet = Entry(remi_ion_conf_group, textvariable=self.velocity_jet)
-        self.ENTRY_SET_bunch_modulo = Entry(remi_ion_conf_group)
-        self.ENTRY_SET_detector_diameter = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_v_jet.grid(row=101, column=102, padx="5", pady="5", sticky="w")
 
-        self.ENTRY_SET_U_ion.grid(row=103, column=102, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_B_ion.grid(row=104, column=102, padx="5", pady="5", sticky="w")
+        self.LABEL_SET_B_ion = Label(remi_ion_conf_group, text="B[G]:")
+        self.LABEL_SET_B_ion.grid(row=102, column=101, padx="5", pady="5", sticky="w")
+        self.ENTRY_SET_B_ion = Entry(remi_ion_conf_group, textvariable=self.magnetic_field_gauss)
+        self.ENTRY_SET_B_ion.grid(row=102, column=102, padx="5", pady="5", sticky="w")
+
+        self.LABEL_SET_bunch_modulo = Label(remi_ion_conf_group, text="bunch modulo [ns]:")
+        self.LABEL_SET_bunch_modulo.grid(row=103, column=101, padx="5", pady="5", sticky="w")
+        self.ENTRY_SET_bunch_modulo = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_bunch_modulo.grid(row=103, column=102, padx="5", pady="5", sticky="w")
+
+        self.LABEL_SET_detector_diameter = Label(
+            remi_ion_conf_group, text="detector diameter [mm]:"
+        )
+        self.LABEL_SET_detector_diameter.grid(row=104, column=101, padx="5", pady="5", sticky="w")
+        self.ENTRY_SET_detector_diameter = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_detector_diameter.grid(row=104, column=102, padx="5", pady="5", sticky="w")
+
+        self.LABEL_SET_l_d_ion = Label(remi_ion_conf_group, text="drift length[m]:")
+        self.LABEL_SET_l_d_ion.grid(row=105, column=101, padx="5", pady="5", sticky="w")
+        self.ENTRY_SET_l_d_ion = Entry(remi_ion_conf_group, textvariable=self.length_drift_ion)
         self.ENTRY_SET_l_d_ion.grid(row=105, column=102, padx="5", pady="5", sticky="w")
+
+        self.LABEL_SET_l_a_ion = Label(remi_ion_conf_group, text="acc length[m]:")
+        self.LABEL_SET_l_a_ion.grid(row=106, column=101, padx="5", pady="5", sticky="w")
+        self.ENTRY_SET_l_a_ion = Entry(remi_ion_conf_group, textvariable=self.length_accel_ion)
         self.ENTRY_SET_l_a_ion.grid(row=106, column=102, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_v_jet.grid(row=107, column=102, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_bunch_modulo.grid(row=108, column=102, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_detector_diameter.grid(row=109, column=102, padx="5", pady="5", sticky="w")
+
+        self.LABEL_SET_U_ion = Label(remi_ion_conf_group, text="U[V]:")
+        self.LABEL_SET_U_ion.grid(row=107, column=101, padx="5", pady="5", sticky="w")
+        self.ENTRY_SET_U_ion = Entry(remi_ion_conf_group, textvariable=self.voltage_ion)
+        self.ENTRY_SET_U_ion.grid(row=107, column=102, padx="5", pady="5", sticky="w")
+
+        self.CHECK_fixed_potential_ion = Checkbutton(
+            remi_ion_conf_group,
+            text="Interaction region on Ground potential",
+            variable=self.fixed_center_potential,
+            onvalue=1,
+        )
+        self.CHECK_fixed_potential_ion.grid(
+            row=108, column=101, columnspan=2, padx="5", pady="5", sticky="w"
+        )
 
         self.ENTRY_SET_bunch_modulo.insert(0, 5316.9231)
         self.ENTRY_SET_detector_diameter.insert(0, 120)
 
-        self.LABEL_SLIDE_U_pipco = Label(
-            self.pipico_plot_group,
-            text="Voltage",
-        )
+        self.LABEL_SLIDE_U_pipco = Label(self.pipico_plot_group, text="Voltage ion side [V]")
         self.LABEL_SLIDE_U_pipco.grid(
-            row=2, column=1, columnspan=2, padx="5", pady="5", sticky="ew"
+            row=3, column=1, columnspan=2, padx="5", pady="5", sticky="ew"
         )
 
         self.SLIDE_U_pipco = Scale(
             self.pipico_plot_group,
             from_=0,
-            to=3000,
+            to=-3000,
             orient=HORIZONTAL,
             # resolution=0.1,
-            command=self.set_new_u_pipico,
             variable=self.voltage_ion,
         )
-        self.SLIDE_U_pipco.grid(row=3, column=1, columnspan=2, padx="5", pady="5", sticky="ew")
+        self.SLIDE_U_pipco.grid(row=4, column=1, columnspan=2, padx="5", pady="5", sticky="ew")
+
+        self.LABEL_SLIDE_B_pipco = Label(self.pipico_plot_group, text="Magnetig Field [G]")
+        self.LABEL_SLIDE_B_pipco.grid(
+            row=5, column=1, columnspan=2, padx="5", pady="5", sticky="ew"
+        )
 
         self.SLIDE_B_pipco = Scale(
             self.pipico_plot_group,
             from_=0,
-            to=500,
+            to=200,
             orient=HORIZONTAL,
             # resolution=0.1,
-            command=self.set_new_B_pipico,
             variable=self.magnetic_field_gauss,
         )
         self.SLIDE_B_pipco.grid(row=4, column=1, columnspan=2, padx="5", pady="5", sticky="ew")
@@ -1122,7 +918,7 @@ class mclass:
 
         self.ENTRY_NUMBER_IONS = Entry(self.ion_generation_group)
         self.ENTRY_NUMBER_IONS.grid(row=0, column=2, padx="5", pady="5", sticky="w")
-        self.ENTRY_NUMBER_IONS.insert(0, 7)
+        self.ENTRY_NUMBER_IONS.insert(0, 5)
 
         self.LABEL_FORMULA_IONS.grid(row=1, column=1, padx="5", pady="5", sticky="w")
         self.LABEL_MASS_IONS.grid(row=1, column=2, padx="5", pady="5", sticky="w")
@@ -1187,7 +983,7 @@ class mclass:
                 ]
                 * 2,
             ],
-            figsize=(10, 9),
+            figsize=(8, 8),
             facecolor="whitesmoke",
             layout="constrained",
         )
@@ -1211,14 +1007,37 @@ class mclass:
             row=2, column=1, rowspan=1, columnspan=1, padx="5", pady="5", sticky="ew"
         )
         self.pipico_toolbar.update()
-        # canvas.mpl_connect(
-        #     "key_press_event", lambda event: print(f"you pressed {event.key}"))
-        # canvas.mpl_connect("key_press_event", key_press_handler)
 
         self.make_R_tof()
         self.calc_ker()
         self.generate_entrys()
         self.calc_ion_tof()
+        self.make_export_tab()
+
+    def make_export_tab(self):
+        self.valid_group = LabelFrame(self.tabs["Export Data"], text="Save Electron Data")
+        self.valid_group.grid(
+            row=115, column=100, columnspan=4, rowspan=6, padx="5", pady="5", sticky="nsew"
+        )
+
+        self.BUTTON_SAVE_MOM = Button(
+            self.valid_group, text="Save Momentum Data", command=self.export_momenta
+        )
+        self.BUTTON_SAVE_MOM.grid(row=10, column=100, columnspan=2, padx="5", pady="5", sticky="w")
+
+        self.BUTTON_CALC_MCP_TIMES = Button(
+            self.valid_group, text="Save MCP times", command=self.calc_mcp
+        )
+        self.BUTTON_CALC_MCP_TIMES.grid(
+            row=11, column=100, columnspan=2, padx="5", pady="5", sticky="w"
+        )
+
+        self.BUTTON_EXPORT_DATA = Button(
+            self.valid_group, text="Save Electron Position", command=self.export_data
+        )
+        self.BUTTON_EXPORT_DATA.grid(
+            row=12, column=100, columnspan=2, padx="5", pady="5", sticky="w"
+        )
 
     def make_plot_xarray(
         self,
@@ -1301,22 +1120,10 @@ class mclass:
         return fig, a, canvas, toolbar
 
     def make_plot(
-        self,
-        x,
-        y,
-        row,
-        column,
-        master,
-        rowspan=1,
-        columnspan=1,
-        figsize=(4, 4),
-        title="",
-        xlim=None,
-        ylim=None,
-        extent=None,
+        self, row, column, master, rowspan=1, columnspan=1, figsize=(5, 5), withcax=False
     ):
         """
-        Makes a hexbin-plot of x and y
+        Initializes a figure canvas with plot axis
 
         Returns
         -------
@@ -1324,21 +1131,7 @@ class mclass:
         a : axis
         canvas : canvas
         """
-        fig = Figure(figsize=figsize, facecolor="whitesmoke")
-        a = fig.add_subplot(111)
-        a.hexbin(
-            x,
-            y,
-            mincnt=1,
-            edgecolors="face",
-            gridsize=100,
-            cmap="PuBuGn",
-            extent=extent,
-        )
-        a.set_title(title)
-        a.set_xlim(xlim)
-        a.set_ylim(ylim)
-        a.autoscale(tight=True)
+        fig = plt.figure(figsize=figsize, facecolor="whitesmoke", layout="constrained")
         canvas = FigureCanvasTkAgg(fig, master=master)
         canvas.get_tk_widget().grid(
             row=row,
@@ -1347,7 +1140,7 @@ class mclass:
             columnspan=columnspan,
             padx="5",
             pady="5",
-            sticky="ew",
+            sticky="nsew",
         )
         canvas.draw()
         toolbar = NavigationToolbar2Tk(canvas=canvas, window=master, pack_toolbar=False)
@@ -1358,10 +1151,15 @@ class mclass:
             columnspan=columnspan,
             padx="5",
             pady="5",
-            sticky="ew",
+            sticky="nsew",
         )
         toolbar.update()
-        return fig, a, canvas, toolbar
+
+        if withcax:
+            axes = fig.subplots(1, 2, width_ratios=[0.93, 0.07])
+        else:
+            axes = fig.subplots(1, 1)
+        return fig, axes, canvas, toolbar
 
     @property
     def magnetic_field_si(self):
@@ -1828,22 +1626,6 @@ class mclass:
             self.ax_R_tof.plot(tof, R, color="firebrick")
         self.canvas_R_tof.draw()
 
-    def set_new_u(self, U):
-        self.update_R_tof()
-        return
-
-    def set_new_u_pipico(self, U):
-        self.calc_ion_tof()
-        return
-
-    def set_new_B_pipico(self, B):
-        self.calc_ion_tof()
-        return
-
-    def set_new_b(self, B):
-        self.update_R_tof()
-        return
-
     ##########################################################################
     ###############   TAB 2 ##################################################
     ##########################################################################
@@ -2238,12 +2020,7 @@ class mclass:
         a.set_ylim(0, modulo)
         legend_handles = legend_handles_even + legend_handles_odd
         legend_labels = legend_labels_even + legend_labels_odd
-        legend = plt.figlegend(
-            legend_handles,
-            legend_labels,
-            loc=4,
-            ncols=2,
-        )
+        legend = self.pipico_fig.legend(legend_handles, legend_labels, loc=4, ncols=2)
         for artist in legend.legend_handles:
             artist.set_alpha(1)
         self.pipico_canvas.draw()
