@@ -264,6 +264,7 @@ def calc_ion_momenta(KER, m_1, m_2):
 #############################
 #### GUI ####################
 ############################
+canvas_background_color = "mintcream"
 
 
 class mclass:
@@ -280,7 +281,7 @@ class mclass:
             "TCheckbutton",
             "Canvas",
         ]:
-            style.configure(labeler, background="mintcream")
+            style.configure(labeler, background=canvas_background_color)
         style.map("TButton", background=[("active", "aliceblue")])
         window.columnconfigure(0, weight=1)
         window.rowconfigure(0, weight=1)
@@ -318,7 +319,7 @@ class mclass:
                 scrollregion=(0, 0, 1900, 1600),
                 width=1900,
                 height=1600,
-                background="whitesmoke",
+                background=canvas_background_color,
             )
             h["command"] = tab_canvas.xview
             v["command"] = tab_canvas.yview
@@ -872,7 +873,7 @@ class mclass:
                 ["pipico"] * 3 + ["."] * 2,
             ],
             figsize=(8, 8),
-            facecolor="whitesmoke",
+            facecolor=canvas_background_color,
             layout="constrained",
         )
         self.pipico_fig = fig
@@ -942,7 +943,7 @@ class mclass:
         a : axis
         canvas : canvas
         """
-        fig = plt.figure(figsize=figsize, facecolor="whitesmoke", layout="constrained")
+        fig = plt.figure(figsize=figsize, facecolor=canvas_background_color, layout="constrained")
         canvas = FigureCanvasTkAgg(fig, master=master)
         canvas.get_tk_widget().grid(
             row=row,
@@ -1431,27 +1432,23 @@ class mclass:
             self.ion_labels.append(Label(self.ion_generation_group, text="Ion " + str(n + 1)))
             self.ion_labels[n].grid(row=n + 3, column=0)
 
-            self.entries_formula.append(
-                Entry(
-                    self.ion_generation_group
-                    # fg=matplotlib.colors.to_hex(self.ion_color[n]),
-                    # highlightcolor=matplotlib.colors.to_hex(self.ion_color[n]),
-                )
-            )
-            self.entries_charge.append(
-                Entry(
-                    self.ion_generation_group
-                    # fg=matplotlib.colors.to_hex(self.ion_color[n]),
-                    # highlightcolor=matplotlib.colors.to_hex(self.ion_color[n]),
-                )
-            )
+            this_ion_color = matplotlib.colors.to_hex(self.ion_color[n])
+            self.entries_formula.append(Entry(self.ion_generation_group, foreground=this_ion_color))
+            self.entries_charge.append(Entry(self.ion_generation_group, foreground=this_ion_color))
+
             self.entries_formula[n].grid(row=n + 3, column=1)
             self.entries_charge[n].grid(row=n + 3, column=3)
             self.labels_mass.append(
-                Label(self.ion_generation_group, text="{:.5g}".format(masses[n]))
+                Label(
+                    self.ion_generation_group,
+                    text="{:.5g}".format(masses[n]),
+                    foreground=this_ion_color,
+                )
             )
             self.labels_mass[n].grid(row=n + 3, column=2)
-            self.labels_ion_tof.append(Label(self.ion_generation_group, text=""))
+            self.labels_ion_tof.append(
+                Label(self.ion_generation_group, text="", foreground=this_ion_color)
+            )
             self.labels_ion_tof[n].grid(row=n + 3, column=5)
 
             self.entries_formula[n].insert(0, formulas[n])
@@ -1459,13 +1456,10 @@ class mclass:
 
         self.entries_ker = []
         for n in range(ion_number // 2):
-            self.entries_ker.append(
-                Entry(
-                    self.ion_generation_group
-                    # fg=matplotlib.colors.to_hex(self.ion_color[2 * n]),
-                    # highlightcolor=matplotlib.colors.to_hex(self.ion_color[2 * n]),
-                )
+            this_pair_color = matplotlib.colors.to_hex(
+                (self.ion_color[2 * n] + self.ion_color[2 * n + 1]) / 2
             )
+            self.entries_ker.append(Entry(self.ion_generation_group, foreground=this_pair_color))
             self.entries_ker[n].grid(row=(n * 2) + 3, column=4, rowspan=2, sticky="ns")
             self.entries_ker[n].insert(0, kers[n])
 
@@ -1886,7 +1880,7 @@ class mclass:
 
 def main():
     window = Tk()
-    window.configure(background="whitesmoke")
+    window.configure(background=canvas_background_color)
     mclass(window)
     window.mainloop()
 
