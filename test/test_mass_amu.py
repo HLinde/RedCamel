@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import pytest
 import chemformula
-from redcamel import get_mass_amu
+from redcamel import get_mass
 
 
 def test_get_mass_amu():
     """Test the electron mass."""
-    assert get_mass_amu(chemformula.ChemFormula("e")) == pytest.approx(1 / 1822.888)
+    assert get_mass(chemformula.ChemFormula("e")).to(unit="au mass").value == pytest.approx(1)
     """ Test the hydrogen mass."""
-    assert get_mass_amu(chemformula.ChemFormula("H")) == pytest.approx(1.008)
+    assert get_mass(chemformula.ChemFormula("H")).to(unit="amu").value == pytest.approx(1.008)
