@@ -1371,41 +1371,29 @@ class mclass:
             self.ion_labels[n].grid_remove()
             self.labels_ion_tof[n].grid_remove()
 
+        predefined_ions = [
+            (1, ChemFormula("C4H8O2")),
+            (1, ChemFormula("S2")),
+            (1, ChemFormula("C4H8SO2")),
+            (1, ChemFormula("S")),
+            (1, ChemFormula("C4H7S2O2")),
+            (1, ChemFormula("H")),
+            (1, ChemFormula("H2")),
+            (1, ChemFormula("H")),
+            (1, ChemFormula("C4H8S2O2")),
+            (1, ChemFormula("C4H8S2O2")),
+            (1, ChemFormula("C8H16S3O4")),
+            (1, ChemFormula("S")),
+            (2, ChemFormula("S")),
+            (4, ChemFormula("S")),
+        ]
+        default_ion = (1, ChemFormula("H"))
         for n in range(self.last_ion_number, ion_number):
-            charges[n] = 1
-            match n:
-                case 0:
-                    formulas[n] = ChemFormula("C4H8O2")
-                case 1:
-                    formulas[n] = ChemFormula("S2")
-                case 2:
-                    formulas[n] = ChemFormula("C4H8SO2")
-                case 3:
-                    formulas[n] = ChemFormula("S")
-                case 4:
-                    formulas[n] = ChemFormula("C4H7S2O2")
-                case 5:
-                    formulas[n] = ChemFormula("H")
-                case 6:
-                    formulas[n] = ChemFormula("H2")
-                case 7:
-                    formulas[n] = ChemFormula("H")
-                case 8:
-                    formulas[n] = ChemFormula("C4H8S2O2")
-                case 9:
-                    formulas[n] = ChemFormula("C4H8S2O2")
-                case 10:
-                    formulas[n] = ChemFormula("C8H16S3O4")
-                case 11:
-                    formulas[n] = ChemFormula("S")
-                case 12:
-                    formulas[n] = ChemFormula("S")
-                    charges[n] = 3
-                case 13:
-                    formulas[n] = ChemFormula("S")
-                    charges[n] = 4
-                case _:
-                    formulas[n] = ChemFormula("H")
+            if n < len(predefined_ions):
+                ion = predefined_ions[n]
+            else:
+                ion = default_ion
+            charges[n], formulas[n] = ion
             masses[n] = get_mass(formulas[n]).value
 
         for i in range(ker_length):
