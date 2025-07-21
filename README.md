@@ -18,7 +18,8 @@ GUI tool to simulate Reaction Microscope detector images.
 
 ## With uv (recommended)
 
-> [!WARNING] You currently have to use your system python with included tkinter
+> [!WARNING]
+> You currently have to use your system python with included tkinter
 > library (e.g. `apt install python3-tk`). uv apparently can not bring a working
 > tk library. (Until
 > https://github.com/astral-sh/python-build-standalone/pull/676 is merged) If
@@ -132,7 +133,8 @@ uv can be found here: https://docs.astral.sh/uv/getting-started/installation/
 
 ## Usage with pixi
 
-> [!TIP] pixi / the conda-forge python distribution actually includes tk
+> [!TIP]
+> pixi / the conda-forge python distribution actually includes tk
 > libraries so you do not need installed system tk :)
 
 ```bash
