@@ -5604,8 +5604,8 @@ packages:
   timestamp: 1740379663071
 - pypi: ./
   name: redcamel
-  version: 0.1.2
-  sha256: 9780b7ae6f28fe89aaa52d8c4c80cea8e2b39a40cd796fc06727f07123e61fbd
+  version: 0.1.3
+  sha256: 913226113b2e51097362587439369741061c638c24e153803f460c56629fefb9
   requires_dist:
   - chemformula>=1.2
   - graphviz>=0.20

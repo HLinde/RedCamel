@@ -11,12 +11,20 @@ GUI tool to simulate Reaction Microscope detector images.
 
 # Example Outputs
 
-![Electron Wiggles](https://codeberg.org/FlashREMI/RedCamel/media/tag/v0.1.2/Electrons.png)
-![Ion fragmentation](https://codeberg.org/FlashREMI/RedCamel/media/tag/v0.1.2/Ions.png)
+![Electron Wiggles](https://codeberg.org/FlashREMI/RedCamel/media/tag/v0.1.3/Electrons.png)
+![Ion fragmentation](https://codeberg.org/FlashREMI/RedCamel/media/tag/v0.1.3/Ions.png)
 
 # Usage
 
 ## With uv (recommended)
+
+> [!WARNING] You currently have to use your system python with included tkinter
+> library (e.g. `apt install python3-tk`). uv apparently can not bring a working
+> tk library. (Until
+> https://github.com/astral-sh/python-build-standalone/pull/676 is merged) If
+> you can not get tk to run, you can try to follow the "For developers" section.
+> You would notice something like
+> `ImportError: module '_tkinter' has no attribute '__file__'`.
 
 Try out with temporary python environment:
 
@@ -88,7 +96,7 @@ Update:
 pip install --upgrade redcamel
 ```
 
-## With conda/mamba/pipx
+## With conda/mamba/pixi
 
 Not yet implemented, sorry..
 
@@ -99,13 +107,20 @@ Not yet implemented, sorry..
 
 # For developers
 
-## Usage with pixi
+First get the repository
 
 ```bash
-pixi run redcamel
+git clone https://codeberg.org/FlashREMI/RedCamel.git
 ```
 
-pixi can be found here: https://pixi.sh/latest/#installation
+or if you have an codeberg.org account with an ssh key set up:
+
+```bash
+git clone ssh://git@codeberg.org/FlashREMI/RedCamel.git
+```
+
+Then work inside the RedCamel folder. uv or pixi will find their configuration
+files there.
 
 ## Usage with uv
 
@@ -114,6 +129,17 @@ uv run redcamel
 ```
 
 uv can be found here: https://docs.astral.sh/uv/getting-started/installation/
+
+## Usage with pixi
+
+> [!TIP] pixi / the conda-forge python distribution actually includes tk
+> libraries so you do not need installed system tk :)
+
+```bash
+pixi run redcamel
+```
+
+pixi can be found here: https://pixi.sh/latest/#installation
 
 ## Usage with mamba / conda
 
