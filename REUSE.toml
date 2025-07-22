@@ -3,7 +3,8 @@ version = 1
 [[annotations]]
 path = [
     "Ions.png",
-    "Electrons.png"
+    "Electrons.png",
+    "src/redcamel/icon.png",
 ]
 SPDX-FileCopyrightText = "2025 Hannes Lindenblatt"
 SPDX-License-Identifier = "CC-BY-4.0"

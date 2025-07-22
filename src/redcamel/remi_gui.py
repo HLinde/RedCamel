@@ -15,7 +15,7 @@ Created on Wed Aug  5 10:58:39 2020
 #############################
 #### imports ################
 ############################
-from tkinter import Tk, IntVar, DoubleVar, HORIZONTAL, VERTICAL, Canvas
+from tkinter import Tk, IntVar, DoubleVar, HORIZONTAL, VERTICAL, Canvas, PhotoImage
 from tkinter.ttk import (
     Style,
     Button,
@@ -30,6 +30,7 @@ from tkinter.ttk import (
     Scrollbar,
     Sizegrip,
 )
+from pathlib import Path
 import matplotlib
 
 matplotlib.use("TkAgg")
@@ -271,6 +272,8 @@ class mclass:
     def __init__(self, window):
         self.window = window
         window.title("Red Camel")
+        photo = PhotoImage(file=Path(__file__).parent / "icon.png")
+        window.wm_iconphoto(False, photo)
         style = Style()
         for labeler in [
             "TFrame",
@@ -1371,14 +1374,18 @@ class mclass:
             self.labels_ion_tof[n].grid_remove()
 
         predefined_ions = [
-            (1, ChemFormula("e")),
-            (1, ChemFormula("H")),
             (1, ChemFormula("H")),
             (2, ChemFormula("OH")),
             (1, ChemFormula("N")),
             (3, ChemFormula("N")),
             (1, ChemFormula("Ar")),
             (1, ChemFormula("Ar")),
+            (2, ChemFormula("S")),
+            (4, ChemFormula("CO")),
+            (1, ChemFormula("H")),
+            (1, ChemFormula("CH3")),
+            (1, ChemFormula("H")),
+            (2, ChemFormula("CH2I")),
         ]
         default_ion = (1, ChemFormula("H"))
         for n in range(self.last_ion_number, ion_number):
@@ -1389,7 +1396,7 @@ class mclass:
             charges[n], formulas[n] = ion
             masses[n] = get_mass(formulas[n]).value
 
-        predefined_kers = [5.0, 3.0, 4.0, 7.0]
+        predefined_kers = [6.0, 6.0, 10.0, 20.0, 4.0]
         default_ker = 3.5
         for i in range(self.last_ion_number // 2):
             try:
@@ -1684,6 +1691,28 @@ class mclass:
         for artist in legend.legend_handles:
             artist.set_alpha(1)
         self.pipico_canvas.draw()
+
+        make_icon = False
+        if make_icon:
+            icon_fig, icon_ax = plt.subplots(figsize=(5, 5), layout="tight")
+            for n in range(self.last_ion_number // 2):
+                icon_ax.scatter(
+                    ion_tof_1[n] % modulo - ion_tof_2[n] % modulo,
+                    ion_tof_1[n] % modulo + ion_tof_2[n] % modulo,
+                    color=self.ion_color[2 * n],
+                    alpha=0.1,
+                    edgecolors="none",
+                )
+                icon_ax.scatter(
+                    ion_tof_2[n] % modulo - ion_tof_1[n] % modulo,
+                    ion_tof_2[n] % modulo + ion_tof_1[n] % modulo,
+                    color=self.ion_color[2 * n],
+                    alpha=0.1,
+                    edgecolors="none",
+                )
+            icon_ax.axis("off")
+            icon_fig.savefig("icon.png", dpi=12.8)
+            plt.close(icon_fig)
 
     def update_electron_momenta(self):
         mass, charge = self.electron_params
