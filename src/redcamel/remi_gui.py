@@ -355,11 +355,11 @@ class mclass:
             tabs[label] = tab
 
         ######## global Remi variables ####################
-        self.length_accel_ion = DoubleVar(value=0.11)
+        self.length_accel_ion = DoubleVar(value=0.115)
         self.length_drift_ion = DoubleVar(value=0.0)
-        self.length_accel_electron = DoubleVar(value=0.18)
+        self.length_accel_electron = DoubleVar(value=0.2)
         self.length_drift_electron = DoubleVar(value=0.0)
-        self.voltage_electron = DoubleVar(value=+500.0)
+        self.voltage_electron = DoubleVar(value=+469.5652173913043)
         self.voltage_ion = DoubleVar()  # gets initialized by ratio of distances
         self.magnetic_field_gauss = DoubleVar(value=5.0)
         self.velocity_jet = DoubleVar(value=1.0)
@@ -613,8 +613,7 @@ class mclass:
         self.SLIDE_U = Scale(
             self.R_tof_plot_group,
             from_=0,
-            to=500,
-            # resolution=0.1,
+            to=1000,
             orient=HORIZONTAL,
             variable=self.voltage_electron,
         )
@@ -630,8 +629,7 @@ class mclass:
         self.SLIDE_B = Scale(
             self.R_tof_plot_group,
             from_=0,
-            to=100,
-            # resolution=0.1,
+            to=50,
             orient=HORIZONTAL,
             variable=self.magnetic_field_gauss,
         )
@@ -787,7 +785,7 @@ class mclass:
             row=108, column=101, columnspan=2, padx="5", pady="5", sticky="w"
         )
 
-        self.ENTRY_SET_bunch_modulo.insert(0, 5316.9231)
+        self.ENTRY_SET_bunch_modulo.insert(0, 5000)
         self.ENTRY_SET_detector_diameter.insert(0, 120)
 
         self.LABEL_SLIDE_U_pipco = Label(self.pipico_plot_group, text="Voltage ion side [V]")
@@ -813,7 +811,7 @@ class mclass:
         self.SLIDE_B_pipco = Scale(
             self.pipico_plot_group,
             from_=0,
-            to=200,
+            to=50,
             orient=HORIZONTAL,
             # resolution=0.1,
             variable=self.magnetic_field_gauss,
@@ -830,7 +828,7 @@ class mclass:
 
         self.ENTRY_NUMBER_IONS = Entry(self.ion_generation_group)
         self.ENTRY_NUMBER_IONS.grid(row=0, column=2, padx="5", pady="5", sticky="w")
-        self.ENTRY_NUMBER_IONS.insert(0, 5)
+        self.ENTRY_NUMBER_IONS.insert(0, 4)
 
         self.LABEL_FORMULA_IONS.grid(row=1, column=1, padx="5", pady="5", sticky="w")
         self.LABEL_MASS_IONS.grid(row=1, column=2, padx="5", pady="5", sticky="w")
@@ -1345,6 +1343,7 @@ class mclass:
         ion_number = int(self.ENTRY_NUMBER_IONS.get()) * 2
 
         colors = np.array(matplotlib.color_sequences["tab20"])
+        colors = colors[~np.isin(np.arange(len(colors)), [6, 7])]  # Skip red for color blind
         self.ion_color = colors[np.arange(ion_number) % len(colors)]
 
         # saving last entrys
@@ -1372,20 +1371,14 @@ class mclass:
             self.labels_ion_tof[n].grid_remove()
 
         predefined_ions = [
-            (1, ChemFormula("C4H8O2")),
-            (1, ChemFormula("S2")),
-            (1, ChemFormula("C4H8SO2")),
-            (1, ChemFormula("S")),
-            (1, ChemFormula("C4H7S2O2")),
+            (1, ChemFormula("e")),
             (1, ChemFormula("H")),
-            (1, ChemFormula("H2")),
             (1, ChemFormula("H")),
-            (1, ChemFormula("C4H8S2O2")),
-            (1, ChemFormula("C4H8S2O2")),
-            (1, ChemFormula("C8H16S3O4")),
-            (1, ChemFormula("S")),
-            (2, ChemFormula("S")),
-            (4, ChemFormula("S")),
+            (2, ChemFormula("OH")),
+            (1, ChemFormula("N")),
+            (3, ChemFormula("N")),
+            (1, ChemFormula("Ar")),
+            (1, ChemFormula("Ar")),
         ]
         default_ion = (1, ChemFormula("H"))
         for n in range(self.last_ion_number, ion_number):
@@ -1396,13 +1389,19 @@ class mclass:
             charges[n], formulas[n] = ion
             masses[n] = get_mass(formulas[n]).value
 
-        for i in range(ker_length):
-            kers[i] = 15
+        predefined_kers = [5.0, 3.0, 4.0, 7.0]
+        default_ker = 3.5
+        for i in range(self.last_ion_number // 2):
             try:
                 kers[i] = float(self.entries_ker[i].get())
                 self.entries_ker[i].grid_remove()
             except IndexError:
                 pass
+        for i in range(self.last_ion_number // 2, ion_number // 2):
+            if i < len(predefined_kers):
+                kers[i] = predefined_kers[i]
+            else:
+                kers[i] = default_ker
 
         self.entries_formula = []
         self.labels_mass = []
