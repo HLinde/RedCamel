@@ -120,8 +120,13 @@ or if you have an codeberg.org account with an ssh key set up:
 git clone ssh://git@codeberg.org/FlashREMI/RedCamel.git
 ```
 
-Then work inside the RedCamel folder. uv or pixi will find their configuration
-files there.
+Then work inside the RedCamel folder. uv or pixi will find their configuration files there.
+You might need to get the image files with git-lfs:
+
+```bash
+git lfs install
+git lfs pull
+```
 
 ## Usage with uv
 
