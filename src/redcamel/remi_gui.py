@@ -15,7 +15,7 @@ Created on Wed Aug  5 10:58:39 2020
 #############################
 #### imports ################
 ############################
-from tkinter import Tk, IntVar, DoubleVar, HORIZONTAL, PhotoImage
+from tkinter import Tk, IntVar, DoubleVar, HORIZONTAL, PhotoImage, filedialog
 from tkinter.ttk import (
     Style,
     Button,
@@ -902,6 +902,11 @@ class mclass:
         )
         self.BUTTON_EXPORT_DATA.grid(row=2, column=0, columnspan=1, padx="5", pady="5", sticky="w")
 
+        self.BUTTON_EXPORT_HDF5 = Button(
+            self.valid_group, text="Save Scipp DataGroup to hdf5", command=self.export_scipp_hdf5
+        )
+        self.BUTTON_EXPORT_HDF5.grid(row=3, column=0, columnspan=1, padx="5", pady="5", sticky="w")
+
     def make_plot(
         self, row, column, master, rowspan=2, columnspan=1, figsize=(5, 5), withcax=False
     ):
@@ -1193,6 +1198,16 @@ class mclass:
     @property
     def electron_tof(self):
         return self.electron_hits.coords["tof"]
+
+    def export_scipp_hdf5(self):
+        """
+        Write dataset to hdf5
+        """
+        filename = filedialog.asksaveasfilename(
+            initialfile="examples/redcamel_data.h5", filetypes=[("hdf5", ".h5")]
+        )
+        if isinstance(filename, str):
+            self.datagroup.save_hdf5(filename)
 
     def export_data(self):
         """
