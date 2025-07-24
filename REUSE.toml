@@ -5,6 +5,7 @@ path = [
     "Ions.png",
     "Electrons.png",
     "src/redcamel/icon.png",
+    "examples/redcamel_data.h5",
 ]
 SPDX-FileCopyrightText = "2025 Hannes Lindenblatt"
 SPDX-License-Identifier = "CC-BY-4.0"
