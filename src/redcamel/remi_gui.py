@@ -15,7 +15,7 @@ Created on Wed Aug  5 10:58:39 2020
 #############################
 #### imports ################
 ############################
-from tkinter import Tk, IntVar, DoubleVar, HORIZONTAL, PhotoImage, filedialog
+from tkinter import Tk, IntVar, DoubleVar, BooleanVar, HORIZONTAL, PhotoImage, filedialog
 from tkinter.ttk import (
     Style,
     Button,
@@ -437,18 +437,17 @@ class mclass:
         self.ENTRY_SET_l_a.grid(row=2, column=1, padx="5", pady="5", sticky="ew")
 
         self.LABEL_SET_U = Label(remi_conf_group, text="U[V]:")
-        self.LABEL_SET_U.grid(row=2, column=0, padx="5", pady="5", sticky="ew")
+        self.LABEL_SET_U.grid(row=3, column=0, padx="5", pady="5", sticky="ew")
         self.ENTRY_SET_U = Entry(remi_conf_group, textvariable=self.voltage_electron)
-        self.ENTRY_SET_U.grid(row=2, column=1, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_U.grid(row=3, column=1, padx="5", pady="5", sticky="ew")
 
         self.CHECK_fixed_potential_ele = Checkbutton(
             remi_conf_group,
             text="Interaction region on Ground potential",
             variable=self.fixed_center_potential,
-            onvalue=1,
         )
         self.CHECK_fixed_potential_ele.grid(
-            row=3, column=0, columnspan=2, padx="5", pady="5", sticky="ew"
+            row=4, column=0, columnspan=2, padx="5", pady="5", sticky="ew"
         )
 
         ######## momentum, R, tof calculation #############
@@ -580,7 +579,7 @@ class mclass:
         self.v_ir = IntVar()
         self.v_ir.set(0)
         self.CHECK_IR_PLOT = Checkbutton(
-            self.R_tof_plot_group, text="Enable IR plot Mode", variable=self.v_ir, onvalue=1
+            self.R_tof_plot_group, text="Enable IR plot Mode", variable=self.v_ir
         )
         self.CHECK_IR_PLOT.grid(row=5, column=0, columnspan=2, padx="5", pady="5", sticky="ew")
 
@@ -757,7 +756,6 @@ class mclass:
             remi_ion_conf_group,
             text="Interaction region on Ground potential",
             variable=self.fixed_center_potential,
-            onvalue=1,
         )
         self.CHECK_fixed_potential_ion.grid(
             row=108, column=101, columnspan=2, padx="5", pady="5", sticky="w"
@@ -799,6 +797,7 @@ class mclass:
         self.LABEL_CHARGE_IONS = Label(self.ion_generation_group, text="Charge [au]:")
         self.LABEL_KER_IONS = Label(self.ion_generation_group, text="KER [eV]:")
         self.LABEL_TOF_IONS = Label(self.ion_generation_group, text="TOF [ns]:")
+        self.LABEL_CHECK = Label(self.ion_generation_group, text="Plot?")
 
         self.ENTRY_NUMBER_IONS = Entry(self.ion_generation_group)
         self.ENTRY_NUMBER_IONS.grid(row=0, column=2, padx="5", pady="5", sticky="w")
@@ -807,8 +806,9 @@ class mclass:
         self.LABEL_FORMULA_IONS.grid(row=1, column=1, padx="5", pady="5", sticky="w")
         self.LABEL_MASS_IONS.grid(row=1, column=2, padx="5", pady="5", sticky="w")
         self.LABEL_CHARGE_IONS.grid(row=1, column=3, padx="5", pady="5", sticky="w")
-        self.LABEL_KER_IONS.grid(row=1, column=4, padx="5", pady="5", sticky="w")
-        self.LABEL_TOF_IONS.grid(row=1, column=5, padx="5", pady="5", sticky="w")
+        self.LABEL_TOF_IONS.grid(row=1, column=4, padx="5", pady="5", sticky="w")
+        self.LABEL_KER_IONS.grid(row=1, column=5, padx="5", pady="5", sticky="w")
+        self.LABEL_CHECK.grid(row=1, column=6, padx="5", pady="5", sticky="w")
 
         self.BUTTON_GENERATE_IONS = Button(
             self.ion_generation_group, command=self.generate_entrys, text="Make Ion Couples"
@@ -1348,21 +1348,33 @@ class mclass:
         ker_length = max(len(self.entries_ker), ion_number // 2)
         kers = np.zeros(ker_length)
 
+        try:
+            len(self.active_check_variables)
+        except AttributeError:
+            self.active_check_variables = []
+        for i in range(len(self.active_check_variables), ker_length):
+            variable = BooleanVar(value=True)
+            checkbox = Checkbutton(self.ion_generation_group, variable=variable, text="")
+            self.active_check_variables.append((variable, checkbox))
+
         for n in range(self.last_ion_number):
             try:
                 formulas[n] = ChemFormula(self.entries_formula[n].get())
-            except IndexError:
-                formulas[n] = ChemFormula("")
-            masses[n] = get_mass(formulas[n]).value
-            try:
                 charges[n] = float(self.entries_charge[n].get())
             except IndexError:
+                formulas[n] = ChemFormula("")
                 charges[n] = 0
+            masses[n] = get_mass(formulas[n]).value
+
             self.entries_formula[n].grid_remove()
             self.labels_mass[n].grid_remove()
             self.entries_charge[n].grid_remove()
             self.ion_labels[n].grid_remove()
             self.labels_ion_tof[n].grid_remove()
+
+        for n in range(ion_number // 2, len(self.active_check_variables)):
+            var, checkbox = self.active_check_variables[n]
+            checkbox.grid_remove()
 
         predefined_ions = [
             (1, ChemFormula("H")),
@@ -1426,7 +1438,7 @@ class mclass:
             self.labels_ion_tof.append(
                 Label(self.ion_generation_group, text="", foreground=this_ion_color)
             )
-            self.labels_ion_tof[n].grid(row=n + 3, column=5)
+            self.labels_ion_tof[n].grid(row=n + 3, column=4)
 
             self.entries_formula[n].insert(0, formulas[n])
             self.entries_charge[n].insert(0, charges[n])
@@ -1437,8 +1449,10 @@ class mclass:
                 (self.ion_color[2 * n] + self.ion_color[2 * n + 1]) / 2
             )
             self.entries_ker.append(Entry(self.ion_generation_group, foreground=this_pair_color))
-            self.entries_ker[n].grid(row=(n * 2) + 3, column=4, rowspan=2, sticky="nsew")
+            self.entries_ker[n].grid(row=(n * 2) + 3, column=5, rowspan=2, sticky="nsew")
             self.entries_ker[n].insert(0, kers[n])
+            var, checkbox = self.active_check_variables[n]
+            checkbox.grid(row=(n * 2) + 3, column=6, rowspan=2)
 
         self.last_ion_number = ion_number
         self.calc_ion_tof()
@@ -1480,6 +1494,17 @@ class mclass:
         ion_charge_1 = []
         ion_charge_2 = []
         ion_ker = []
+
+        pairs_ns = []
+        ion_ns = []
+        for n, (variable, checkbox) in enumerate(self.active_check_variables):
+            if n > self.last_ion_number // 2:
+                break
+            if variable.get():
+                pairs_ns.append(n)
+                ion_ns.append(2 * n)
+                ion_ns.append(2 * n + 1)
+
         for n in range(self.last_ion_number):
             if n % 2 == 0:
                 try:
@@ -1577,12 +1602,12 @@ class mclass:
         ax_y_tof.set_ylim(-1.2 * detector_diameter, 1.2 * detector_diameter)
         x_edges = y_edges = np.linspace(-detector_diameter * 0.55, detector_diameter * 0.55, 250)
 
-        counts = 0
+        counts, _, _ = np.histogram2d([], [], bins=(x_edges, y_edges))
         legend_handles_even = []
         legend_labels_even = []
         legend_handles_odd = []
         legend_labels_odd = []
-        for n in range(self.last_ion_number // 2):
+        for n in pairs_ns:
             dots = ax_x_tof.scatter(
                 ion_tof_1[n] % modulo,
                 ion_X_1[n],
@@ -1656,7 +1681,7 @@ class mclass:
         a = self.pipico_ax
 
         modulo = float(self.ENTRY_SET_bunch_modulo.get())
-        for n in range(self.last_ion_number // 2):
+        for n in pairs_ns:
             a.scatter(
                 ion_tof_1[n] % modulo,
                 ion_tof_2[n] % modulo,
@@ -1686,7 +1711,7 @@ class mclass:
         make_icon = False
         if make_icon:
             icon_fig, icon_ax = plt.subplots(figsize=(5, 5), layout="tight")
-            for n in range(self.last_ion_number // 2):
+            for n in pairs_ns:
                 icon_ax.scatter(
                     ion_tof_1[n] % modulo - ion_tof_2[n] % modulo,
                     ion_tof_1[n] % modulo + ion_tof_2[n] % modulo,
