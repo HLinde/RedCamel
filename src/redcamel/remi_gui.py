@@ -225,39 +225,57 @@ def calc_R(
     return R
 
 
+def make_scipp_detector_converters(
+    length_acceleration, length_drift, electric_field, magnetic_field, mass, charge
+):
+    voltage_difference = electric_field * length_acceleration
+
+    def calc_tof(p):
+        p_z = p.fields.z
+        D = p_z * p_z - 2 * charge * voltage_difference * mass
+        rootD = sc.sqrt(D)
+        tof = sc.where(
+            D < 0 * sc.Unit("J*kg"),
+            sc.scalar(np.nan, unit="s"),
+            mass * (2 * length_acceleration / (rootD + p_z) + length_drift / rootD),
+        )
+        return {"tof": tof.to(unit="ns")}
+
+    def calc_xyR(p, tof):
+        p_x = p.fields.x
+        p_y = p.fields.y
+
+        # cyclotron motion or linear motion?
+        if sc.abs(magnetic_field) > 0 * sc.Unit("T"):
+            p_xy = sc.sqrt(p_x**2 + p_y**2)
+            phi = sc.atan2(x=p_x, y=p_y)
+            omega = calc_omega(magnetic_field, charge, mass)
+
+            # alpha/2 has to be periodic in 1*pi!
+            # sign of alpha is important as it gives the direction of deflection
+            # The sign has to be included also in the modulo operation!
+            alpha = (omega.to(unit="1/s") * tof.to(unit="s")).values
+            alpha = alpha % (np.sign(alpha) * 2 * np.pi)
+            alpha = sc.array(dims=p.dims, values=alpha, unit="rad")
+
+            theta = phi + (alpha / 2)
+            # Here the signs of alpha, charge and magnetic_field cancel out so R is positive :)
+            R = (2 * p_xy * sc.sin(alpha / 2)) / (charge * magnetic_field)
+            x = R * sc.cos(theta)
+            y = R * sc.sin(theta)
+        else:  # for small magnetic field it reduces to this linear motion:
+            v_x = p_x / mass
+            v_y = p_y / mass
+            x = v_x * tof
+            y = v_y * tof
+            R = sc.sqrt(x**2 + y**2)
+        return {"x": x.to(unit="mm"), "y": y.to(unit="mm"), "R": R.to(unit="mm")}
+
+    return calc_tof, calc_xyR
+
+
 def calc_omega(B, q=-q_e, m=m_e):
     return q * B / m
-
-
-def calc_R_fit(K, tof, voltage, magnetic_field, length_acceleration, particle_params):
-    m, q = particle_params
-    D = K**2 - (m * length_acceleration / tof - voltage * q * tof / (2 * length_acceleration)) ** 2
-    R = (
-        2
-        / (m * calc_omega(magnetic_field, q, m))
-        * np.sqrt(D)
-        * np.abs(np.sin(calc_omega(magnetic_field, q, m) * tof / 2))
-    )
-    return R
-
-
-def calc_R_fit_ion(K, tof, voltage, magnetic_field, length_acceleration, particle_params):
-    m, q = particle_params
-    D = K**2 - (m * length_acceleration / tof - voltage * q * tof / (2 * length_acceleration)) ** 2
-    R = 2 / m * np.sqrt(D)
-    R = (
-        2
-        / (m * calc_omega(magnetic_field, q, m))
-        * np.sqrt(D)
-        * np.abs(np.sin(calc_omega(magnetic_field, q, m) * tof / 2))
-    )
-    return R
-
-
-########### IONS ###########################################################
-def calc_ion_momenta(KER, m_1, m_2):
-    p = np.sqrt(2 * KER / (1 / m_1 + 1 / m_2))
-    return p
 
 
 #############################
@@ -321,8 +339,11 @@ class mclass:
         self.length_drift_electron = DoubleVar(value=0.0)
         self.voltage_electron = DoubleVar(value=+469.5652173913043)
         self.voltage_ion = DoubleVar()  # gets initialized by ratio of distances
-        self.magnetic_field_gauss = DoubleVar(value=5.0)
+        self.magnetic_field_gauss = DoubleVar(value=6.0)
         self.velocity_jet = DoubleVar(value=1.0)
+
+        self.detector_diameter_ions = DoubleVar(value=120)
+        self.detector_diameter_electrons = DoubleVar(value=80)
 
         self.number_of_particles = IntVar(value=1000)
         self.electron_params = (sc.constants.m_e, -sc.constants.e)
@@ -416,6 +437,8 @@ class mclass:
 
         ######## REMI configurations ##############
         left_bar_group.columnconfigure(0, weight=1, minsize=280)
+        left_bar_group.rowconfigure(0, weight=1)
+        left_bar_group.rowconfigure(1, weight=1)
 
         remi_conf_group = LabelFrame(left_bar_group, text="REMI Configuration for Electrons")
         remi_conf_group.grid(row=0, column=0, rowspan=1, sticky="nsew")
@@ -441,13 +464,26 @@ class mclass:
         self.ENTRY_SET_U = Entry(remi_conf_group, textvariable=self.voltage_electron)
         self.ENTRY_SET_U.grid(row=3, column=1, padx="5", pady="5", sticky="ew")
 
+        self.LABEL_SET_electron_detector_diameter = Label(
+            remi_conf_group, text="detector diameter [mm]:"
+        )
+        self.LABEL_SET_electron_detector_diameter.grid(
+            row=4, column=0, padx="5", pady="5", sticky="w"
+        )
+        self.ENTRY_SET_electron_detector_diameter = Entry(
+            remi_conf_group, textvariable=self.detector_diameter_electrons
+        )
+        self.ENTRY_SET_electron_detector_diameter.grid(
+            row=4, column=1, padx="5", pady="5", sticky="w"
+        )
+
         self.CHECK_fixed_potential_ele = Checkbutton(
             remi_conf_group,
             text="Interaction region on Ground potential",
             variable=self.fixed_center_potential,
         )
         self.CHECK_fixed_potential_ele.grid(
-            row=4, column=0, columnspan=2, padx="5", pady="5", sticky="ew"
+            row=5, column=0, columnspan=2, padx="5", pady="5", sticky="ew"
         )
 
         ######## momentum, R, tof calculation #############
@@ -464,20 +500,12 @@ class mclass:
         self.CHOOSE_MOMENTUM.grid(row=0, column=0, padx="5", pady="5", sticky="w")
         self.CHOOSE_ENERGY.grid(row=1, column=0, padx="5", pady="5", sticky="w")
         self.CHOOSE_ENERGY_MULTI = Radiobutton(
-            self.R_tof_group,
-            command=self.check,
-            text="Multiple Particles",
-            variable=self.v,
-            value=3,
+            self.R_tof_group, command=self.check, text="Multiple Energies", variable=self.v, value=3
         )
         self.CHOOSE_ENERGY_MULTI.grid(row=2, column=0, padx="5", pady="5", sticky="w")
 
         self.LABEL_NUMBER_PART = Label(self.R_tof_group, text="number of Particles:")
         self.ENTRY_NUMBER_PART = Entry(self.R_tof_group, textvariable=self.number_of_particles)
-        self.LABEL_PART_MASS = Label(self.R_tof_group, text="Particle mass:")
-        self.ENTRY_PART_MASS = Entry(self.R_tof_group)
-        self.LABEL_PART_CHARGE = Label(self.R_tof_group, text="Particle charge:")
-        self.ENTRY_PART_CHARGE = Entry(self.R_tof_group)
 
         # if selecting calculation with energy
         self.LABEL_MEAN_ENERGY = Label(self.R_tof_group, text="Mean Energy:")
@@ -493,21 +521,15 @@ class mclass:
 
         self.LABEL_NUMBER_PART.grid(row=3, column=0, padx="5", pady="5", sticky="w")
         self.ENTRY_NUMBER_PART.grid(row=3, column=1, padx="5", pady="5", sticky="ew")
-        self.LABEL_PART_MASS.grid(row=4, column=0, padx="5", pady="5", sticky="w")
-        self.ENTRY_PART_MASS.grid(row=4, column=1, padx="5", pady="5", sticky="ew")
-        self.LABEL_PART_CHARGE.grid(row=5, column=0, padx="5", pady="5", sticky="w")
-        self.ENTRY_PART_CHARGE.grid(row=5, column=1, padx="5", pady="5", sticky="ew")
-        self.LABEL_MEAN_ENERGY.grid(row=6, column=0, padx="5", pady="5", sticky="w")
-        self.ENTRY_MEAN_ENERGY.grid(row=6, column=1, padx="5", pady="5", sticky="ew")
-        self.LABEL_WIDTH.grid(row=7, column=0, padx="5", pady="5", sticky="w")
-        self.ENTRY_WIDTH.grid(row=7, column=1, padx="5", pady="5", sticky="ew")
-        self.LABEL_MULTI_PART_ENERGY_STEP.grid(row=8, column=0, padx="5", pady="5", sticky="w")
-        self.ENTRY_MULTI_PART_ENERGY_STEP.grid(row=8, column=1, padx="5", pady="5", sticky="ew")
-        self.LABEL_MULTI_PART_NUMBER.grid(row=9, column=0, padx="5", pady="5", sticky="w")
-        self.ENTRY_MULTI_PART_NUMBER.grid(row=9, column=1, padx="5", pady="5", sticky="ew")
+        self.LABEL_MEAN_ENERGY.grid(row=4, column=0, padx="5", pady="5", sticky="w")
+        self.ENTRY_MEAN_ENERGY.grid(row=4, column=1, padx="5", pady="5", sticky="ew")
+        self.LABEL_WIDTH.grid(row=5, column=0, padx="5", pady="5", sticky="w")
+        self.ENTRY_WIDTH.grid(row=5, column=1, padx="5", pady="5", sticky="ew")
+        self.LABEL_MULTI_PART_ENERGY_STEP.grid(row=6, column=0, padx="5", pady="5", sticky="w")
+        self.ENTRY_MULTI_PART_ENERGY_STEP.grid(row=6, column=1, padx="5", pady="5", sticky="ew")
+        self.LABEL_MULTI_PART_NUMBER.grid(row=7, column=0, padx="5", pady="5", sticky="w")
+        self.ENTRY_MULTI_PART_NUMBER.grid(row=7, column=1, padx="5", pady="5", sticky="ew")
 
-        self.ENTRY_PART_MASS.insert(0, 1)
-        self.ENTRY_PART_CHARGE.insert(0, -1)
         self.ENTRY_MEAN_ENERGY.insert(0, 10)
         self.ENTRY_WIDTH.insert(0, 0.1)
         self.ENTRY_MULTI_PART_ENERGY_STEP.insert(0, 1.5)
@@ -519,62 +541,39 @@ class mclass:
         self.ENTRY_MULTI_PART_NUMBER.grid_remove()
 
         ######## R tof simulation ##########################
+        top_bar_group.rowconfigure(0, weight=1)
         for col in range(2):
-            top_bar_group.columnconfigure(col, weight=1, minsize=0)
-        self.R_tof_sim_group = LabelFrame(top_bar_group, text="R-tof simulation")
-        self.R_tof_sim_group.grid(row=0, column=0, sticky="nswe", padx=(0, 5))
-        for col in range(3):
-            self.R_tof_sim_group.columnconfigure(col, weight=1, minsize=0)
+            top_bar_group.columnconfigure(col, weight=1)
 
-        self.LABEL_KIN_ENERGY = Label(self.R_tof_sim_group, text="Kinetic Energy [EV]:")
-        self.ENTRY_KIN_ENERGY_1 = Entry(self.R_tof_sim_group)  # , fg="firebrick")
-        self.ENTRY_KIN_ENERGY_2 = Entry(self.R_tof_sim_group)  # , fg="deepskyblue")
-        self.ENTRY_KIN_ENERGY_3 = Entry(self.R_tof_sim_group)  # , fg="darkorange")
-        self.LABEL_MASS = Label(self.R_tof_sim_group, text="Mass [a.u.]:")
-        self.ENTRY_MASS_1 = Entry(self.R_tof_sim_group)  # , fg="firebrick")
-        self.ENTRY_MASS_2 = Entry(self.R_tof_sim_group)  # , fg="deepskyblue")
-        self.ENTRY_MASS_3 = Entry(self.R_tof_sim_group)  # , fg="darkorange")
-        self.LABEL_CHARGE = Label(self.R_tof_sim_group, text="Charge [a.u.]:")
-        self.ENTRY_CHARGE_1 = Entry(self.R_tof_sim_group)  # , fg="firebrick")
-        self.ENTRY_CHARGE_2 = Entry(self.R_tof_sim_group)  # , fg="deepskyblue")
-        self.ENTRY_CHARGE_3 = Entry(self.R_tof_sim_group)  # , fg="darkorange")
-        self.LABEL_TOF = Label(self.R_tof_sim_group, text="Time of Flight maximum [ns]:")
-        self.ENTRY_TOF = Entry(self.R_tof_sim_group)
+        self.R_tof_sim_group = LabelFrame(top_bar_group, text="R-tof lines")
+        self.R_tof_sim_group.grid(row=0, column=0, sticky="nswe", padx=(0, 5))
+        self.R_tof_sim_group.columnconfigure(1, weight=1)
+
+        self.LABEL_KIN_ENERGY = Label(self.R_tof_sim_group, text="Kinetic Energy [eV]:")
+        ele_1_color = "firebrick"
+        ele_2_color = "deepskyblue"
+        ele_3_color = "darkorange"
+        self.ENTRY_KIN_ENERGY_1 = Entry(self.R_tof_sim_group, foreground=ele_1_color)
+        self.ENTRY_KIN_ENERGY_2 = Entry(self.R_tof_sim_group, foreground=ele_2_color)
+        self.ENTRY_KIN_ENERGY_3 = Entry(self.R_tof_sim_group, foreground=ele_3_color)
         self.BUTTON_R_TOF_SIM = Button(
-            self.R_tof_sim_group, text="Simulate Particle", command=self.R_tof_sim
+            self.R_tof_sim_group, text="Draw lines", command=self.R_tof_sim
         )
 
-        self.ENTRY_KIN_ENERGY_1.insert(0, 1)
-        self.ENTRY_KIN_ENERGY_2.insert(0, 2)
-        self.ENTRY_KIN_ENERGY_3.insert(0, 3)
-        self.ENTRY_MASS_1.insert(0, 1)
-        self.ENTRY_MASS_2.insert(0, 1)
-        self.ENTRY_MASS_3.insert(0, 1)
-        self.ENTRY_CHARGE_1.insert(0, 1)
-        self.ENTRY_CHARGE_2.insert(0, 1)
-        self.ENTRY_CHARGE_3.insert(0, 1)
-        self.ENTRY_TOF.insert(0, 1000)
+        self.ENTRY_KIN_ENERGY_1.insert(0, 5)
+        self.ENTRY_KIN_ENERGY_2.insert(0, 10)
+        self.ENTRY_KIN_ENERGY_3.insert(0, 15)
 
         self.LABEL_KIN_ENERGY.grid(row=0, column=0, padx="5", pady="5", sticky="w")
-        self.ENTRY_KIN_ENERGY_1.grid(row=1, column=0, padx="5", pady="5", sticky="ew")
-        self.ENTRY_KIN_ENERGY_2.grid(row=2, column=0, padx="5", pady="5", sticky="ew")
-        self.ENTRY_KIN_ENERGY_3.grid(row=3, column=0, padx="5", pady="5", sticky="ew")
-        self.LABEL_MASS.grid(row=0, column=1, padx="5", pady="5", sticky="w")
-        self.ENTRY_MASS_1.grid(row=1, column=1, padx="5", pady="5", sticky="ew")
-        self.ENTRY_MASS_2.grid(row=2, column=1, padx="5", pady="5", sticky="ew")
-        self.ENTRY_MASS_3.grid(row=3, column=1, padx="5", pady="5", sticky="ew")
-        self.LABEL_CHARGE.grid(row=0, column=2, padx="5", pady="5", sticky="w")
-        self.ENTRY_CHARGE_1.grid(row=1, column=2, padx="5", pady="5", sticky="ew")
-        self.ENTRY_CHARGE_2.grid(row=2, column=2, padx="5", pady="5", sticky="ew")
-        self.ENTRY_CHARGE_3.grid(row=3, column=2, padx="5", pady="5", sticky="ew")
-        self.LABEL_TOF.grid(row=4, column=0, padx="5", pady="5", sticky="w")
-        self.ENTRY_TOF.grid(row=4, column=1, padx="5", pady="5", sticky="ew")
-        self.BUTTON_R_TOF_SIM.grid(row=4, column=2, padx="5", pady="5", sticky="w")
+        self.BUTTON_R_TOF_SIM.grid(row=2, column=0, padx="5", pady="5", sticky="w")
+        self.ENTRY_KIN_ENERGY_1.grid(row=0, column=1, padx="5", pady="5", sticky="ew")
+        self.ENTRY_KIN_ENERGY_2.grid(row=1, column=1, padx="5", pady="5", sticky="ew")
+        self.ENTRY_KIN_ENERGY_3.grid(row=2, column=1, padx="5", pady="5", sticky="ew")
 
         #### Plots and Slidebars ##############
         for row in range(4):
             self.R_tof_plot_group.rowconfigure(row, weight=1, minsize=0)
-        for col in range(7):
+        for col in range(4):
             self.R_tof_plot_group.columnconfigure(col, weight=1, minsize=0)
         self.v_ir = IntVar()
         self.v_ir.set(0)
@@ -616,43 +615,32 @@ class mclass:
         #### IR mode #####
         self.ir_mode_group = LabelFrame(top_bar_group, text="IR-Mode")
         self.ir_mode_group.grid(row=0, column=1, columnspan=1, sticky="nswe")
-        for col in range(1, 3):
-            self.ir_mode_group.columnconfigure(col, weight=1)
+        self.ir_mode_group.columnconfigure(1, weight=1)
 
         self.LABEL_KIN_ENERGY_START = Label(self.ir_mode_group, text="First Kin Energy [eV]")
         self.LABEL_KIN_ENERGY_STEP = Label(self.ir_mode_group, text="Kin Energy Stepsize [eV]")
-        self.LABEL_NUMBER_OF_PART = Label(self.ir_mode_group, text="Numer of particles")
-        self.LABEL_MASS_IR = Label(self.ir_mode_group, text="Mass")
-        self.LABEL_CHARGE_IR = Label(self.ir_mode_group, text="Charge")
+        self.LABEL_NUMBER_OF_PART = Label(self.ir_mode_group, text="Number of particles")
 
-        self.ENTRY_KIN_ENERGY_START = Entry(self.ir_mode_group)
-        self.ENTRY_KIN_ENERGY_STEP = Entry(self.ir_mode_group)
-        self.ENTRY_NUMBER_OF_PART = Entry(self.ir_mode_group)
-        self.ENTRY_MASS_IR = Entry(self.ir_mode_group)
-        self.ENTRY_CHARGE_IR = Entry(self.ir_mode_group)
+        self.ENTRY_KIN_ENERGY_START = Entry(self.ir_mode_group, foreground=ele_1_color)
+        self.ENTRY_KIN_ENERGY_STEP = Entry(self.ir_mode_group, foreground=ele_1_color)
+        self.ENTRY_NUMBER_OF_PART = Entry(self.ir_mode_group, foreground=ele_1_color)
 
         self.ENTRY_KIN_ENERGY_START.insert(0, 1.3)
         self.ENTRY_KIN_ENERGY_STEP.insert(0, 1.55)
         self.ENTRY_NUMBER_OF_PART.insert(0, 10)
-        self.ENTRY_MASS_IR.insert(0, 1)
-        self.ENTRY_CHARGE_IR.insert(0, 1)
 
         self.BUTTON_SIM_IR_MODE = Button(
-            self.ir_mode_group, text="Simulate Particle IR Mode", command=self.R_tof_sim_ir
+            self.ir_mode_group, text="Draw lines", command=self.R_tof_sim_ir
         )
-        self.BUTTON_SIM_IR_MODE.grid(row=0, column=2, padx="5", pady="5", sticky="ew")
+        self.BUTTON_SIM_IR_MODE.grid(row=2, column=2, padx="5", pady="5", sticky="e")
 
         self.LABEL_KIN_ENERGY_START.grid(row=0, column=0, padx="5", pady="5", sticky="w")
         self.LABEL_KIN_ENERGY_STEP.grid(row=1, column=0, padx="5", pady="5", sticky="w")
         self.LABEL_NUMBER_OF_PART.grid(row=2, column=0, padx="5", pady="5", sticky="w")
-        self.LABEL_MASS_IR.grid(row=3, column=0, padx="5", pady="5", sticky="w")
-        self.LABEL_CHARGE_IR.grid(row=4, column=0, padx="5", pady="5", sticky="w")
 
         self.ENTRY_KIN_ENERGY_START.grid(row=0, column=1, padx="5", pady="5", sticky="ew")
         self.ENTRY_KIN_ENERGY_STEP.grid(row=1, column=1, padx="5", pady="5", sticky="ew")
         self.ENTRY_NUMBER_OF_PART.grid(row=2, column=1, padx="5", pady="5", sticky="ew")
-        self.ENTRY_MASS_IR.grid(row=3, column=1, padx="5", pady="5", sticky="ew")
-        self.ENTRY_CHARGE_IR.grid(row=4, column=1, padx="5", pady="5", sticky="ew")
 
         #################################################################################
         ###############################      Ions      ##################################
@@ -730,12 +718,18 @@ class mclass:
         self.ENTRY_SET_bunch_modulo = Entry(remi_ion_conf_group)
         self.ENTRY_SET_bunch_modulo.grid(row=103, column=102, padx="5", pady="5", sticky="w")
 
-        self.LABEL_SET_detector_diameter = Label(
+        self.LABEL_SET_ion_detector_diameter = Label(
             remi_ion_conf_group, text="detector diameter [mm]:"
         )
-        self.LABEL_SET_detector_diameter.grid(row=104, column=101, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_detector_diameter = Entry(remi_ion_conf_group)
-        self.ENTRY_SET_detector_diameter.grid(row=104, column=102, padx="5", pady="5", sticky="w")
+        self.LABEL_SET_ion_detector_diameter.grid(
+            row=104, column=101, padx="5", pady="5", sticky="w"
+        )
+        self.ENTRY_SET_ion_detector_diameter = Entry(
+            remi_ion_conf_group, textvariable=self.detector_diameter_ions
+        )
+        self.ENTRY_SET_ion_detector_diameter.grid(
+            row=104, column=102, padx="5", pady="5", sticky="w"
+        )
 
         self.LABEL_SET_l_d_ion = Label(remi_ion_conf_group, text="drift length[m]:")
         self.LABEL_SET_l_d_ion.grid(row=105, column=101, padx="5", pady="5", sticky="w")
@@ -762,7 +756,6 @@ class mclass:
         )
 
         self.ENTRY_SET_bunch_modulo.insert(0, 5000)
-        self.ENTRY_SET_detector_diameter.insert(0, 120)
 
         self.LABEL_SLIDE_U_pipco = Label(self.pipico_plot_group, text="Voltage ion side [V]")
         self.LABEL_SLIDE_U_pipco.grid(row=2, column=0, padx="5", pady="5", sticky="w")
@@ -801,7 +794,7 @@ class mclass:
 
         self.ENTRY_NUMBER_IONS = Entry(self.ion_generation_group)
         self.ENTRY_NUMBER_IONS.grid(row=0, column=2, padx="5", pady="5", sticky="w")
-        self.ENTRY_NUMBER_IONS.insert(0, 4)
+        self.ENTRY_NUMBER_IONS.insert(0, 6)
 
         self.LABEL_FORMULA_IONS.grid(row=1, column=1, padx="5", pady="5", sticky="w")
         self.LABEL_MASS_IONS.grid(row=1, column=2, padx="5", pady="5", sticky="w")
@@ -1004,17 +997,21 @@ class mclass:
             self.make_plot(0, 2, self.R_tof_plot_group, figsize=(5, 5), columnspan=2, rowspan=5)
         )
         self.ele_pos_a.set_aspect("equal")
+        self.electron_special_lines = []
 
     def update_R_tof(self):
         """
         Updates the R vs tof and the position plot, while moving the sliders for B and U
         """
         ax = self.ax_R_tof
+        self.electron_special_lines = []
         ax.cla()
+
+        detector_radius = sc.scalar(self.detector_diameter_electrons.get() / 2, unit="mm")
 
         max_tof = sc.scalar(self.calc_max_tof(), unit="s").to(unit="ns")
         tof_limit = max(max_tof * 1.2, 1e-9 * sc.Unit("ns"))
-        R_limit = sc.scalar(0.07, unit="m").to(unit="mm")
+        R_limit = detector_radius * 1.2
         pos_bins = 100
         tof_bins = 200
 
@@ -1032,6 +1029,7 @@ class mclass:
             self.R_tof_sim_ir()
 
         ax.axvline(max_tof.value, color="darkgrey")
+        ax.axhline(detector_radius.value, lw=1)
 
         no_mom_tof = (self.calc_no_momentum_tof() * sc.Unit("s")).to(unit="ns")
 
@@ -1054,11 +1052,13 @@ class mclass:
         ax.cla()
 
         x_y_hist = self.electron_hits.hist(
-            x=self.x_bins_electrons, y=self.y_bins_electrons, dim=("p", "pulses", "HitNr")
+            y=self.y_bins_electrons, x=self.x_bins_electrons, dim=("p", "pulses", "HitNr")
         )
         x_y_hist.plot(ax=ax, cbar=False, norm="log", cmap="PuBuGn")
 
-        detector = plt.Circle((0, 0), 60, color="cadetblue", fill=False, figure=self.ele_pos_fig)
+        detector = plt.Circle(
+            (0, 0), detector_radius.value, color="cadetblue", fill=False, figure=self.ele_pos_fig
+        )
         ax.add_artist(detector)
 
         ax.set_xlim(-70, 70)
@@ -1067,67 +1067,38 @@ class mclass:
         self.ele_pos_canvas.draw()
 
     def R_tof_sim(self):
-        """
-        Generates a R vs tof plot
-        """
-        tof_max = float(self.ENTRY_TOF.get()) * 1e-9
-        tof = np.linspace(0, tof_max, int(tof_max * 1000e9))
-        while len(self.ax_R_tof.lines) > 1:
-            self.ax_R_tof.lines[-1].remove()
+        for line in self.electron_special_lines:
+            line.remove()
+        self.electron_special_lines = []
 
-        if len(self.ENTRY_KIN_ENERGY_1.get()) != 0:
-            energy_1 = float(self.ENTRY_KIN_ENERGY_1.get()) * q_e
-            mass_1 = float(self.ENTRY_MASS_1.get()) * m_e
-            charge_1 = float(self.ENTRY_CHARGE_1.get()) * q_e
-            particle_params_1 = (mass_1, charge_1)
-            K_1 = np.sqrt(2 * mass_1 * energy_1)
-            R_1 = calc_R_fit(
-                K_1,
-                tof,
-                self.voltage_electron.get(),
-                self.magnetic_field_si,
-                self.length_accel_electron.get(),
-                particle_params_1,
+        energies = []
+        colors = []
+
+        for entry in [self.ENTRY_KIN_ENERGY_1, self.ENTRY_KIN_ENERGY_2, self.ENTRY_KIN_ENERGY_3]:
+            if len(entry.get()) != 0:
+                energies.append(float(entry.get()))
+                colors.append(str(entry["foreground"]))
+        energies = sc.array(dims=["p"], values=energies, unit="eV")
+
+        for e, c in zip(energies, colors):
+            p_max = sc.sqrt(2 * e * sc.constants.m_e).to(unit="N*s")
+            p_z = sc.linspace("p", -p_max, p_max, 100)
+            p_x = sc.sqrt(p_max**2 - p_z**2)
+            p_y = sc.zeros_like(p_z)
+            momentum = sc.spatial.as_vectors(p_x, p_y, p_z)
+            da = sc.DataArray(sc.ones_like(p_z), coords={"p": momentum})
+            transformed = da.transform_coords(
+                ["tof", "x", "y", "R"], graph=self.electron_scipp_graph
             )
-            self.ax_R_tof.plot(tof, R_1, color="firebrick")
-
-        if len(self.ENTRY_KIN_ENERGY_2.get()) != 0:
-            energy_2 = float(self.ENTRY_KIN_ENERGY_2.get()) * q_e
-            mass_2 = float(self.ENTRY_MASS_2.get()) * m_e
-            charge_2 = float(self.ENTRY_CHARGE_2.get()) * q_e
-            particle_params_2 = (mass_2, charge_2)
-            K_2 = np.sqrt(2 * mass_2 * energy_2)
-            R_2 = calc_R_fit(
-                K_2,
-                tof,
-                self.voltage_electron.get(),
-                self.magnetic_field_si,
-                self.length_accel_electron.get(),
-                particle_params_2,
+            new_lines = self.ax_R_tof.plot(
+                transformed.coords["tof"], transformed.coords["R"], color=c
             )
-            self.ax_R_tof.plot(tof, R_2, color="deepskyblue")
-
-        if len(self.ENTRY_KIN_ENERGY_3.get()) != 0:
-            energy_3 = float(self.ENTRY_KIN_ENERGY_3.get()) * q_e
-            mass_3 = float(self.ENTRY_MASS_3.get()) * m_e
-            charge_3 = float(self.ENTRY_CHARGE_3.get()) * q_e
-            particle_params_3 = (mass_3, charge_3)
-            K_3 = np.sqrt(2 * mass_3 * energy_3)
-            R_3 = calc_R_fit(
-                K_3,
-                tof,
-                self.voltage_electron.get(),
-                self.magnetic_field_si,
-                self.length_accel_electron.get(),
-                particle_params_3,
+            new_lines += self.ele_pos_a.plot(
+                transformed.coords["x"], transformed.coords["y"], color=c
             )
-            self.ax_R_tof.plot(tof, R_3, color="darkorange")
-
-        max_tof = self.calc_max_tof()
-        self.ax_R_tof.axvline(max_tof, 0, 1, color="darkgrey")
-        no_mom_tof = self.calc_no_momentum_tof()
-        self.ax_R_tof.axvline(no_mom_tof, 0, 1, ls="--", color="darkgrey")
+            self.electron_special_lines += new_lines
         self.canvas_R_tof.draw()
+        self.ele_pos_canvas.draw()
 
     def calc_max_tof(self):
         """
@@ -1262,58 +1233,45 @@ class mclass:
         with open("mcp_data.txt", "w") as datafile:
             np.savetxt(datafile, times, fmt=["%.3E", "%.3E", "%.3E", "%.3E", "%.3E"])
 
-    def calc_ion_position(self):
-        """
-        calculates the ion position of
-        """
-        p_x = -self.momenta[:, 0]
-        p_y = -self.momenta[:, 1]
-        v_jet = self.velocity_jet_si
-        ion_formula = ChemFormula(self.ENTRY_ION_MASS.get())
-
-        ion_mass_amu = get_mass(ion_formula)
-        ion_mass = ion_mass_amu * m_e
-        ion_params = (ion_mass, float(self.ENTRY_ION_CHARGE.get()) * q_e)
-        tof = calc_tof(
-            -self.momenta,
-            self.electric_field,
-            length_acceleration=self.length_accel_ion.get(),
-            length_drift=self.length_drift_ion.get(),
-            particle_params=ion_params,
-        )
-        x_pos_ion = (p_x / ion_mass + v_jet) * tof
-        y_pos_ion = (p_y / ion_mass) * tof
-        self.make_plot(x_pos_ion, y_pos_ion, 120, 100, self.ion_pos_group, columnspan=2)
-        return (x_pos_ion, y_pos_ion)
-
     def R_tof_sim_ir(self):
-        tof_max = float(self.ENTRY_TOF.get()) * 1e-9
-        tof = np.linspace(0, tof_max, int(tof_max * 100e9))
-        start_energy = float(self.ENTRY_KIN_ENERGY_START.get()) * q_e
-        step_energy = float(self.ENTRY_KIN_ENERGY_STEP.get()) * q_e
+        start_energy = float(self.ENTRY_KIN_ENERGY_START.get())
+        step_energy = float(self.ENTRY_KIN_ENERGY_STEP.get())
         number_sim = int(self.ENTRY_NUMBER_OF_PART.get())
-        energys = np.linspace(
-            start_energy, (number_sim * step_energy) + start_energy, number_sim + 1
+        color = str(self.ENTRY_KIN_ENERGY_START["foreground"])
+        energies = sc.linspace(
+            "p",
+            start_energy,
+            ((number_sim - 1) * step_energy) + start_energy,
+            number_sim,
+            unit="eV",
         )
-        mass = float(self.ENTRY_MASS_IR.get()) * m_e
-        charge = float(self.ENTRY_CHARGE_IR.get()) * q_e
-        particle_params = (mass, charge)
 
-        while len(self.ax_R_tof.lines) > 1:
-            self.ax_R_tof.lines[-1].remove()
-
-        for i in range(number_sim):
-            K = np.sqrt(2 * mass * energys[i])
-            R = calc_R_fit(
-                K,
-                tof,
-                self.voltage_electron.get(),
-                self.magnetic_field_si,
-                self.length_accel_electron.get(),
-                particle_params,
+        for line in self.electron_special_lines:
+            line.remove()
+        self.electron_special_lines = []
+        for i, e in enumerate(energies):
+            p_max = sc.sqrt(2 * e * sc.constants.m_e).to(unit="N*s")
+            p_z = sc.linspace("p", -p_max, p_max, 100)
+            if number_sim == 2:
+                p_x = sc.sqrt(p_max**2 - p_z**2) * i
+                p_y = sc.sqrt(p_max**2 - p_z**2) * (1 - i)
+            else:
+                p_x = sc.sqrt(p_max**2 - p_z**2)
+                p_y = sc.zeros_like(p_z)
+            momentum = sc.spatial.as_vectors(p_x, p_y, p_z)
+            da = sc.DataArray(sc.ones_like(p_z), coords={"p": momentum})
+            transformed = da.transform_coords(
+                ["tof", "x", "y", "R"], graph=self.electron_scipp_graph
             )
-            self.ax_R_tof.plot(tof, R, color="firebrick")
+            new_lines = self.ax_R_tof.plot(
+                transformed.coords["tof"], transformed.coords["R"], color=color
+            )
+            new_lines += self.ele_pos_a.plot(
+                transformed.coords["x"], transformed.coords["y"], color=color
+            )
+            self.electron_special_lines += new_lines
         self.canvas_R_tof.draw()
+        self.ele_pos_canvas.draw()
 
     ##########################################################################
     ###############   TAB 2 ##################################################
@@ -1597,7 +1555,7 @@ class mclass:
         ax_x_tof = self.pipico_xtof_ax
         ax_y_tof = self.pipico_ytof_ax
         modulo = float(self.ENTRY_SET_bunch_modulo.get())
-        detector_diameter = float(self.ENTRY_SET_detector_diameter.get())
+        detector_diameter = self.detector_diameter_ions.get()
         ax_x_tof.set_ylim(-1.2 * detector_diameter, 1.2 * detector_diameter)
         ax_y_tof.set_ylim(-1.2 * detector_diameter, 1.2 * detector_diameter)
         x_edges = y_edges = np.linspace(-detector_diameter * 0.55, detector_diameter * 0.55, 250)
@@ -1834,48 +1792,20 @@ class mclass:
     def update_electron_positions(self):
         mass, charge = self.electron_params
 
-        length_acceleration = sc.scalar(self.length_accel_electron.get(), unit="m")
-        length_drift = sc.scalar(self.length_drift_electron.get(), unit="m")
-        electric_field = sc.scalar(self.electric_field, unit="V/m")
-        magnetic_field = sc.scalar(self.magnetic_field_si, unit="T")
-        voltage_difference = electric_field * length_acceleration
+        calc_e_tof, calc_e_xyR = make_scipp_detector_converters(
+            length_acceleration=sc.scalar(self.length_accel_electron.get(), unit="m"),
+            length_drift=sc.scalar(self.length_drift_electron.get(), unit="m"),
+            electric_field=sc.scalar(self.electric_field, unit="V/m"),
+            magnetic_field=sc.scalar(self.magnetic_field_si, unit="T"),
+            mass=mass,
+            charge=charge,
+        )
 
-        def calc_tof(p):
-            p_z = p.fields.z
-            D = p_z * p_z - 2 * charge * voltage_difference * mass
-            rootD = sc.sqrt(D)
-            tof = sc.where(
-                D < 0 * sc.Unit("J*kg"),
-                sc.scalar(np.nan, unit="s"),
-                mass * (2 * length_acceleration / (rootD + p_z) + length_drift / rootD),
-            )
-            return {"tof": tof.to(unit="ns")}
+        self.electron_scipp_graph = {"tof": calc_e_tof, ("x", "y", "R"): calc_e_xyR}
 
-        def calc_xy(p, tof):
-            p_x = p.fields.x
-            p_y = p.fields.y
-            if magnetic_field > 0 * sc.Unit("T"):  # cyclotron motion during the time-of-flight
-                p_xy = sc.sqrt(p_x**2 + p_y**2)
-                phi = sc.atan2(x=p_x, y=p_y)
-                omega = calc_omega(magnetic_field, charge, mass)
-                alpha = omega * tof.to(unit="s") * sc.scalar(1, unit="rad")
-                theta = phi + alpha / 2
-                R = (2 * p_xy * sc.abs(sc.sin(alpha / 2))) / (charge * magnetic_field)
-                x = R * sc.sin(theta)
-                y = R * sc.cos(theta)
-            else:  # for small magnetic field it reduces to this linear motion:
-                v_x = p_x / mass
-                v_y = p_y / mass
-                x = v_x * tof
-                y = v_y * tof
-            return {"x": x.to(unit="mm"), "y": y.to(unit="mm")}
-
-        def calc_R(x, y):
-            return sc.sqrt(x**2 + y**2)
-
-        graph = {"tof": calc_tof, ("x", "y"): calc_xy, "R": calc_R}
-
-        dataarray = self.electron_momenta.transform_coords(["x", "y", "tof", "R"], graph=graph)
+        dataarray = self.electron_momenta.transform_coords(
+            ["x", "y", "tof", "R"], graph=self.electron_scipp_graph
+        )
         self.electron_hits = dataarray
         self.update_R_tof()
         self.update_electron_detector_signals()
