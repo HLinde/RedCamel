@@ -108,7 +108,7 @@ Not yet implemented, sorry..
 
 # For developers
 
-First get the repository
+First get the repository:
 
 ```bash
 git clone https://codeberg.org/FlashREMI/RedCamel.git
@@ -147,6 +147,21 @@ pixi run redcamel
 ```
 
 pixi can be found here: https://pixi.sh/latest/#installation
+
+## Usage with venv + pip
+
+Set up and activate a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install redcamel in development mode:
+
+```bash
+pip install -e ./
+```
 
 ## Usage with mamba / conda
 
