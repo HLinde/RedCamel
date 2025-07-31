@@ -128,6 +128,31 @@ git lfs install
 git lfs pull
 ```
 
+## Usage with pixi (recommended)
+
+> [!TIP]
+> pixi / the conda-forge python distribution actually includes tk
+> libraries so you do not need installed system tk :)
+
+pixi can be found here: https://pixi.sh/latest/#installation
+If you are on a cluster like DESYs maxwell, check if you can load pixi from a module like this:
+
+```bash
+module load maxwell pixi
+```
+
+Check the available pixi tasks!
+
+```bash
+pixi task list
+```
+
+Run tasks like this, e.g. the RedCamel:
+
+```bash
+pixi run redcamel
+```
+
 ## Usage with uv
 
 ```bash
@@ -135,18 +160,6 @@ uv run redcamel
 ```
 
 uv can be found here: https://docs.astral.sh/uv/getting-started/installation/
-
-## Usage with pixi
-
-> [!TIP]
-> pixi / the conda-forge python distribution actually includes tk
-> libraries so you do not need installed system tk :)
-
-```bash
-pixi run redcamel
-```
-
-pixi can be found here: https://pixi.sh/latest/#installation
 
 ## Usage with venv + pip
 
