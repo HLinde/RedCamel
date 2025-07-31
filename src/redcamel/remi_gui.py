@@ -15,7 +15,7 @@ Created on Wed Aug  5 10:58:39 2020
 #############################
 #### imports ################
 ############################
-from tkinter import Tk, IntVar, DoubleVar, BooleanVar, HORIZONTAL, PhotoImage, filedialog
+from tkinter import Tk, IntVar, DoubleVar, BooleanVar, HORIZONTAL, PhotoImage, filedialog, font
 from tkinter.ttk import (
     Style,
     Button,
@@ -290,6 +290,9 @@ class mclass:
         window.title("Red Camel")
         photo = PhotoImage(file=Path(__file__).parent / "icon.png")
         window.wm_iconphoto(False, photo)
+
+        self.scale_UI()
+
         style = Style()
         for labeler in [
             "TFrame",
@@ -856,6 +859,34 @@ class mclass:
         self.calc_ker()
         self.generate_entrys()
         self.calc_ion_tof()
+
+    def scale_UI(self):
+        # screen size in pixels:
+        width = self.window.winfo_screenwidth()
+        height = self.window.winfo_screenheight()
+        # (primary) screen resolution
+        reported_width = width / self.window.winfo_fpixels("1m")
+        reported_height = height / self.window.winfo_fpixels("1m")
+        # print("screen width [mm]: ", reported_width)
+        # print("screen height [mm]: ", reported_height)
+
+        # The UI-scaling should be a setting somewhere in the GUI
+        # replace with measurement here:
+        measured_width = reported_width
+        measured_height = reported_height
+
+        dpi = self.window.winfo_fpixels("1i")  # returns how many pixels is 1 inch
+        tk_assumed_dpi = 72.0
+        current_scaling = self.window.tk.call("tk", "scaling")
+        np.testing.assert_almost_equal(dpi / current_scaling, tk_assumed_dpi, decimal=1)
+        rescaling = (measured_width / reported_width + measured_height / reported_height) / 2
+        new_scaling = current_scaling * rescaling
+        self.window.tk.call("tk", "scaling", new_scaling)  # conserves fontsize by scaling it down
+
+        for name in font.names(self.window):
+            tkfont = font.Font(root=self.window, name=name, exists=True)
+            size = int(tkfont["size"])
+            tkfont["size"] = int(np.ceil(size * rescaling))
 
     def make_spectrometer_tab(self):
         self.tabs["Spectrometer"].columnconfigure(0, weight=1)
