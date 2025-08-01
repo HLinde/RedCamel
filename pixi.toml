@@ -5,6 +5,7 @@
 authors = [
     "Patrizia Schoch",
     "Hannes Lindenblatt <hannes.lindenblatt@desy.de>",
+    "Magdalena Orlowska",
 ]
 description = "GUI tool to simulate Reaction Microscope detector images."
 license = "GPL-3.0-or-later"

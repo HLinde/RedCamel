@@ -9,6 +9,7 @@ readme = "README.md"
 authors = [
     {name = "Patrizia Schoch"},
     {name = "Hannes Lindenblatt", email = "hannes.lindenblatt@desy.de" },
+    {name = "Magdalena Orlowska"},
 ]
 maintainers = [
     {name = "Hannes Lindenblatt", email = "hannes.lindenblatt@desy.de" },
