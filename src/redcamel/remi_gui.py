@@ -899,6 +899,30 @@ class mclass:
         ) = self.make_plot(0, 0, self.tabs["Spectrometer"], figsize=(5, 5), columnspan=1, rowspan=2)
 
     def update_spectrometer_tab(self):
+        self.ax_spectrometer.clear()
+
+        Ld_i = self.length_drift_ion.get()
+        La_i= self.length_accel_ion.get()
+        La_e =self.length_accel_electron.get()
+        Ld_e=self.length_drift_electron.get()
+        U_i = self.voltage_ion.get()
+        U_e = self.voltage_electron.get()
+
+        z = [0,Ld_i, Ld_i + La_i, Ld_i + La_i + La_e, Ld_i + La_i + La_e 
+        + Ld_e]
+        
+        U = [0,0, U_i, U_e, U_e]
+
+        self.ax_spectrometer.text(Ld_i+La_i/2, max(U)+20, "Ions", ha="center", fontsize=12)
+        self.ax_spectrometer.text(Ld_i+La_i+La_e/2, max(U)+20, "Electrons", ha="center", fontsize=12)
+
+        self.ax_spectrometer.plot(z, U, color="pink", linewidth = 2)
+        self.ax_spectrometer.set_xlabel("z")
+        self.ax_spectrometer.set_ylabel("U")
+
+        
+        #self.ax_spectrometer.text()
+        self.ax_spectrometer.grid(axis='both', linestyle='--', color='gray')
         self.ax_spectrometer.plot()
 
     def make_export_tab(self):
