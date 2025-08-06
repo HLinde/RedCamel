@@ -899,31 +899,79 @@ class mclass:
             self.toolbar_spectrometer,
         ) = self.make_plot(0, 0, self.tabs["Spectrometer"], figsize=(5, 5), columnspan=1, rowspan=2)
 
+    def delayed_update_spectrometer_tab(self):
+        if hasattr(self, '_update_job'):
+            self.window.after_cancel(self._update_job)
+        self._update_job = self.window.after(100, self.update_spectrometer_tab)
+
+
     def update_spectrometer_tab(self):
         self.ax_spectrometer.clear()
 
         Ld_i = self.length_drift_ion.get()
-        La_i = self.length_accel_ion.get()
-        La_e = self.length_accel_electron.get()
-        Ld_e = self.length_drift_electron.get()
+        La_i= self.length_accel_ion.get()
+        La_e =self.length_accel_electron.get()
+        Ld_e=self.length_drift_electron.get()
         U_i = self.voltage_ion.get()
         U_e = self.voltage_electron.get()
 
-        z = [0, Ld_i, Ld_i + La_i, Ld_i + La_i + La_e, Ld_i + La_i + La_e + Ld_e]
+        z = [0,Ld_i, Ld_i + La_i, Ld_i + La_i + La_e, Ld_i + La_i + La_e 
+        + Ld_e]
+        
+        U = [0,0, U_i, U_e, U_e]
 
-        U = [0, 0, U_i, U_e, U_e]
+        self.ax_spectrometer.text(0.2, 1.05, "Ions", transform=self.ax_spectrometer.transAxes,
+            ha='center', fontsize=15, color='black')
 
-        self.ax_spectrometer.text(Ld_i + La_i / 2, max(U) + 20, "Ions", ha="center", fontsize=12)
-        self.ax_spectrometer.text(
-            Ld_i + La_i + La_e / 2, max(U) + 20, "Electrons", ha="center", fontsize=12
-        )
+        self.ax_spectrometer.text(0.8, 1.05, "Electrons", transform=self.ax_spectrometer.transAxes,
+            ha='center', fontsize=15, color='black')
 
-        self.ax_spectrometer.plot(z, U, color="pink", linewidth=2)
-        self.ax_spectrometer.set_xlabel("z")
-        self.ax_spectrometer.set_ylabel("U")
+        
 
-        # self.ax_spectrometer.text()
-        self.ax_spectrometer.grid(axis="both", linestyle="--", color="gray")
+        self.ax_spectrometer.plot(z, U, color="pink", linewidth = 2)
+        self.ax_spectrometer.set_xlabel("z [m]")
+        self.ax_spectrometer.set_ylabel("U [V]")
+
+        self.ax_spectrometer.annotate('', xy=(0, -10), xytext=(Ld_i, -10),
+            arrowprops=dict(arrowstyle='<->', color='green'))
+        self.ax_spectrometer.text(Ld_i/2, -15, '$L_d$', ha='center', fontsize=12, color='green')
+
+        self.ax_spectrometer.annotate('', xy=(Ld_i, 10), xytext=(Ld_i + La_i, -10),
+            arrowprops=dict(arrowstyle='<->', color='green'))
+        self.ax_spectrometer.text(Ld_i + La_i/2, -15, '$L_a$', ha='center', fontsize=12, color='green')
+
+        self.ax_spectrometer.annotate('', xy=(Ld_i+La_i, 10), xytext=(Ld_i + La_i + La_e, -10),
+            arrowprops=dict(arrowstyle='<->', color='green'))
+        self.ax_spectrometer.text(Ld_i + La_i + La_e/2, -15, '$L_a$', ha='center', fontsize=12, color='green')
+
+        self.ax_spectrometer.annotate('', xy=(Ld_i + La_i + La_e, -10), xytext=(Ld_i + La_i + La_e + Ld_e, -10),
+            arrowprops=dict(arrowstyle='<->', color='green'))
+        self.ax_spectrometer.text(Ld_i + La_i + La_e + Ld_e / 2, -15, '$L_d$', ha='center', fontsize=12, color='green')
+
+        E_field_position = (Ld_i + La_i + La_e / 2, (U_i + U_e) / 2)
+        self.ax_spectrometer.annotate("12.3 V/cm", xy=E_field_position, xytext=(-40, 30),
+            textcoords="offset points", arrowprops=dict(arrowstyle="<->", color='green'),
+            color='green')
+        
+        self.ax_spectrometer.annotate("", xy=(Ld_i + La_i / 2, 0), xycoords='data', xytext=(Ld_i + La_i / 2, U_i), textcoords='data',
+            arrowprops=dict(arrowstyle='<->', color='darkblue', linewidth=2))
+        self.ax_spectrometer.text(Ld_i + La_i / 2 + 0.005, U_i / 2, r"$U_i$", 
+            ha="left", va="center", fontsize=12, color='darkblue')
+        
+        self.ax_spectrometer.annotate("", xy=(Ld_i + La_i + La_e / 2, U_i), xycoords='data', xytext=(Ld_i + La_i + La_e / 2, U_e), textcoords='data',
+            arrowprops=dict(arrowstyle='<->', color='darkblue', linewidth=2))
+        self.ax_spectrometer.text(Ld_i + La_i + La_e / 2 + 0.005, (U_i + U_e) / 2, r"$U_e$", 
+            ha="left", va="center", fontsize=12, color='darkblue')
+
+        boundary = Ld_i + La_i
+        self.ax_spectrometer.axvline(x=boundary, color="black", linewidth=2)
+
+        #checking if the program sees the changing values
+        #print(f"Ld_i={Ld_i}, La_i={La_i}, La_e={La_e}, Ld_e={Ld_e}, U_i={U_i}, U_e={U_e}")    
+        
+        
+        self.ax_spectrometer.grid(axis='both', linestyle='--', color='gray')
+        self.canvas_spectrometer.draw()
         self.ax_spectrometer.plot()
 
     def make_export_tab(self):
