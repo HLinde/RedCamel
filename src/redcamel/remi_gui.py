@@ -370,7 +370,7 @@ class mclass:
                 self.voltage_ion.set(new_voltage_ion)
             self.update_electron_positions()
             self.update_ion_positions()
-            self.update_spectrometer_tab()
+            self.delayed_update_spectrometer_tab()
 
         self.voltage_electron.trace("w", write_callback_voltage_electron)
         self.length_accel_electron.trace("w", write_callback_voltage_electron)
@@ -385,7 +385,7 @@ class mclass:
                 self.voltage_electron.set(new_voltage_ion)
             self.update_electron_positions()
             self.update_ion_positions()
-            self.update_spectrometer_tab()
+            self.delayed_update_spectrometer_tab()
 
         self.voltage_ion.trace("w", write_callback_voltage_ion)
         self.length_accel_ion.trace("w", write_callback_voltage_ion)
@@ -393,20 +393,20 @@ class mclass:
         def write_callback_spectrometer_both(var, index, mode):
             self.update_electron_positions()
             self.update_ion_positions()
-            self.update_spectrometer_tab()
+            self.delayed_update_spectrometer_tab()
 
         self.magnetic_field_gauss.trace("w", write_callback_spectrometer_both)
         self.velocity_jet.trace("w", write_callback_spectrometer_both)
 
         def write_callback_spectrometer_electron(var, index, mode):
             self.update_electron_positions()
-            self.update_spectrometer_tab()
+            self.delayed_update_spectrometer_tab()
 
         self.length_drift_electron.trace("w", write_callback_spectrometer_electron)
 
         def write_callback_spectrometer_ion(var, index, mode):
             self.update_electron_positions()
-            self.update_spectrometer_tab()
+            self.delayed_update_spectrometer_tab()
 
         self.length_drift_ion.trace("w", write_callback_spectrometer_ion)
 
@@ -899,32 +899,81 @@ class mclass:
             self.toolbar_spectrometer,
         ) = self.make_plot(0, 0, self.tabs["Spectrometer"], figsize=(5, 5), columnspan=1, rowspan=2)
 
+    def delayed_update_spectrometer_tab(self):
+        if hasattr(self, '_update_job'):
+            self.window.after_cancel(self._update_job)
+        self._update_job = self.window.after(100, self.update_spectrometer_tab)
+
+
     def update_spectrometer_tab(self):
         self.ax_spectrometer.clear()
 
         Ld_i = self.length_drift_ion.get()
-        La_i = self.length_accel_ion.get()
+        La_i= self.length_accel_ion.get()
         La_e = self.length_accel_electron.get()
         Ld_e = self.length_drift_electron.get()
         U_i = self.voltage_ion.get()
         U_e = self.voltage_electron.get()
 
-        z = [0, Ld_i, Ld_i + La_i, Ld_i + La_i + La_e, Ld_i + La_i + La_e + Ld_e]
 
-        U = [0, 0, U_i, U_e, U_e]
+        z = np.cumsum([0, Ld_i, La_i, La_e, Ld_e])
 
-        self.ax_spectrometer.text(Ld_i + La_i / 2, max(U) + 20, "Ions", ha="center", fontsize=12)
-        self.ax_spectrometer.text(
-            Ld_i + La_i + La_e / 2, max(U) + 20, "Electrons", ha="center", fontsize=12
-        )
+        if self.fixed_center_potential.get():
+            U_0 = 0
+        else:
+            E = (U_e-U_i)/(La_i + La_e)
+            U_0 = U_i + E *La_i
 
-        self.ax_spectrometer.plot(z, U, color="pink", linewidth=2)
-        self.ax_spectrometer.set_xlabel("z")
-        self.ax_spectrometer.set_ylabel("U")
+        U = [U_i, U_i, U_0, U_e, U_e]
 
-        # self.ax_spectrometer.text()
-        self.ax_spectrometer.grid(axis="both", linestyle="--", color="gray")
-        self.ax_spectrometer.plot()
+        self.ax_spectrometer.text(0.2, 1.05, "Ions", transform=self.ax_spectrometer.transAxes,
+            ha='center', fontsize=15, color='black')
+
+        self.ax_spectrometer.text(0.8, 1.05, "Electrons", transform=self.ax_spectrometer.transAxes,
+            ha='center', fontsize=15, color='black')
+        
+        self.ax_spectrometer.plot(z, U, color="pink", linewidth = 2)
+        self.ax_spectrometer.set_xlabel("z [m]")
+        self.ax_spectrometer.set_ylabel("U [V]")
+
+        y_arrow_li = U_i - 10
+        y_arrow_le = U_e + 10
+
+        self.ax_spectrometer.annotate('', xy=(0, y_arrow_li), xytext=(Ld_i, y_arrow_li),
+            arrowprops=dict(arrowstyle='<->', color='green'))
+        self.ax_spectrometer.text(Ld_i/2, y_arrow_li -5, '$L_d$', ha='center', fontsize=12, color='green')
+
+        self.ax_spectrometer.annotate('', xy=(Ld_i, y_arrow_li), xytext=(Ld_i + La_i, y_arrow_li),
+            arrowprops=dict(arrowstyle='<->', color='green'))
+        self.ax_spectrometer.text(Ld_i + La_i/2, y_arrow_li - 5, '$L_a$', ha='center', fontsize=12, color='green')
+
+        self.ax_spectrometer.annotate('', xy=(Ld_i+La_i, y_arrow_le), xytext=(Ld_i + La_i + La_e, y_arrow_le),
+            arrowprops=dict(arrowstyle='<->', color='green'))
+        self.ax_spectrometer.text(Ld_i + La_i + La_e/2, y_arrow_le +5, '$L_a$', ha='center', fontsize=12, color='green')
+
+        self.ax_spectrometer.annotate('', xy=(Ld_i + La_i + La_e, y_arrow_le), xytext=(Ld_i + La_i + La_e + Ld_e, y_arrow_le),
+            arrowprops=dict(arrowstyle='<->', color='green'))
+        self.ax_spectrometer.text(Ld_i + La_i + La_e + Ld_e / 2, y_arrow_le +5, '$L_d$', ha='center', fontsize=12, color='green')
+
+        self.ax_spectrometer.annotate(f"{self.electric_field:.5g} V/cm", xy=(Ld_i +La_i, (U_i + U_e)/2), xytext=(Ld_i +La_i+ La_e, (U_i + U_e)/2),
+            textcoords="offset points", arrowprops=dict(arrowstyle="<->", color='green'),
+            color='green')
+        
+        self.ax_spectrometer.annotate("", xy=(Ld_i + La_i / 2, 0), xytext=(Ld_i + La_i / 2, U_i),
+            arrowprops=dict(arrowstyle='<->', color='darkblue', linewidth=2))
+        self.ax_spectrometer.text(Ld_i + La_i / 2 + 0.005, U_i / 2, r"$U_i$", 
+            ha="left", va="center", fontsize=12, color='darkblue')
+        
+        self.ax_spectrometer.annotate("", xy=(Ld_i + La_i + La_e / 2, 0), xytext=(Ld_i + La_i + La_e / 2, U_e),
+            arrowprops=dict(arrowstyle='<->', color='darkblue', linewidth=2))
+        self.ax_spectrometer.text(Ld_i + La_i + La_e / 2 + 0.005, U_e / 2, r"$U_e$", 
+            ha="left", va="center", fontsize=12, color='darkblue')
+
+        boundary = Ld_i + La_i
+        self.ax_spectrometer.axvline(x=boundary, color="black", linewidth=2)
+
+        self.ax_spectrometer.grid(axis='both', linestyle='--', color='gray')
+        self.canvas_spectrometer.draw()           
 
     def make_export_tab(self):
         self.tabs["Export Data"].columnconfigure(0, weight=1)
@@ -1002,6 +1051,10 @@ class mclass:
     @property
     def magnetic_field_si(self):
         return self.magnetic_field_gauss.get() * 1e-4
+    
+    @property
+    def electric_field_si(self):
+        return self.electric_field / 100
 
     @property
     def velocity_jet_si(self):
