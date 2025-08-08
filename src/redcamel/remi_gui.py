@@ -919,11 +919,7 @@ class mclass:
         z = np.cumsum([0, Ld_i, La_i, La_e, Ld_e])
 
         if self.fixed_center_potential.get():
-            E = (U_e - U_i) / (La_i + La_e)
             U_0 = 0
-            move = U_i + E* La_i
-            U_i -= move
-            U_e -= move
         else:
             E = (U_e-U_i)/(La_i + La_e)
             U_0 = U_i + E *La_i
@@ -959,7 +955,7 @@ class mclass:
             arrowprops=dict(arrowstyle='<->', color='green'))
         self.ax_spectrometer.text(Ld_i + La_i + La_e + Ld_e / 2, y_arrow_le +5, '$L_d$', ha='center', fontsize=12, color='green')
 
-        self.ax_spectrometer.annotate("12.3 V/cm", xy=(Ld_i +La_i, (U_i + U_e)/2), xytext=(Ld_i +La_i+ La_e, (U_i + U_e)/2),
+        self.ax_spectrometer.annotate(f"{self.electric_field:.5g} V/cm", xy=(Ld_i +La_i, (U_i + U_e)/2), xytext=(Ld_i +La_i+ La_e, (U_i + U_e)/2),
             textcoords="offset points", arrowprops=dict(arrowstyle="<->", color='green'),
             color='green')
         
@@ -977,33 +973,7 @@ class mclass:
         self.ax_spectrometer.axvline(x=boundary, color="black", linewidth=2)
 
         self.ax_spectrometer.grid(axis='both', linestyle='--', color='gray')
-        self.canvas_spectrometer.draw()
-        self.check_electric_field()
-
-    def check_electric_field(self):
-        target_E = 12.3  
-        actual_E = self.electric_field_si
-
-        if abs(actual_E - target_E) < 0.3:
-            print("Electric field is 12.3 V/cm")
-        else:
-            print(f"Electric field is {actual_E} V/cm (should be 12.3 V/cm)")  
-        
-
-    def make_electric_field(self):
-        
-        target_E = 1230 #V/m
-
-        La_i = self.length_accel_ion.get()
-        La_e = self.length_accel_electron.get()
-        total_length = La_i + La_e
-
-        voltage_difference = target_E * total_length
-        self.voltage_ion.set(0)
-        self.voltage_electron.set(voltage_difference)
-       
-        self.delayed_update_spectrometer_tab()
-       
+        self.canvas_spectrometer.draw()           
 
     def make_export_tab(self):
         self.tabs["Export Data"].columnconfigure(0, weight=1)
