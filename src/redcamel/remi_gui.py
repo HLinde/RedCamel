@@ -137,6 +137,9 @@ class mclass:
 
         ######## variable callback actions ####################
 
+        job_wait_ms = 10
+        self.callback_job_id_voltage_electron = None
+
         def write_callback_voltage_electron(var, index, mode):
             if self.fixed_center_potential.get():
                 new_voltage = self.voltage_electron.get()
@@ -144,13 +147,27 @@ class mclass:
                 distance_ion = self.length_accel_ion.get()
                 new_voltage_ion = -new_voltage * distance_ion / distance_electron
                 self.voltage_ion.set(new_voltage_ion)
-            self.update_electron_positions()
-            self.update_ion_positions()
-            self.update_spectrometer_tab()
+
+            def update_electron_voltage():
+                self.update_electron_positions()
+                self.update_ion_positions()
+                self.update_spectrometer_tab()
+                self.callback_job_id_voltage_electron = None
+
+            # cancel previous update if triggered too fast:
+            if self.callback_job_id_voltage_electron is not None:
+                self.window.after_cancel(self.callback_job_id_voltage_electron)
+            # schedule update for later:
+            self.callback_job_id_voltage_electron = self.window.after(
+                job_wait_ms, update_electron_voltage
+            )
+            print(self.callback_job_id_voltage_electron)
 
         self.voltage_electron.trace("w", write_callback_voltage_electron)
         self.length_accel_electron.trace("w", write_callback_voltage_electron)
         self.fixed_center_potential.trace("w", write_callback_voltage_electron)
+
+        self.callback_job_id_voltage_ion = None
 
         def write_callback_voltage_ion(var, index, mode):
             if self.fixed_center_potential.get():
@@ -159,9 +176,18 @@ class mclass:
                 distance_ion = self.length_accel_ion.get()
                 new_voltage_ion = -new_voltage * distance_electron / distance_ion
                 self.voltage_electron.set(new_voltage_ion)
-            self.update_electron_positions()
-            self.update_ion_positions()
-            self.update_spectrometer_tab()
+
+            def update_ion_voltage():
+                self.update_electron_positions()
+                self.update_ion_positions()
+                self.update_spectrometer_tab()
+                self.callback_job_id_voltage_ion = None
+
+            # cancel previous update if triggered too fast:
+            if self.callback_job_id_voltage_ion is not None:
+                self.window.after_cancel(self.callback_job_id_voltage_ion)
+            # schedule update for later:
+            self.callback_job_id_voltage_ion = self.window.after(job_wait_ms, update_ion_voltage)
 
         self.voltage_ion.trace("w", write_callback_voltage_ion)
         self.length_accel_ion.trace("w", write_callback_voltage_ion)
@@ -1547,7 +1573,7 @@ class mclass:
             length_acceleration=sc.scalar(self.length_accel_electron.get(), unit="m"),
             length_drift=sc.scalar(self.length_drift_electron.get(), unit="m"),
             electric_field=sc.scalar(self.electric_field, unit="V/m"),
-            magnetic_field=sc.scalar(self.magnetic_field, unit="T"),
+            magnetic_field=sc.scalar(self.magnetic_field_si, unit="T"),
             mass=mass,
             charge=charge,
         )
