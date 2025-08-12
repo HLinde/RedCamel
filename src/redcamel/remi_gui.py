@@ -230,6 +230,7 @@ def make_scipp_detector_converters(
     length_acceleration, length_drift, electric_field, magnetic_field, mass, charge
 ):
     voltage_difference = electric_field * length_acceleration
+    acceleration_direction = np.sign(charge.value * electric_field.value)
 
     def calc_tof(p):
         p_z = p.fields.z
@@ -238,7 +239,11 @@ def make_scipp_detector_converters(
         tof = sc.where(
             D < 0 * sc.Unit("J*kg"),
             sc.scalar(np.nan, unit="s"),
-            mass * (2 * length_acceleration / (rootD + p_z) + length_drift / rootD),
+            mass
+            * (
+                2 * length_acceleration / (rootD + acceleration_direction * p_z)
+                + length_drift / rootD
+            ),
         )
         return {"tof": tof.to(unit="ns")}
 
@@ -272,7 +277,35 @@ def make_scipp_detector_converters(
             R = sc.sqrt(x**2 + y**2)
         return {"x": x.to(unit="mm"), "y": y.to(unit="mm"), "R": R.to(unit="mm")}
 
-    return calc_tof, calc_xyR
+    def calc_tof_in_acceleration_part(p):
+        p_z = p.fields.z
+        D = p_z * p_z - 2 * charge * voltage_difference * mass
+        rootD = sc.sqrt(D)
+        tof = sc.where(
+            D < 0 * sc.Unit("J*kg"),
+            sc.scalar(np.nan, unit="s"),
+            mass * (2 * length_acceleration / (rootD + acceleration_direction * p_z)),
+        )
+        return tof
+
+    def calc_z(p, tof):
+        tof = tof.to(unit="s")
+        p_z = p.fields.z
+        v_0 = (p_z / mass).to(unit="m/s")
+        tof_acceleration = calc_tof_in_acceleration_part(p).to(unit="s")
+        acceleration = (charge * electric_field / mass).to(unit="m/s**2")
+        tof_drift = tof - tof_acceleration
+        final_velocity = tof_acceleration * acceleration + v_0
+        z = sc.where(
+            tof_drift < sc.scalar(0, unit="s"),
+            acceleration * tof**2 / 2 + v_0 * tof,
+            acceleration * tof_acceleration**2 / 2
+            + v_0 * tof_acceleration
+            + final_velocity * tof_drift,
+        )
+        return {"z": z.to(unit="m")}
+
+    return calc_tof, calc_xyR, calc_z
 
 
 def calc_omega(B, q=-q_e, m=m_e):
@@ -898,6 +931,20 @@ class mclass:
             self.canvas_spectrometer,
             self.toolbar_spectrometer,
         ) = self.make_plot(0, 0, self.tabs["Spectrometer"], figsize=(5, 5), columnspan=1, rowspan=2)
+        (
+            self.fig_trajectory,
+            self.ax_trajectory,
+            self.canvas_trajectory,
+            self.toolbar_trajectory,
+        ) = self.make_plot(
+            2,
+            0,
+            self.tabs["Spectrometer"],
+            figsize=(5, 5),
+            columnspan=1,
+            rowspan=2,
+            subplot_kw={"projection": "3d"},
+        )
 
     def delayed_update_spectrometer_tab(self):
         if hasattr(self, "_update_job"):
@@ -906,6 +953,7 @@ class mclass:
 
     def update_spectrometer_tab(self):
         self.ax_spectrometer.clear()
+        self.ax_trajectory.clear()
 
         Ld_i = self.length_drift_ion.get()
         La_i = self.length_accel_ion.get()
@@ -1043,6 +1091,49 @@ class mclass:
         self.ax_spectrometer.grid(axis="both", linestyle="--", color="gray")
         self.canvas_spectrometer.draw()
 
+        n_trajectories = 10
+        for _ in range(n_trajectories):
+            electron_trajectory = self.get_random_electron_trajectory()
+            self.ax_trajectory.plot(
+                electron_trajectory.coords["x"].to(unit="mm").values,
+                electron_trajectory.coords["y"].to(unit="mm").values,
+                electron_trajectory.coords["z"].to(unit="mm").values,
+            )
+        detector_points = np.linspace(0, 2 * np.pi, 100)
+        detector_radius = self.detector_diameter_electrons.get() / 2
+        detector_x = np.sin(detector_points) * detector_radius
+        detector_y = np.cos(detector_points) * detector_radius
+        detector_z = (
+            -np.ones_like(detector_x)
+            * (self.length_accel_electron.get() + self.length_drift_electron.get())
+            * 1e3
+        )
+        self.ax_trajectory.plot(detector_x, detector_y, detector_z)
+        self.ax_trajectory.set_xlabel("x [mm]")
+        self.ax_trajectory.set_ylabel("y [mm]")
+        self.ax_trajectory.set_zlabel("z [mm]")
+        self.ax_trajectory.set_title("electron trajectories")
+        self.canvas_trajectory.draw()
+
+    def get_random_electron_trajectory(self):
+        rng = np.random.default_rng()
+        some_electron = self.electron_hits
+        slicers = zip(some_electron.dims, rng.integers(some_electron.shape))
+        for dim, index in slicers:
+            some_electron = some_electron[dim, index]
+
+        tof_value = some_electron.coords["tof"]
+        n_steps = 200
+        tof_range = sc.linspace("tof", start=tof_value / n_steps, stop=tof_value, num=n_steps)
+        starting_momentum = sc.broadcast(
+            some_electron.coords["p"], dims=["tof"], shape=tof_range.shape
+        )
+        trajectory = sc.DataArray(
+            data=sc.ones_like(tof_range), coords={"p": starting_momentum, "tof": tof_range}
+        )
+        trajectory = trajectory.transform_coords(["x", "y", "z"], graph=self.electron_scipp_graph)
+        return trajectory
+
     def make_export_tab(self):
         self.tabs["Export Data"].columnconfigure(0, weight=1)
         self.tabs["Export Data"].rowconfigure(0, weight=1)
@@ -1074,7 +1165,15 @@ class mclass:
         self.BUTTON_EXPORT_HDF5.grid(row=3, column=0, columnspan=1, padx="5", pady="5", sticky="w")
 
     def make_plot(
-        self, row, column, master, rowspan=2, columnspan=1, figsize=(5, 5), withcax=False
+        self,
+        row,
+        column,
+        master,
+        rowspan=2,
+        columnspan=1,
+        figsize=(5, 5),
+        withcax=False,
+        subplot_kw=None,
     ):
         """
         Initializes a figure canvas with plot axis
@@ -1111,9 +1210,9 @@ class mclass:
         toolbar.update()
 
         if withcax:
-            axes = fig.subplots(1, 2, width_ratios=[0.93, 0.07])
+            axes = fig.subplots(1, 2, width_ratios=[0.93, 0.07], subplot_kw=subplot_kw)
         else:
-            axes = fig.subplots(1, 1)
+            axes = fig.subplots(1, 1, subplot_kw=subplot_kw)
         return fig, axes, canvas, toolbar
 
     @property
@@ -1969,7 +2068,7 @@ class mclass:
     def update_electron_positions(self):
         mass, charge = self.electron_params
 
-        calc_e_tof, calc_e_xyR = make_scipp_detector_converters(
+        calc_e_tof, calc_e_xyR, calc_e_z = make_scipp_detector_converters(
             length_acceleration=sc.scalar(self.length_accel_electron.get(), unit="m"),
             length_drift=sc.scalar(self.length_drift_electron.get(), unit="m"),
             electric_field=sc.scalar(self.electric_field, unit="V/m"),
@@ -1978,7 +2077,7 @@ class mclass:
             charge=charge,
         )
 
-        self.electron_scipp_graph = {"tof": calc_e_tof, ("x", "y", "R"): calc_e_xyR}
+        self.electron_scipp_graph = {"tof": calc_e_tof, ("x", "y", "R"): calc_e_xyR, "z": calc_e_z}
 
         dataarray = self.electron_momenta.transform_coords(
             ["x", "y", "tof", "R"], graph=self.electron_scipp_graph
