@@ -13,6 +13,7 @@ m_e = constants.m_e.value  # electron_mass
 q_e = constants.e.value  # elementary_charge
 amu = 1.66053906660e-27  # atomic mass unit
 sc.units.aliases["au momentum"] = constants.physical_constants("atomic unit of momentum")
+sc.units.aliases["au energy"] = constants.physical_constants("atomic unit of energy")
 sc.units.aliases["au mass"] = constants.m_e
 
 

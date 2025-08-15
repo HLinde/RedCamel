@@ -50,14 +50,74 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import scipp as sc
 from chemformula import ChemFormula
 
-from .remi_coincidence import Coincidence
-from .units import get_mass, q_e, m_e, amu
-from .remi_scipp_helpers import make_scipp_detector_converters, calc_omega
+from .remi_coincidence import (
+    sample_photoionization,
+    # sample_coulomb_explosion,
+    RemiCalculator,
+)
+from .remi_particles import Electron, Particle
+from .units import q_e
 
 #############################
 #### GUI ####################
 ############################
 canvas_background_color = "mintcream"
+
+
+class RemiCalculatorWrapper(RemiCalculator):
+    def __init__(
+        self,
+        length_acceleration_ion_tkvariable: DoubleVar,
+        length_drift_ion_tkvariable: DoubleVar,
+        voltage_ion_tkvariable: DoubleVar,
+        length_acceleration_electron_tkvariable: DoubleVar,
+        length_drift_electron_tkvariable: DoubleVar,
+        voltage_electron_tkvariable: DoubleVar,
+        magnetic_field_tkvariable: DoubleVar,
+        v_jet_tkvariable: DoubleVar,
+    ):
+        self.length_acceleration_ion_tkvariable = length_acceleration_ion_tkvariable
+        self.length_drift_ion_tkvariable = length_drift_ion_tkvariable
+        self.voltage_ion_tkvariable = voltage_ion_tkvariable
+        self.length_acceleration_electron_tkvariable = length_acceleration_electron_tkvariable
+        self.length_drift_electron_tkvariable = length_drift_electron_tkvariable
+        self.voltage_electron_tkvariable = voltage_electron_tkvariable
+        self.magnetic_field_tkvariable = magnetic_field_tkvariable
+        self.v_jet_tkvariable = v_jet_tkvariable
+        self.jet_direction = "+x"
+        self.field_direction = "+z"
+
+    @property
+    def length_acceleration_ion(self):
+        return sc.scalar(self.length_acceleration_ion_tkvariable.get(), unit="m")
+
+    @property
+    def length_drift_ion(self):
+        return sc.scalar(self.length_drift_ion_tkvariable.get(), unit="m")
+
+    @property
+    def voltage_ion(self):
+        return sc.scalar(self.voltage_ion_tkvariable.get(), unit="V")
+
+    @property
+    def length_acceleration_electron(self):
+        return sc.scalar(self.length_acceleration_electron_tkvariable.get(), unit="m")
+
+    @property
+    def length_drift_electron(self):
+        return sc.scalar(self.length_drift_electron_tkvariable.get(), unit="m")
+
+    @property
+    def voltage_electron(self):
+        return sc.scalar(self.voltage_electron_tkvariable.get(), unit="V")
+
+    @property
+    def magnetic_field(self):
+        return sc.scalar(self.magnetic_field_tkvariable.get(), unit="G").to(unit="T")
+
+    @property
+    def v_jet(self):
+        return sc.scalar(self.v_jet_tkvariable.get(), unit="mm/us")
 
 
 class mclass:
@@ -121,12 +181,22 @@ class mclass:
         self.magnetic_field_gauss = DoubleVar(value=6.0)
         self.velocity_jet = DoubleVar(value=1.0)
 
+        self.remicalculator = RemiCalculatorWrapper(
+            self.length_accel_ion,
+            self.length_drift_ion,
+            self.voltage_ion,
+            self.length_accel_electron,
+            self.length_drift_electron,
+            self.voltage_electron,
+            self.magnetic_field_gauss,
+            self.velocity_jet,
+        )
+
         self.detector_diameter_ions = DoubleVar(value=120)
         self.detector_diameter_electrons = DoubleVar(value=80)
 
         self.number_of_particles = IntVar(value=1000)
         self.electron_params = (sc.constants.m_e, -sc.constants.e)
-        self.particle_params = (sc.constants.m_e.value, -sc.constants.e.value)
         self.bunch_modulo = DoubleVar(value=5000)
 
         self.fixed_center_potential = IntVar()
@@ -150,7 +220,7 @@ class mclass:
 
             def update_electron_voltage():
                 self.update_electron_positions()
-                self.update_ion_positions()
+                # self.update_ion_positions()
                 self.update_spectrometer_tab()
                 self.callback_job_id_voltage_electron = None
 
@@ -161,7 +231,6 @@ class mclass:
             self.callback_job_id_voltage_electron = self.window.after(
                 job_wait_ms, update_electron_voltage
             )
-            print(self.callback_job_id_voltage_electron)
 
         self.voltage_electron.trace("w", write_callback_voltage_electron)
         self.length_accel_electron.trace("w", write_callback_voltage_electron)
@@ -179,7 +248,7 @@ class mclass:
 
             def update_ion_voltage():
                 self.update_electron_positions()
-                self.update_ion_positions()
+                # self.update_ion_positions()
                 self.update_spectrometer_tab()
                 self.callback_job_id_voltage_ion = None
 
@@ -194,7 +263,7 @@ class mclass:
 
         def write_callback_spectrometer_both(var, index, mode):
             self.update_electron_positions()
-            self.update_ion_positions()
+            # self.update_ion_positions()
             self.update_spectrometer_tab()
 
         self.magnetic_field_gauss.trace("w", write_callback_spectrometer_both)
@@ -208,7 +277,7 @@ class mclass:
         self.detector_diameter_electrons.trace("w", write_callback_spectrometer_electron)
 
         def write_callback_spectrometer_ion(var, index, mode):
-            self.update_ion_positions()
+            # self.update_ion_positions()
             self.update_spectrometer_tab()
 
         self.length_drift_ion.trace("w", write_callback_spectrometer_ion)
@@ -720,7 +789,6 @@ class mclass:
             subplot_kw={"projection": "3d"},
         )
 
-
     def update_spectrometer_tab(self):
         self.ax_spectrometer.clear()
         self.ax_trajectory.clear()
@@ -861,47 +929,67 @@ class mclass:
         self.ax_spectrometer.grid(axis="both", linestyle="--", color="gray")
         self.canvas_spectrometer.draw()
 
-        n_trajectories = 10
-        for _ in range(n_trajectories):
-            electron_trajectory = self.get_random_electron_trajectory()
-            self.ax_trajectory.plot(
-                electron_trajectory.coords["x"].to(unit="mm").values,
-                electron_trajectory.coords["y"].to(unit="mm").values,
-                electron_trajectory.coords["z"].to(unit="mm").values,
-            )
+        n_trajectories = 20
+        coin = self.electron_tab_coincidences[0]
+        colors = np.array(matplotlib.color_sequences["tab20"])
+        colors = colors[~np.isin(np.arange(len(colors)), [6, 7])]  # Skip red for color blind
+        channel_colors = colors[np.arange(n_trajectories) % len(colors)]
+        channel_colors = channel_colors.reshape((-1, 2, 3))
+        for in_channel_colors in channel_colors:
+            for particle, color in zip(coin.particles.values(), in_channel_colors):
+                trajectory = self.get_random_trajectory(particle)
+                if trajectory is not None:
+                    self.ax_trajectory.plot(
+                        trajectory.coords["x"].to(unit="mm").values,
+                        trajectory.coords["y"].to(unit="mm").values,
+                        trajectory.coords["z"].to(unit="mm").values,
+                        color=color,
+                    )
+
         detector_points = np.linspace(0, 2 * np.pi, 100)
-        detector_radius = self.detector_diameter_electrons.get() / 2
-        detector_x = np.sin(detector_points) * detector_radius
-        detector_y = np.cos(detector_points) * detector_radius
-        detector_z = (
-            -np.ones_like(detector_x)
-            * (self.length_accel_electron.get() + self.length_drift_electron.get())
-            * 1e3
-        )
-        self.ax_trajectory.plot(detector_x, detector_y, detector_z)
+        for detector_radius, detector_offset in [
+            (
+                self.detector_diameter_electrons.get() / 2,
+                (self.length_accel_electron.get() + self.length_drift_electron.get()) * 1e3,
+            ),
+            (
+                self.detector_diameter_ions.get() / 2,
+                - (self.length_accel_ion.get() + self.length_drift_ion.get()) * 1e3,
+            ),
+        ]:
+            detector_x = np.sin(detector_points) * detector_radius
+            detector_y = np.cos(detector_points) * detector_radius
+            detector_z = np.ones_like(detector_x) * detector_offset
+            self.ax_trajectory.plot(detector_x, detector_y, detector_z)
+
         self.ax_trajectory.set_xlabel("x [mm]")
         self.ax_trajectory.set_ylabel("y [mm]")
         self.ax_trajectory.set_zlabel("z [mm]")
         self.ax_trajectory.set_title("electron trajectories")
         self.canvas_trajectory.draw()
 
-    def get_random_electron_trajectory(self):
+    def get_random_trajectory(self, particle: Particle):
         rng = np.random.default_rng()
-        some_electron = self.electron_hits
-        slicers = zip(some_electron.dims, rng.integers(some_electron.shape))
+        hits = particle.detector_hits
+        slicers = zip(hits.dims, rng.integers(hits.shape))
+        some_hit = hits
         for dim, index in slicers:
-            some_electron = some_electron[dim, index]
+            some_hit = some_hit[dim, index]
 
-        tof_value = some_electron.coords["tof"]
+        tof_value = some_hit.coords["tof"]
+        if sc.isnan(tof_value):
+            return None
         n_steps = 200
         tof_range = sc.linspace("tof", start=tof_value / n_steps, stop=tof_value, num=n_steps)
         starting_momentum = sc.broadcast(
-            some_electron.coords["p"], dims=["tof"], shape=tof_range.shape
+            some_hit.coords["p"], dims=["tof"], shape=tof_range.shape
         )
         trajectory = sc.DataArray(
             data=sc.ones_like(tof_range), coords={"p": starting_momentum, "tof": tof_range}
         )
-        trajectory = trajectory.transform_coords(["x", "y", "z"], graph=self.electron_scipp_graph)
+        trajectory = trajectory.transform_coords(
+            ["x", "y", "z"], graph=particle.detector_transformation_graph
+        )
         return trajectory
 
     def make_export_tab(self):
@@ -1055,7 +1143,7 @@ class mclass:
 
         detector_radius = sc.scalar(self.detector_diameter_electrons.get() / 2, unit="mm")
 
-        max_tof = sc.scalar(self.calc_max_tof(), unit="s").to(unit="ns")
+        max_tof = self.calc_max_tof().to(unit="ns")
         tof_limit = max(max_tof * 1.2, 1e-9 * sc.Unit("ns"))
         R_limit = detector_radius * 1.2
         pos_bins = 100
@@ -1066,9 +1154,14 @@ class mclass:
         self.tof_bins_electrons = sc.linspace("tof", sc.scalar(0, unit="ns"), tof_limit, tof_bins)
         self.R_bins_electrons = sc.linspace("R", sc.scalar(0, unit="mm"), R_limit, pos_bins)
 
-        R_tof_hist = self.electron_hits.hist(
-            R=self.R_bins_electrons, tof=self.tof_bins_electrons, dim=("p", "pulses", "HitNr")
-        )
+        R_tof_hists = [
+            electron.detector_hits.hist(
+                R=self.R_bins_electrons, tof=self.tof_bins_electrons, dim=("p", "pulses")
+            )
+            for electron in self.electrons
+        ]
+        R_tof_hist = sum(R_tof_hists)
+
         R_tof_hist.plot(ax=ax, cbar=False, norm="log", cmap="PuBuGn")
 
         if self.v_ir.get() == 1:
@@ -1077,17 +1170,15 @@ class mclass:
         ax.axvline(max_tof.value, color="darkgrey")
         ax.axhline(detector_radius.value, lw=1)
 
-        # no_mom_tof = (self.calc_no_momentum_tof() * sc.Unit("s")).to(unit="ns")
+        no_mom_tof = self.calc_no_momentum_tof().to(unit="ns")
 
-        m, q = self.particle_params
-        omega = calc_omega(self.magnetic_field_si, q, m)
-        if omega == 0:
-            cyclotron_period = np.inf
+        omega = self.remicalculator.calc_omega(*self.electron_params)
+        if omega.to(unit="Hz") == sc.scalar(0, unit="Hz"):
+            cyclotron_period = sc.scalar(np.inf, unit="ns")
         else:
-            cyclotron_period = np.abs(2 * np.pi / omega)
-        cyclotron_period = (cyclotron_period * sc.Unit("s")).to(unit="ns")
+            cyclotron_period = sc.abs(2 * np.pi / omega).to(unit="ns")
 
-        # ax.axvline(no_mom_tof.value, ls="--", color="darkgrey")
+        ax.axvline(no_mom_tof.value, ls="--", color="darkgrey")
         if sc.isfinite(cyclotron_period) and max_tof > cyclotron_period:
             for node_tof in np.arange(0.0, max_tof.value, cyclotron_period.value):
                 ax.axvline(node_tof, ls=":", color="darkgrey")
@@ -1097,9 +1188,13 @@ class mclass:
         ax = self.ele_pos_a
         ax.cla()
 
-        x_y_hist = self.electron_hits.hist(
-            y=self.y_bins_electrons, x=self.x_bins_electrons, dim=("p", "pulses", "HitNr")
-        )
+        x_y_hists = [
+            electron.detector_hits.hist(
+                y=self.y_bins_electrons, x=self.x_bins_electrons, dim=("p", "pulses")
+            )
+            for electron in self.electrons
+        ]
+        x_y_hist = sum(x_y_hists)
         x_y_hist.plot(ax=ax, cbar=False, norm="log", cmap="PuBuGn")
 
         detector = plt.Circle(
@@ -1150,55 +1245,33 @@ class mclass:
         """
         calculates the maximal tof for the electron to not fly into the ion detector
         """
-        m, q = self.particle_params
-
-        l_a_ion = self.length_accel_ion.get()
-        l_a_el = self.length_accel_electron.get()
-        l_d_el = self.length_drift_electron.get()
-        U_ion = self.voltage_ion.get()
-        U_el = self.voltage_electron.get()
-        E = self.electric_field
-        if (
-            np.abs(E) < 4 * np.finfo(E).eps
-        ):  # check if field magnitude is above numerical resolution
-            # No acceleration.. anything towards ion detector is lost
-            # assume a tiny kinetic energy towards electron detector..
-            E_kin = 1e-1 * q_e
-            momentum = np.array([[0, 0, np.sqrt(2 * E_kin * m)]])
-            tof_max = calc_tof(momentum, E, l_a_el, l_d_el, particle_params=self.particle_params)[0]
-        elif E > 0:
-            # Start with kinetic energy towards ion detector equal to the potential difference
-            # time from reaction point to end of ion acceleration
-            time_1 = np.sqrt(2 * l_a_ion * m / (-E * q))
-            # time from ion acceleration end to electron acceleration end
-            time_2 = np.sqrt(2 * (l_a_ion + l_a_el) * m / (-E * q))
-            # now kinetic energy is exactly the total potential for the edge case
-            E_kin = np.abs((U_ion + U_el) * q)
-            v_drift = np.sqrt(2 * E_kin / m)
-            time_3 = l_d_el / v_drift
-            tof_max = time_1 + time_2 + time_3
-        else:
-            # Field is deccelerating!
-            # Start with kinetic energy towards electron detector equal to the potential difference
-            # time from reaction point to end of ion acceleration
-            # now kinetic energy is exactly the total potential for the edge case
-            E_kin = E * l_a_el
-            momentum = np.array([[0, 0, np.sqrt(2 * E_kin * m)]])
-            tof_max = calc_tof(momentum, E, l_a_el, l_d_el, particle_params=self.particle_params)[0]
+        remi = self.remicalculator
+        test_electron = Electron()
+        opposite_voltage = remi.electric_field * remi.length_acceleration_ion
+        energy = opposite_voltage * test_electron.charge
+        absolute_momentum = sc.sqrt(2 * energy * test_electron.mass).to(unit="au momentum")
+        momentum_vector = -remi.field_unitvector * absolute_momentum
+        test_electron.momentum_sample = sc.DataArray(
+            sc.ones(dims=["p"], shape=(1,)), coords={"p": momentum_vector}
+        )
+        remi.set_particle_converter_graph(test_electron)
+        test_electron.calculate_detector_hits()
+        tof_max = test_electron.detector_hits.coords["tof"]
         return tof_max
 
     def calc_no_momentum_tof(self):
         """
         calculates the time of flight for a paticle with no z-momentum
         """
-        no_momentum = np.zeros((1, 3))
-        zero_momentum_tof = calc_tof(
-            no_momentum,
-            self.electric_field,
-            self.length_accel_electron.get(),
-            self.length_drift_electron.get(),
-            particle_params=self.particle_params,
-        )[0]
+        remi = self.remicalculator
+        test_electron = Electron()
+        momentum_vector = sc.vector([0., 0., 0.], unit="au momentum")
+        test_electron.momentum_sample = sc.DataArray(
+            sc.ones(dims=["p"], shape=(1,)), coords={"p": momentum_vector}
+        )
+        remi.set_particle_converter_graph(test_electron)
+        test_electron.calculate_detector_hits()
+        zero_momentum_tof = test_electron.detector_hits.coords["tof"]
         return zero_momentum_tof
 
     def export_pipico(self):
@@ -1651,128 +1724,68 @@ class mclass:
     def update_electron_momenta(self):
         mass, charge = self.electron_params
         number_of_particles = len(self.pulses)
-        if self.v.get() == 1:
-            momentum = sc.vectors(
-                dims=["pulses", "HitNr"],
-                values=np.random.randn(number_of_particles, 1, 3),
-                unit="au momentum",
-            )
-            dataarray = sc.DataArray(
-                data=sc.ones(
-                    sizes={"pulses": number_of_particles, "HitNr": 1, "p": 1}, dtype="int32"
-                ),
-                coords={
-                    "pulses": self.pulses,
-                    "HitNr": sc.array(dims=["HitNr"], values=np.arange(1)),
-                    "p": momentum.to(unit="N*s"),
-                },
-            )
+        self.electron_tab_coincidences = []
+        default_atom = ChemFormula("He")
+        he_binding_energy = sc.scalar(24.587389011, unit="eV")
 
+        sample_sizes = {"pulses": number_of_particles, "p": 1}
+
+        if self.v.get() == 1:
+            self.electron_tab_coincidences.append(
+                sample_photoionization(
+                    default_atom,
+                    binding_energy=he_binding_energy,
+                    photon_energy=he_binding_energy,
+                    energy_width=sc.scalar(1, unit="au energy").to(unit="eV"),
+                    sizes=sample_sizes,
+                    remi=self.remicalculator,
+                )
+            )
         elif self.v.get() == 2:
             energy_mean = sc.scalar(float(self.ENTRY_MEAN_ENERGY.get()), unit="eV")
             width = sc.scalar(float(self.ENTRY_WIDTH.get()), unit="eV")
-            energy = (
-                sc.array(dims=["pulses", "HitNr"], values=np.random.randn(number_of_particles, 1))
-                * width
-                + energy_mean
-            )
-            r_mom = sc.sqrt(energy * 2 * mass)
-
-            phi = sc.array(
-                dims=["pulses", "HitNr"],
-                values=np.random.rand(number_of_particles, 1) * 2 * np.pi,
-                unit="rad",
-            )
-
-            cos_theta = sc.array(
-                dims=["pulses", "HitNr"], values=np.random.rand(number_of_particles, 1) * 2 - 1
-            )
-            theta = sc.acos(cos_theta)
-
-            x = r_mom * sc.sin(theta) * sc.cos(phi)
-            y = r_mom * sc.sin(theta) * sc.sin(phi)
-            z = r_mom * cos_theta
-            dataarray = sc.DataArray(
-                data=sc.ones(
-                    sizes={"pulses": number_of_particles, "HitNr": 1, "p": 1}, dtype="int32"
-                ),
-                coords={
-                    "pulses": self.pulses,
-                    "HitNr": sc.array(dims=["HitNr"], values=np.arange(1)),
-                    "p": sc.spatial.as_vectors(x, y, z).to(unit="N*s"),
-                },
+            self.electron_tab_coincidences.append(
+                sample_photoionization(
+                    default_atom,
+                    binding_energy=he_binding_energy,
+                    photon_energy=he_binding_energy + energy_mean,
+                    energy_width=width,
+                    sizes=sample_sizes,
+                    remi=self.remicalculator,
+                )
             )
         elif self.v.get() == 3:
             energy_mean = sc.scalar(float(self.ENTRY_MEAN_ENERGY.get()), unit="eV")
             width = sc.scalar(float(self.ENTRY_WIDTH.get()), unit="eV")
             energy_step = sc.scalar(float(self.ENTRY_MULTI_PART_ENERGY_STEP.get()), unit="eV")
             part_num = int(self.ENTRY_MULTI_PART_NUMBER.get())
-            particles = []
             for i in range(part_num):
-                energy = (
-                    sc.array(
-                        dims=["pulses", "HitNr"], values=np.random.randn(number_of_particles, 1)
+                self.electron_tab_coincidences.append(
+                    sample_photoionization(
+                        default_atom,
+                        binding_energy=he_binding_energy,
+                        photon_energy=he_binding_energy + energy_mean + i * energy_step,
+                        energy_width=width,
+                        sizes=sample_sizes,
+                        remi=self.remicalculator,
                     )
-                    * width
-                    + energy_mean
-                    + i * energy_step
                 )
-                r_mom = sc.sqrt(energy * 2 * mass)
-
-                phi = sc.array(
-                    dims=["pulses", "HitNr"],
-                    values=np.random.rand(number_of_particles, 1) * 2 * np.pi,
-                    unit="rad",
-                )
-
-                cos_theta = sc.array(
-                    dims=["pulses", "HitNr"], values=np.random.rand(number_of_particles, 1) * 2 - 1
-                )
-                theta = sc.acos(cos_theta)
-
-                x = r_mom * sc.sin(theta) * sc.cos(phi)
-                y = r_mom * sc.sin(theta) * sc.sin(phi)
-                z = r_mom * cos_theta
-                momentum = sc.spatial.as_vectors(x, y, z)
-
-                particles.append(momentum)
-            dataarray = sc.DataArray(
-                data=sc.ones(
-                    sizes={"pulses": number_of_particles, "HitNr": part_num, "p": 1}, dtype="int32"
-                ),
-                coords={
-                    "pulses": self.pulses,
-                    "HitNr": sc.array(dims=["HitNr"], values=np.arange(part_num)),
-                    "p": sc.concat(particles, "HitNr").to(unit="N*s"),
-                },
-            )
-        self.electron_momenta = dataarray
+        self.electrons = [coin.electrons["e"] for coin in self.electron_tab_coincidences]
         self.update_electron_positions()
 
     def update_electron_positions(self):
         mass, charge = self.electron_params
-
-        calc_e_tof, calc_e_xyR, calc_e_z = make_scipp_detector_converters(
-            length_acceleration=sc.scalar(self.length_accel_electron.get(), unit="m"),
-            length_drift=sc.scalar(self.length_drift_electron.get(), unit="m"),
-            electric_field=sc.scalar(self.electric_field, unit="V/m"),
-            magnetic_field=sc.scalar(self.magnetic_field_si, unit="T"),
-            mass=mass,
-            charge=charge,
-        )
-
-        self.electron_scipp_graph = {"tof": calc_e_tof, ("x", "y", "R"): calc_e_xyR, "z": calc_e_z}
-
-        self.electron_hits = self.electron_momenta.transform_coords(
-            ["x", "y", "tof", "R"], graph=self.electron_scipp_graph
-        )
-
+        for coin in self.electron_tab_coincidences:
+            coin.calculate_detector_hits()
         self.update_R_tof()
         self.update_electron_detector_signals()
 
     def update_electron_detector_signals(self):
-        hits = self.electron_hits
-        self.datagroup["electrons"] = hits
+        # groupgroup = self.datagroup["electronsim"] = sc.DataGroup()
+        # for coin in self.electron_tab_coincidences:
+        #     groupgroup[coin.name] = coin.datagroup
+        # print(self.datagroup)
+        pass
 
     def update_ion_momenta(self):
         number_of_particles = len(self.pulses)
@@ -1834,7 +1847,7 @@ class mclass:
                     "p": p_2,
                 },
             )
-        self.update_ion_positions()
+        # self.update_ion_positions()
 
     def update_ion_positions(self):
         for coin in self.ion_channels:
@@ -1869,7 +1882,7 @@ class mclass:
         n_samples = self.number_of_particles.get()
         self.pulses = sc.arange("pulses", n_samples)
         self.datagroup = sc.DataGroup(pulses=self.pulses)
-        self.generate_ion_pair_entries()
+        # self.generate_ion_pair_entries()
         self.update_electron_momenta()
 
 
