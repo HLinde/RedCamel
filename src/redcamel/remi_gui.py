@@ -705,9 +705,25 @@ class mclass:
             self.canvas_spectrometer,
             self.toolbar_spectrometer,
         ) = self.make_plot(0, 0, self.tabs["Spectrometer"], figsize=(5, 5), columnspan=1, rowspan=2)
+        (
+            self.fig_trajectory,
+            self.ax_trajectory,
+            self.canvas_trajectory,
+            self.toolbar_trajectory,
+        ) = self.make_plot(
+            2,
+            0,
+            self.tabs["Spectrometer"],
+            figsize=(5, 5),
+            columnspan=1,
+            rowspan=2,
+            subplot_kw={"projection": "3d"},
+        )
+
 
     def update_spectrometer_tab(self):
         self.ax_spectrometer.clear()
+        self.ax_trajectory.clear()
 
         Ld_i = self.length_drift_ion.get()
         La_i = self.length_accel_ion.get()
@@ -716,22 +732,177 @@ class mclass:
         U_i = self.voltage_ion.get()
         U_e = self.voltage_electron.get()
 
-        z = [0, Ld_i, Ld_i + La_i, Ld_i + La_i + La_e, Ld_i + La_i + La_e + Ld_e]
+        z = np.cumsum([0, Ld_i, La_i, La_e, Ld_e])
 
-        U = [0, 0, U_i, U_e, U_e]
+        if self.fixed_center_potential.get():
+            U_0 = 0
+        else:
+            E = (U_e - U_i) / (La_i + La_e)
+            U_0 = U_i + E * La_i
 
-        self.ax_spectrometer.text(Ld_i + La_i / 2, max(U) + 20, "Ions", ha="center", fontsize=12)
+        U = [U_i, U_i, U_0, U_e, U_e]
+
         self.ax_spectrometer.text(
-            Ld_i + La_i + La_e / 2, max(U) + 20, "Electrons", ha="center", fontsize=12
+            0.2,
+            1.05,
+            "Ions",
+            transform=self.ax_spectrometer.transAxes,
+            ha="center",
+            fontsize=15,
+            color="black",
+        )
+
+        self.ax_spectrometer.text(
+            0.8,
+            1.05,
+            "Electrons",
+            transform=self.ax_spectrometer.transAxes,
+            ha="center",
+            fontsize=15,
+            color="black",
         )
 
         self.ax_spectrometer.plot(z, U, color="pink", linewidth=2)
-        self.ax_spectrometer.set_xlabel("z")
-        self.ax_spectrometer.set_ylabel("U")
+        self.ax_spectrometer.set_xlabel("z [m]")
+        self.ax_spectrometer.set_ylabel("U [V]")
 
-        # self.ax_spectrometer.text()
+        y_arrow_li = U_i - 10
+        y_arrow_le = U_e + 10
+
+        self.ax_spectrometer.annotate(
+            "",
+            xy=(0, y_arrow_li),
+            xytext=(Ld_i, y_arrow_li),
+            arrowprops=dict(arrowstyle="<->", color="green"),
+        )
+        self.ax_spectrometer.text(
+            Ld_i / 2, y_arrow_li - 5, "$L_d$", ha="center", fontsize=12, color="green"
+        )
+
+        self.ax_spectrometer.annotate(
+            "",
+            xy=(Ld_i, y_arrow_li),
+            xytext=(Ld_i + La_i, y_arrow_li),
+            arrowprops=dict(arrowstyle="<->", color="green"),
+        )
+        self.ax_spectrometer.text(
+            Ld_i + La_i / 2, y_arrow_li - 5, "$L_a$", ha="center", fontsize=12, color="green"
+        )
+
+        self.ax_spectrometer.annotate(
+            "",
+            xy=(Ld_i + La_i, y_arrow_le),
+            xytext=(Ld_i + La_i + La_e, y_arrow_le),
+            arrowprops=dict(arrowstyle="<->", color="green"),
+        )
+        self.ax_spectrometer.text(
+            Ld_i + La_i + La_e / 2, y_arrow_le + 5, "$L_a$", ha="center", fontsize=12, color="green"
+        )
+
+        self.ax_spectrometer.annotate(
+            "",
+            xy=(Ld_i + La_i + La_e, y_arrow_le),
+            xytext=(Ld_i + La_i + La_e + Ld_e, y_arrow_le),
+            arrowprops=dict(arrowstyle="<->", color="green"),
+        )
+        self.ax_spectrometer.text(
+            Ld_i + La_i + La_e + Ld_e / 2,
+            y_arrow_le + 5,
+            "$L_d$",
+            ha="center",
+            fontsize=12,
+            color="green",
+        )
+
+        self.ax_spectrometer.annotate(
+            f"{self.electric_field:.5g} V/cm",
+            xy=(Ld_i + La_i, (U_i + U_e) / 2),
+            xytext=(Ld_i + La_i + La_e, (U_i + U_e) / 2),
+            textcoords="offset points",
+            arrowprops=dict(arrowstyle="<->", color="green"),
+            color="green",
+        )
+
+        self.ax_spectrometer.annotate(
+            "",
+            xy=(Ld_i + La_i / 2, 0),
+            xytext=(Ld_i + La_i / 2, U_i),
+            arrowprops=dict(arrowstyle="<->", color="darkblue", linewidth=2),
+        )
+        self.ax_spectrometer.text(
+            Ld_i + La_i / 2 + 0.005,
+            U_i / 2,
+            r"$U_i$",
+            ha="left",
+            va="center",
+            fontsize=12,
+            color="darkblue",
+        )
+
+        self.ax_spectrometer.annotate(
+            "",
+            xy=(Ld_i + La_i + La_e / 2, 0),
+            xytext=(Ld_i + La_i + La_e / 2, U_e),
+            arrowprops=dict(arrowstyle="<->", color="darkblue", linewidth=2),
+        )
+        self.ax_spectrometer.text(
+            Ld_i + La_i + La_e / 2 + 0.005,
+            U_e / 2,
+            r"$U_e$",
+            ha="left",
+            va="center",
+            fontsize=12,
+            color="darkblue",
+        )
+
+        boundary = Ld_i + La_i
+        self.ax_spectrometer.axvline(x=boundary, color="black", linewidth=2)
+
         self.ax_spectrometer.grid(axis="both", linestyle="--", color="gray")
-        self.ax_spectrometer.plot()
+        self.canvas_spectrometer.draw()
+
+        n_trajectories = 10
+        for _ in range(n_trajectories):
+            electron_trajectory = self.get_random_electron_trajectory()
+            self.ax_trajectory.plot(
+                electron_trajectory.coords["x"].to(unit="mm").values,
+                electron_trajectory.coords["y"].to(unit="mm").values,
+                electron_trajectory.coords["z"].to(unit="mm").values,
+            )
+        detector_points = np.linspace(0, 2 * np.pi, 100)
+        detector_radius = self.detector_diameter_electrons.get() / 2
+        detector_x = np.sin(detector_points) * detector_radius
+        detector_y = np.cos(detector_points) * detector_radius
+        detector_z = (
+            -np.ones_like(detector_x)
+            * (self.length_accel_electron.get() + self.length_drift_electron.get())
+            * 1e3
+        )
+        self.ax_trajectory.plot(detector_x, detector_y, detector_z)
+        self.ax_trajectory.set_xlabel("x [mm]")
+        self.ax_trajectory.set_ylabel("y [mm]")
+        self.ax_trajectory.set_zlabel("z [mm]")
+        self.ax_trajectory.set_title("electron trajectories")
+        self.canvas_trajectory.draw()
+
+    def get_random_electron_trajectory(self):
+        rng = np.random.default_rng()
+        some_electron = self.electron_hits
+        slicers = zip(some_electron.dims, rng.integers(some_electron.shape))
+        for dim, index in slicers:
+            some_electron = some_electron[dim, index]
+
+        tof_value = some_electron.coords["tof"]
+        n_steps = 200
+        tof_range = sc.linspace("tof", start=tof_value / n_steps, stop=tof_value, num=n_steps)
+        starting_momentum = sc.broadcast(
+            some_electron.coords["p"], dims=["tof"], shape=tof_range.shape
+        )
+        trajectory = sc.DataArray(
+            data=sc.ones_like(tof_range), coords={"p": starting_momentum, "tof": tof_range}
+        )
+        trajectory = trajectory.transform_coords(["x", "y", "z"], graph=self.electron_scipp_graph)
+        return trajectory
 
     def make_export_tab(self):
         self.tabs["Export Data"].columnconfigure(0, weight=1)
@@ -764,7 +935,15 @@ class mclass:
         self.BUTTON_EXPORT_HDF5.grid(row=3, column=0, columnspan=1, padx="5", pady="5", sticky="w")
 
     def make_plot(
-        self, row, column, master, rowspan=2, columnspan=1, figsize=(5, 5), withcax=False
+        self,
+        row,
+        column,
+        master,
+        rowspan=2,
+        columnspan=1,
+        figsize=(5, 5),
+        withcax=False,
+        subplot_kw=None,
     ):
         """
         Initializes a figure canvas with plot axis
@@ -801,14 +980,18 @@ class mclass:
         toolbar.update()
 
         if withcax:
-            axes = fig.subplots(1, 2, width_ratios=[0.93, 0.07])
+            axes = fig.subplots(1, 2, width_ratios=[0.93, 0.07], subplot_kw=subplot_kw)
         else:
-            axes = fig.subplots(1, 1)
+            axes = fig.subplots(1, 1, subplot_kw=subplot_kw)
         return fig, axes, canvas, toolbar
 
     @property
     def magnetic_field_si(self):
         return self.magnetic_field_gauss.get() * 1e-4
+
+    @property
+    def electric_field_si(self):
+        return self.electric_field / 100
 
     @property
     def velocity_jet_si(self):
@@ -1569,7 +1752,7 @@ class mclass:
     def update_electron_positions(self):
         mass, charge = self.electron_params
 
-        calc_e_tof, calc_e_xyR = make_scipp_detector_converters(
+        calc_e_tof, calc_e_xyR, calc_e_z = make_scipp_detector_converters(
             length_acceleration=sc.scalar(self.length_accel_electron.get(), unit="m"),
             length_drift=sc.scalar(self.length_drift_electron.get(), unit="m"),
             electric_field=sc.scalar(self.electric_field, unit="V/m"),
@@ -1578,7 +1761,7 @@ class mclass:
             charge=charge,
         )
 
-        self.electron_scipp_graph = {"tof": calc_e_tof, ("x", "y", "R"): calc_e_xyR}
+        self.electron_scipp_graph = {"tof": calc_e_tof, ("x", "y", "R"): calc_e_xyR, "z": calc_e_z}
 
         self.electron_hits = self.electron_momenta.transform_coords(
             ["x", "y", "tof", "R"], graph=self.electron_scipp_graph

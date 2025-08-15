@@ -14,6 +14,7 @@ def make_scipp_detector_converters(
     length_acceleration, length_drift, electric_field, magnetic_field, mass, charge
 ):
     voltage_difference = electric_field * length_acceleration
+    acceleration_direction = np.sign(charge.value * electric_field.value)
 
     def calc_tof(p):
         p_z = p.fields.z
@@ -22,9 +23,14 @@ def make_scipp_detector_converters(
         tof = sc.where(
             D < 0 * sc.Unit("J*kg"),
             sc.scalar(np.nan, unit="s"),
-            mass * (2 * length_acceleration / (rootD + p_z) + length_drift / rootD),
+            mass
+            * (
+                2 * length_acceleration / (rootD + acceleration_direction * p_z)
+                + length_drift / rootD
+            ),
         )
         return {"tof": tof.to(unit="ns")}
+
 
     def calc_xyR(p, tof):
         p_x = p.fields.x
@@ -56,7 +62,35 @@ def make_scipp_detector_converters(
             R = sc.sqrt(x**2 + y**2)
         return {"x": x.to(unit="mm"), "y": y.to(unit="mm"), "R": R.to(unit="mm")}
 
-    return calc_tof, calc_xyR
+    def calc_tof_in_acceleration_part(p):
+        p_z = p.fields.z
+        D = p_z * p_z - 2 * charge * voltage_difference * mass
+        rootD = sc.sqrt(D)
+        tof = sc.where(
+            D < 0 * sc.Unit("J*kg"),
+            sc.scalar(np.nan, unit="s"),
+            mass * (2 * length_acceleration / (rootD + acceleration_direction * p_z)),
+        )
+        return tof
+
+    def calc_z(p, tof):
+        tof = tof.to(unit="s")
+        p_z = p.fields.z
+        v_0 = (p_z / mass).to(unit="m/s")
+        tof_acceleration = calc_tof_in_acceleration_part(p).to(unit="s")
+        acceleration = (charge * electric_field / mass).to(unit="m/s**2")
+        tof_drift = tof - tof_acceleration
+        final_velocity = tof_acceleration * acceleration + v_0
+        z = sc.where(
+            tof_drift < sc.scalar(0, unit="s"),
+            acceleration * tof**2 / 2 + v_0 * tof,
+            acceleration * tof_acceleration**2 / 2
+            + v_0 * tof_acceleration
+            + final_velocity * tof_drift,
+        )
+        return {"z": z.to(unit="m")}
+
+    return calc_tof, calc_xyR, calc_z
 
 
 def calc_omega(B, q=-q_e, m=m_e):
