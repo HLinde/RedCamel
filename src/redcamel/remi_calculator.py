@@ -5,11 +5,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # -*- coding: utf-8 -*-
-from typing import Iterable, Literal
-from chemformula import ChemFormula
+from typing import Literal
 import scipp as sc
 import numpy as np
-from .remi_particles import Ion, Electron, Particle
 
 CoordinateDirection = Literal["+x", "-x", "+y", "-y", "+z", "-z"]
 axis_vectors = {
@@ -86,11 +84,6 @@ class RemiCalculator:
             "z": lambda p_long, tof: self.position_longitudinal(p_long, tof, mass, charge),
         }
         return graph
-
-    def set_particle_converter_graph(self, particle: Particle):
-        particle.detector_transformation_graph = self.make_scipp_graph_for_detector(
-            particle.mass, particle.charge
-        )
 
     def longitudinal_momentum(self, momentum: sc.Variable):
         return sc.dot(momentum, self.field_unitvector)
@@ -204,9 +197,7 @@ class RemiCalculator:
         tof_acceleration = self.tof_in_acceleration_part(momentum_longitudinal, mass, charge).to(
             unit="s"
         )
-        acceleration = (charge * self.electric_field / mass).to(
-            unit="m/s**2"
-        )
+        acceleration = (charge * self.electric_field / mass).to(unit="m/s**2")
         tof_drift = tof - tof_acceleration
         final_velocity = tof_acceleration * acceleration + v_0
         z = sc.where(
@@ -220,131 +211,3 @@ class RemiCalculator:
 
     def calc_omega(self, mass: sc.Variable, charge: sc.Variable):
         return (charge * self.magnetic_field / mass).to(unit="1/s")
-
-
-class Coincidence:
-    def __init__(
-        self,
-        name,
-        ions: Iterable[Ion],
-        electrons: Iterable[Electron],
-        remi: RemiCalculator,
-        *,
-        colors=None,
-    ):
-        self.name = name
-        self.remi = remi
-
-        if colors is None:
-            colors = [None for _ in ions]
-        assert len(colors) == len(ions)
-        self.colors = colors
-
-        self.ions = {}
-        self.ion_counter = {}
-        for ion in ions:
-            if ion.name not in self.ions:
-                self.ions[ion.name] = ion
-                self.ion_counter[ion.name] = 1
-            else:
-                new_name = f"{ion.name}_{self.ion_counter[ion.name]}"
-                self.ions[new_name] = ion
-                self.ion_counter[ion.name] += 1
-
-        self.electrons = {}
-        self.electron_counter = {}
-        for electron in electrons:
-            if electron.name not in self.electrons:
-                self.electrons[electron.name] = electron
-                self.electron_counter[electron.name] = 1
-            else:
-                new_name = f"{electron.name}_{self.electron_counter[electron.name]}"
-                self.electrons[new_name] = electron
-                self.electron_counter[electron.name] += 1
-
-        self.particles = {}
-        self.particles.update(self.ions)
-        self.particles.update(self.electrons)
-
-    def calculate_detector_hits(self):
-        for part in self.particles.values():
-            self.remi.set_particle_converter_graph(part)
-            part.calculate_detector_hits()
-
-    @property
-    def datagroup(self) -> sc.DataGroup:
-        return sc.DataGroup(({name: part.momentum_sample} for name, part in self.particles.items()))
-
-
-def sample_lonely_particle(
-    particle: Particle, energy_mean: sc.Variable, energy_width: sc.Variable, sizes: dict
-):
-    dims, shape = zip(*sizes.items())
-    energy = sc.array(dims=dims, values=np.random.randn(*shape) * energy_width + energy_mean)
-    absolute_momentum = sc.sqrt(2 * energy * particle.mass)
-    momentum_vectors = sample_random_momentum_vectors(absolute_momentum)
-    particle.momentum_sample = sc.DataArray(
-        sc.ones(dims=dims, shape=shape), coords={"p": momentum_vectors}
-    )
-
-
-def sample_photoionization(
-    atom_formula: ChemFormula,
-    binding_energy: sc.Variable,
-    photon_energy: sc.Variable,
-    energy_width: sc.Variable,
-    sizes: dict,
-    remi: RemiCalculator,
-    name: str = None,
-    color=None,
-) -> Coincidence:
-    # TODO handle higher charge states
-    dims, shape = zip(*sizes.items())
-    assert "p" in dims
-    assert sizes["p"] == 1
-
-    mean_kinetic_energy = photon_energy - binding_energy
-    kinetic_energy = (
-        sc.array(dims=dims, values=np.random.randn(*shape)) * energy_width + mean_kinetic_energy
-    )
-    kinetic_energy = sc.where(
-        kinetic_energy < sc.scalar(0, unit="eV"),
-        sc.scalar(np.nan, unit="eV"),  # those electrons didn't make it out of the atom
-        kinetic_energy,
-    )
-
-    ion = Ion(atom_formula, charge=1)
-    electron = Electron()
-
-    if name is None:
-        name = "_".join([ion.name, electron.name])
-    sample_two_body_fragmentation(kinetic_energy, ion, electron)
-
-    return Coincidence(name, ions=[ion], electrons=[electron], colors=[color], remi=remi)
-
-
-def sample_two_body_fragmentation(
-    kinetic_energy: sc.Variable, particle_1: Particle, particle_2: Particle
-):
-    absolute_momentum = sc.sqrt(2 * kinetic_energy / (1 / particle_1.mass + 1 / particle_2.mass))
-    momentum_1 = sample_random_momentum_vectors(absolute_momentum)
-    momentum_2 = -momentum_1
-    particle_1.momentum_sample = sc.DataArray(
-        data=sc.ones(sizes=kinetic_energy.sizes), coords={"p": momentum_1}
-    )
-    particle_2.momentum_sample = sc.DataArray(
-        data=sc.ones(sizes=kinetic_energy.sizes), coords={"p": momentum_2}
-    )
-
-
-def sample_random_momentum_vectors(absolute_momentum: sc.Variable) -> sc.Variable:
-    dims = absolute_momentum.dims
-    shape = absolute_momentum.shape
-    phi = sc.array(dims=dims, values=np.random.rand(*shape) * 2 * np.pi, unit="rad")
-    cos_theta = sc.array(dims=dims, values=np.random.rand(*shape) * 2 - 1)
-    theta = sc.acos(cos_theta)
-
-    x = absolute_momentum * sc.sin(theta) * sc.cos(phi)
-    y = absolute_momentum * sc.sin(theta) * sc.sin(phi)
-    z = absolute_momentum * cos_theta
-    return sc.spatial.as_vectors(x, y, z).to(unit="au momentum")

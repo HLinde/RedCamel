@@ -15,6 +15,7 @@ amu = 1.66053906660e-27  # atomic mass unit
 sc.units.aliases["au momentum"] = constants.physical_constants("atomic unit of momentum")
 sc.units.aliases["au energy"] = constants.physical_constants("atomic unit of energy")
 sc.units.aliases["au mass"] = constants.m_e
+aliases = sc.units.aliases
 
 
 def get_mass(formula: ChemFormula) -> sc.Variable:

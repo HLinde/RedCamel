@@ -18,3 +18,11 @@ path = [
 ]
 SPDX-FileCopyrightText = "2025 Hannes Lindenblatt"
 SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = [
+    "examples/scipp_example.ipynb",
+    "examples/remicalculator.ipynb",
+]
+SPDX-FileCopyrightText = "2025 Hannes Lindenblatt"
+SPDX-License-Identifier = " GPL-3.0-or-later"
