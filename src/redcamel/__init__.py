@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 __all__ = [
-    "main",
     "get_mass",
     "RemiCalculator",
     "Coincidence",
@@ -15,7 +14,6 @@ __all__ = [
     "sample_random_momentum_vectors",
     "sample_two_body_fragmentation",
 ]
-from .remi_gui import main
 from .units import get_mass
 from .remi_calculator import RemiCalculator
 from .remi_particles import (
