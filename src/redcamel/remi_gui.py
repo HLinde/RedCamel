@@ -216,7 +216,7 @@ class mclass:
 
             def update_electron_voltage():
                 self.update_electron_positions()
-                # self.update_ion_positions()
+                self.update_ion_positions()
                 self.update_spectrometer_tab()
                 self.callback_job_id_voltage_electron = None
 
@@ -244,7 +244,7 @@ class mclass:
 
             def update_ion_voltage():
                 self.update_electron_positions()
-                # self.update_ion_positions()
+                self.update_ion_positions()
                 self.update_spectrometer_tab()
                 self.callback_job_id_voltage_ion = None
 
@@ -259,7 +259,7 @@ class mclass:
 
         def write_callback_spectrometer_both(var, index, mode):
             self.update_electron_positions()
-            # self.update_ion_positions()
+            self.update_ion_positions()
             self.update_spectrometer_tab()
 
         self.magnetic_field_gauss.trace("w", write_callback_spectrometer_both)
@@ -273,7 +273,7 @@ class mclass:
         self.detector_diameter_electrons.trace("w", write_callback_spectrometer_electron)
 
         def write_callback_spectrometer_ion(var, index, mode):
-            # self.update_ion_positions()
+            self.update_ion_positions()
             self.update_spectrometer_tab()
 
         self.length_drift_ion.trace("w", write_callback_spectrometer_ion)

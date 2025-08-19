@@ -63,13 +63,8 @@ class Ion(Particle):
 
 
 class Coincidence:
-    def __init__(self, name, ions: Iterable[Ion], electrons: Iterable[Electron], *, colors=None):
+    def __init__(self, name, ions: Iterable[Ion], electrons: Iterable[Electron]):
         self.name = name
-
-        if colors is None:
-            colors = [None for _ in ions]
-        assert len(colors) == len(ions)
-        self.colors = colors
 
         self.ions = {}
         self.ion_counter = {}
@@ -131,14 +126,14 @@ def sample_photoionization(
         kinetic_energy,
     )
 
-    ion = Ion(atom_formula, charge_count=1, remi=remi)
+    ion = Ion(atom_formula, charge_count=1, remi=remi, color=color)
     electron = Electron(remi=remi)
 
     if name is None:
         name = "_".join([ion.name, electron.name])
     sample_two_body_fragmentation(kinetic_energy, ion, electron)
 
-    return Coincidence(name, ions=[ion], electrons=[electron], colors=[color])
+    return Coincidence(name, ions=[ion], electrons=[electron])
 
 
 def sample_coulomb_explosion(
@@ -157,6 +152,10 @@ def sample_coulomb_explosion(
     assert sizes["p"] == 1
     assert len(fragment_formulas) > 1
 
+    if colors is None:
+        colors = [None for _ in fragment_formulas]
+    assert len(colors) == len(fragment_formulas)
+
     if len(fragment_formulas) > 2:
         raise NotImplementedError("Default behaviour for many particles is not implemented.")
 
@@ -170,15 +169,15 @@ def sample_coulomb_explosion(
     )
 
     ions = [
-        Ion(formula, charge_count=charge, remi=remi)
-        for formula, charge in zip(fragment_formulas, charge_counts)
+        Ion(formula, charge_count=charge, remi=remi, color=color)
+        for formula, charge, color in zip(fragment_formulas, charge_counts, colors)
     ]
 
     if name is None:
         name = "_".join(ion.name for ion in ions)
     sample_two_body_fragmentation(kinetic_energy, ions[0], ions[1])
 
-    return Coincidence(name, ions=ions, electrons=[], colors=colors)
+    return Coincidence(name, ions=ions, electrons=[])
 
 
 def sample_lonely_particle(
