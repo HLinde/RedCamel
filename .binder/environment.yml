@@ -8,3 +8,4 @@ channels:
 dependencies:
   - pixi
   - pixi-kernel
+  - plopp
