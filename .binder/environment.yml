@@ -7,3 +7,4 @@ channels:
   - conda-forge
 dependencies:
   - pixi
+  - pixi-kernel

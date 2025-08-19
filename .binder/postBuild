@@ -3,4 +3,3 @@ set -ex
 # - activate the environment otherwise the workspace is imported
 #   in the user home folder rather than in the prefix path (new default)
 pixi run jupyterlab workspaces import .binder/workspace.json
-pixi run jupyterlab
