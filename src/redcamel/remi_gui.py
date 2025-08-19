@@ -60,7 +60,7 @@ from .units import q_e
 canvas_background_color = "mintcream"
 
 
-class RemiCalculatorWrapper(RemiCalculator):
+class RemiCalculatorTk(RemiCalculator):
     def __init__(
         self,
         length_acceleration_ion_tkvariable: DoubleVar,
@@ -177,7 +177,7 @@ class mclass:
         self.magnetic_field_gauss = DoubleVar(value=6.0)
         self.velocity_jet = DoubleVar(value=5.0)
 
-        self.remicalculator = RemiCalculatorWrapper(
+        self.remicalculator = RemiCalculatorTk(
             self.length_accel_ion,
             self.length_drift_ion,
             self.voltage_ion,
@@ -203,8 +203,14 @@ class mclass:
 
         ######## variable callback actions ####################
 
-        job_wait_ms = 10
-        self.callback_job_id_voltage_electron = None
+        job_wait_ms = 20
+        self.callback_job_id = None
+
+        def update_callback_spectrometer():
+            self.update_electron_positions()
+            self.update_ion_positions()
+            self.update_spectrometer_tab()
+            self.callback_job_id = None
 
         def write_callback_voltage_electron(var, index, mode):
             if self.fixed_center_potential.get():
@@ -214,25 +220,20 @@ class mclass:
                 new_voltage_ion = -new_voltage * distance_ion / distance_electron
                 self.voltage_ion.set(new_voltage_ion)
 
-            def update_electron_voltage():
-                self.update_electron_positions()
-                self.update_ion_positions()
-                self.update_spectrometer_tab()
-                self.callback_job_id_voltage_electron = None
-
             # cancel previous update if triggered too fast:
-            if self.callback_job_id_voltage_electron is not None:
-                self.window.after_cancel(self.callback_job_id_voltage_electron)
+            if self.callback_job_id is not None:
+                self.window.after_cancel(self.callback_job_id)
             # schedule update for later:
-            self.callback_job_id_voltage_electron = self.window.after(
-                job_wait_ms, update_electron_voltage
-            )
+            self.callback_job_id = self.window.after(job_wait_ms, update_callback_spectrometer)
 
-        self.voltage_electron.trace("w", write_callback_voltage_electron)
-        self.length_accel_electron.trace("w", write_callback_voltage_electron)
-        self.fixed_center_potential.trace("w", write_callback_voltage_electron)
+        for variable in [
+            self.voltage_electron,
+            self.length_accel_electron,
+            self.fixed_center_potential,
+        ]:
+            variable.trace("w", write_callback_voltage_electron)
 
-        self.callback_job_id_voltage_ion = None
+        self.callback_job_id_ion = None
 
         def write_callback_voltage_ion(var, index, mode):
             if self.fixed_center_potential.get():
@@ -242,43 +243,32 @@ class mclass:
                 new_voltage_ion = -new_voltage * distance_electron / distance_ion
                 self.voltage_electron.set(new_voltage_ion)
 
-            def update_ion_voltage():
-                self.update_electron_positions()
-                self.update_ion_positions()
-                self.update_spectrometer_tab()
-                self.callback_job_id_voltage_ion = None
-
             # cancel previous update if triggered too fast:
-            if self.callback_job_id_voltage_ion is not None:
-                self.window.after_cancel(self.callback_job_id_voltage_ion)
+            if self.callback_job_id is not None:
+                self.window.after_cancel(self.callback_job_id)
             # schedule update for later:
-            self.callback_job_id_voltage_ion = self.window.after(job_wait_ms, update_ion_voltage)
+            self.callback_job_id = self.window.after(job_wait_ms, update_callback_spectrometer)
 
-        self.voltage_ion.trace("w", write_callback_voltage_ion)
-        self.length_accel_ion.trace("w", write_callback_voltage_ion)
+        for variable in [self.voltage_ion, self.length_accel_ion]:
+            variable.trace("w", write_callback_voltage_ion)
 
-        def write_callback_spectrometer_both(var, index, mode):
-            self.update_electron_positions()
-            self.update_ion_positions()
-            self.update_spectrometer_tab()
+        def write_callback_spectrometer(var, index, mode):
+            # cancel previous update if triggered too fast:
+            if self.callback_job_id is not None:
+                self.window.after_cancel(self.callback_job_id)
+            # schedule update for later:
+            self.callback_job_id = self.window.after(job_wait_ms, update_callback_spectrometer)
 
-        self.magnetic_field_gauss.trace("w", write_callback_spectrometer_both)
-        self.velocity_jet.trace("w", write_callback_spectrometer_both)
-
-        def write_callback_spectrometer_electron(var, index, mode):
-            self.update_electron_positions()
-            self.update_spectrometer_tab()
-
-        self.length_drift_electron.trace("w", write_callback_spectrometer_electron)
-        self.detector_diameter_electrons.trace("w", write_callback_spectrometer_electron)
-
-        def write_callback_spectrometer_ion(var, index, mode):
-            self.update_ion_positions()
-            self.update_spectrometer_tab()
-
-        self.length_drift_ion.trace("w", write_callback_spectrometer_ion)
-        self.bunch_modulo.trace("w", write_callback_spectrometer_ion)
-        self.detector_diameter_ions.trace("w", write_callback_spectrometer_ion)
+        for variable in [
+            self.magnetic_field_gauss,
+            self.velocity_jet,
+            self.length_drift_electron,
+            self.detector_diameter_electrons,
+            self.length_drift_ion,
+            self.bunch_modulo,
+            self.detector_diameter_ions,
+        ]:
+            variable.trace("w", write_callback_spectrometer)
 
         def write_callback_momentum_electrons(var, index, mode):
             self.update_electron_momenta()
