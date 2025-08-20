@@ -6,8 +6,9 @@
 
 # -*- coding: utf-8 -*-
 from typing import Literal
-import scipp as sc
+
 import numpy as np
+import scipp as sc
 
 CoordinateDirection = Literal["+x", "-x", "+y", "-y", "+z", "-z"]
 axis_vectors = {
@@ -108,15 +109,15 @@ class RemiCalculator:
 
         voltage = -acceleration_direction * length_acceleration * self.electric_field
         # TODO add case where particle overcomes opposite acceleration step
-        D = momentum_longitudinal * momentum_longitudinal - 2 * charge * voltage * mass
-        rootD = sc.sqrt(D)
+        d = momentum_longitudinal * momentum_longitudinal - 2 * charge * voltage * mass
+        root_d = sc.sqrt(d)
         tof = sc.where(
-            D < 0 * sc.Unit("J*kg"),
+            d < 0 * sc.Unit("J*kg"),
             sc.scalar(np.nan, unit="s"),
             mass
             * (
-                2 * length_acceleration / (rootD + acceleration_direction * momentum_longitudinal)
-                + length_drift / rootD
+                2 * length_acceleration / (root_d + acceleration_direction * momentum_longitudinal)
+                + length_drift / root_d
             ),
         )
         return tof.to(unit="ns")
@@ -174,13 +175,13 @@ class RemiCalculator:
 
         voltage = -acceleration_direction * length_acceleration * self.electric_field
         # TODO add case where particle overcomes opposite acceleration step
-        D = momentum_longitudinal * momentum_longitudinal - 2 * charge * voltage * mass
-        rootD = sc.sqrt(D)
+        d = momentum_longitudinal * momentum_longitudinal - 2 * charge * voltage * mass
+        root_d = sc.sqrt(d)
         tof = sc.where(
-            D < 0 * sc.Unit("J*kg"),
+            d < sc.scalar(0, unit="J*kg"),
             sc.scalar(np.nan, unit="s"),
             mass
-            * (2 * length_acceleration / (rootD + acceleration_direction * momentum_longitudinal)),
+            * (2 * length_acceleration / (root_d + acceleration_direction * momentum_longitudinal)),
         )
         return tof.to(unit="ns")
 
