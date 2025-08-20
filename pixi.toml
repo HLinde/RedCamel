@@ -64,11 +64,11 @@ description = "Run all python tests"
 cmd = "pytest"
 [feature.test.tasks.code_analysis]
 description = "Run static code analyis with ruff"
-cmd = ["ruff", "check", "src/**/*.py", "examples/*.ipynb"]
+cmd = ["ruff", "check", "src/**/*.py", "examples/*.ipynb", "test/**/*.py"]
 
 [feature.test.tasks.autoformat_python]
 description = "Apply automatic python formatting rules with ruff"
-cmd = ["ruff", "format", "src/**/*.py", "examples/*.ipynb"]
+cmd = ["ruff", "format", "src/**/*.py", "examples/*.ipynb", "test/**/*.py"]
 
 [feature.test.tasks.autoformat_markdown]
 description = "Apply automatic markdown formatting rules with prettier"

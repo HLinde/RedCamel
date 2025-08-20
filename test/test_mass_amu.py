@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2025 Hannes Lindenblatt
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-import pytest
 import chemformula
+import pytest
+
 from redcamel import get_mass
 
 
