@@ -5,8 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # -*- coding: utf-8 -*-
-from chemformula import ChemFormula
 import scipp as sc
+from chemformula import ChemFormula
 from scipp import constants
 
 m_e = constants.m_e.value  # electron_mass

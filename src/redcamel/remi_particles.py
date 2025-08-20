@@ -6,11 +6,13 @@
 
 # -*- coding: utf-8 -*-
 from typing import Iterable
-from chemformula import ChemFormula
+
 import numpy as np
 import scipp as sc
-from .units import get_mass
+from chemformula import ChemFormula
+
 from .remi_calculator import RemiCalculator
+from .units import get_mass
 
 
 class Particle:

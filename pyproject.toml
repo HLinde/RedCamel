@@ -65,6 +65,20 @@ dev-dependencies = [
 [tool.ruff]
 line-length = 100
 
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle
+    "F", # Pyflakes
+    "UP", # pyupgrade
+    "B", # flake8-bugbear
+    "SIM", # flake8-simplify
+    "I", # isort
+    "PLC", # pylint-convention
+    "PLE", # pylint-error
+#    "PLR", # pylint-refactor #TODO keep in mind for refactoring later
+    "PLW", # pylint-warning
+]
+
 [tool.ruff.format]
 docstring-code-format = true
 skip-magic-trailing-comma = true

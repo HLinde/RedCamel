@@ -16,42 +16,43 @@ Created on Wed Aug  5 10:58:39 2020
 #############################
 #### imports ################
 ############################
+from collections import defaultdict
+from pathlib import Path
 from tkinter import (
-    Tk,
-    StringVar,
-    IntVar,
-    DoubleVar,
-    BooleanVar,
     HORIZONTAL,
+    BooleanVar,
+    DoubleVar,
+    IntVar,
     PhotoImage,
+    StringVar,
+    Tk,
     filedialog,
     font,
 )
 from tkinter.ttk import (
-    Style,
     Button,
     Checkbutton,
     Entry,
     Frame,
     Label,
     LabelFrame,
+    Notebook,
     Radiobutton,
     Scale,
-    Notebook,
+    Style,
 )
-from pathlib import Path
-from collections import defaultdict
+
 import matplotlib
 
 matplotlib.use("TkAgg")
-import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+import numpy as np
 import scipp as sc
 from chemformula import ChemFormula
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
-from .remi_particles import Electron, Particle, sample_photoionization, sample_coulomb_explosion
 from .remi_calculator import RemiCalculator
+from .remi_particles import Electron, Particle, sample_coulomb_explosion, sample_photoionization
 from .units import q_e
 
 #############################
@@ -1386,7 +1387,7 @@ class mclass:
         factor = 4.3597447e-18
 
         ker = 1 / (4 * np.pi * ele_const) * (charge_1 * charge_2 / dis_R) / factor * 27.211
-        self.LABEL_KER.config(text="{:.2f} eV".format(ker))
+        self.LABEL_KER.config(text=f"{ker:.2f} eV")
 
         return ker
 
@@ -1755,7 +1756,7 @@ class mclass:
             )
             self.ion_channels.append(coin)
             for j, particle in enumerate(coin.particles.values()):
-                self.labels_mass[i][j]["text"] = "{:.4g}".format(particle.mass.value)
+                self.labels_mass[i][j]["text"] = f"{particle.mass.value:.4g}"
         self.update_ion_positions()
 
     def update_ion_positions(self):
@@ -1771,12 +1772,12 @@ class mclass:
             for j, particle in enumerate(coin.particles.values()):
                 test_particle = Particle(particle.formula, particle.charge_count, particle.remi)
                 no_mom_tof = self.calc_no_momentum_tof(test_particle)
-                self.labels_ion_tof[i][j]["text"] = "{:.4g}".format(no_mom_tof.value)
+                self.labels_ion_tof[i][j]["text"] = f"{no_mom_tof.value:.4g}"
 
     def update_ion_detector_signals(self):
         coins = self.ion_channels
         groupgroup = self.datagroup["coulombexplosions"] = sc.DataGroup()
-        for i, coin in enumerate(coins):
+        for coin in coins:
             groupgroup[coin.name] = coin.datagroup
 
     def init_dataset(self):

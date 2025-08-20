@@ -14,16 +14,16 @@ __all__ = [
     "sample_random_momentum_vectors",
     "sample_two_body_fragmentation",
 ]
-from .units import get_mass
 from .remi_calculator import RemiCalculator
 from .remi_particles import (
     Coincidence,
-    Particle,
-    Ion,
     Electron,
+    Ion,
+    Particle,
     sample_coulomb_explosion,
-    sample_photoionization,
     sample_lonely_particle,
+    sample_photoionization,
     sample_random_momentum_vectors,
     sample_two_body_fragmentation,
 )
+from .units import get_mass
