@@ -15,9 +15,18 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
-      - run: uv build
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+      - name: Run tests
+        run: uv run pytest
+      - name: Build package
+        run: uv build
+      - name: Verify build
+        run: |
+          ls -la dist/
+          uv run twine check dist/*
       # Check that basic features work and we didn't miss to include crucial files
       # - name: Smoke test (wheel)
       #   run: uv run --isolated --no-project -p 3.13 --with dist/*.whl tests/smoke_test.py
