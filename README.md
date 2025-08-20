@@ -9,12 +9,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 GUI tool to simulate Reaction Microscope detector images.
 
-Try out the examples: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/HLinde/RedCamel/HEAD)
+Try out the examples: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/HLinde/RedCamel/v0.1.4)
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/redcamel)![PyPI - Version](https://img.shields.io/pypi/v/redcamel)![GitHub Release Date](https://img.shields.io/github/release-date/HLinde/RedCamel)![GitHub commits since latest release](https://img.shields.io/github/commits-since/HLinde/RedCamel/latest)
 [![REUSE status](https://api.reuse.software/badge/github.com/HLinde/RedCamel)](https://api.reuse.software/info/github.com/HLinde/RedCamel)
 ![GitHub tag check runs](https://img.shields.io/github/check-runs/HLinde/RedCamel/main)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16911942.svg)](https://doi.org/10.5281/zenodo.16911942)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16911941.svg)](https://doi.org/10.5281/zenodo.16911941)
 
 # Example Outputs
 
