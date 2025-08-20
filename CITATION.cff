@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: Remi Detector Calculation for Monitoring Electrons
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Patrizia
+    family-names: Schoch
+    orcid: 'https://orcid.org/0000-0003-1462-4589'
+  - given-names: Hannes
+    family-names: Lindenblatt
+    orcid: 'https://orcid.org/0000-0003-1728-7979'
+    email: hannes.lindenblatt@desy.de
+    affiliation: Deutsches Elektronen-Synchrotron (DESY)
+    alias: HLinde
+  - given-names: Magdalena
+    family-names: Orlowska
+    orcid: 'https://orcid.org/0009-0002-1446-2129'
+repository-code: 'https://codeberg.org/FlashREMI/RedCamel'
+abstract: >-
+  Library and graphical user interface for simulation of 
+  Reaction Microscope detector images.
+license: GPL-3.0-or-later
+keywords:
+  - Science
+  - Research
+  - Physics
+  - Visualization
