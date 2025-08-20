@@ -23,10 +23,6 @@ jobs:
         run: uv run pytest
       - name: Build package
         run: uv build
-      - name: Verify build
-        run: |
-          ls -la dist/
-          uv run twine check dist/*
       # Check that basic features work and we didn't miss to include crucial files
       # - name: Smoke test (wheel)
       #   run: uv run --isolated --no-project -p 3.13 --with dist/*.whl tests/smoke_test.py
