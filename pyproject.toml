@@ -41,7 +41,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSES/*"]
 
 [project.scripts]
-redcamel = "redcamel:main"
+redcamel = "redcamel.remi_gui:main"
 
 [project.urls]
 Homepage = "https://codeberg.org/FlashREMI/RedCamel"

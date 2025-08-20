@@ -16,7 +16,17 @@ Created on Wed Aug  5 10:58:39 2020
 #############################
 #### imports ################
 ############################
-from tkinter import Tk, IntVar, DoubleVar, BooleanVar, HORIZONTAL, PhotoImage, filedialog, font
+from tkinter import (
+    Tk,
+    StringVar,
+    IntVar,
+    DoubleVar,
+    BooleanVar,
+    HORIZONTAL,
+    PhotoImage,
+    filedialog,
+    font,
+)
 from tkinter.ttk import (
     Style,
     Button,
@@ -30,6 +40,7 @@ from tkinter.ttk import (
     Notebook,
 )
 from pathlib import Path
+from collections import defaultdict
 import matplotlib
 
 matplotlib.use("TkAgg")
@@ -37,285 +48,72 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import scipp as sc
-from scipp import constants
 from chemformula import ChemFormula
 
-#############################
-#### constants ##############
-############################
-
-# SI
-m_e = constants.m_e.value  # electron_mass
-q_e = constants.e.value  # elementary_charge
-amu = 1.66053906660e-27  # atomic mass unit
-sc.units.aliases["au momentum"] = constants.physical_constants("atomic unit of momentum")
-sc.units.aliases["au mass"] = constants.m_e
-
-#############################
-#### functions ##############
-############################
-
-
-def get_mass(formula: ChemFormula) -> sc.Variable:
-    if formula.formula == "e":
-        mass_amu = (constants.m_e).to(unit="u")
-    else:
-        mass_amu = formula.formula_weight * sc.Unit("u")
-    return mass_amu
-
-
-def make_gaussian_momentum_distribution(number_of_particles=1000):
-    """
-    Parameters
-    ----------
-    number_of_particles : int
-        Sets the number of events that will be generated
-
-    Returns
-    -------
-    momentum : ndarray
-        Array with x-, y-  and z-momenta
-    """
-
-    momentum = np.random.randn(number_of_particles, 3) * 2e-24
-    return momentum
-
-
-def make_gaussian_energy_distribution(energy_mean, width, mass, number_of_particles=1000):
-    """
-    Parameters
-    ----------
-    energy_mean : float
-        Mean energy in eV
-    width : float
-        width of energy distribution
-    number_of_particles : int
-        Sets the number of events that will be generated
-
-    Returns
-    -------
-    momentum : ndarray
-        Array with x-, y-  and z-momenta
-    """
-
-    r = (np.random.randn(number_of_particles) * width + energy_mean) * q_e
-    phi = np.random.rand(number_of_particles) * 2 * np.pi
-    cos_theta = np.random.rand(number_of_particles) * 2 - 1
-
-    r_mom = np.sqrt(r * 2 * mass)
-
-    theta = np.arccos(cos_theta)
-
-    x = r_mom * np.sin(theta) * np.cos(phi)
-    y = r_mom * np.sin(theta) * np.sin(phi)
-    z = r_mom * cos_theta
-
-    momentum = np.stack([x, y, z], axis=-1)
-
-    return momentum
-
-
-def make_momentum_ion_dis(KER, mass_i1, mass_i2, number_of_particles=1000, v_jet=0):
-    # mean_momentum
-    momentum_mean = np.sqrt(2 * KER / (1 / mass_i1 + 1 / mass_i2))
-    # first ion
-    energy_mean = momentum_mean**2 / (2 * mass_i1)
-    width = energy_mean / 10
-    momentum_i1 = make_gaussian_energy_distribution(
-        energy_mean, width, mass_i1, number_of_particles
-    )
-    # second ion
-    momentum_i2 = -momentum_i1
-    # add initial momentum from gas-jet
-    momentum_i1[:, 0] += v_jet * mass_i1
-    momentum_i2[:, 0] += v_jet * mass_i2
-    return momentum_i1, momentum_i2
-
-
-def calc_tof(
-    momentum, electric_field, length_acceleration, length_drift, particle_params=(m_e, -q_e)
-):
-    """
-    Parameters
-    ----------
-    momentum : ndarray
-        momentum for tof calculation
-
-    Returns
-    -------
-    tof : array
-        Time of flight for each particle
-    """
-    m, q = particle_params
-    p_z = momentum[:, 2]
-    voltage_difference = electric_field * length_acceleration
-    D = np.abs(p_z**2 + 2 * q * voltage_difference * m)
-    rootD = np.sqrt(D)
-    # tof = ((p_z) - np.sqrt(D))/(-q*U)*l_a
-    tof = m * (2 * length_acceleration / (rootD + p_z) + length_drift / rootD)
-    return tof
-
-
-def calc_xytof(
-    momentum,
-    electric_field,
-    magnetic_field,
-    length_acceleration,
-    length_drift,
-    particle_params=(m_e, -q_e),
-):
-    """
-    Parameters
-    ----------
-    momentum : ndarray
-        momentum for radius calculation
-
-    Returns
-    -------
-    x : array
-        x coordinate for each particle
-    y : array
-        x coordinate for each particle
-    """
-    m, q = particle_params
-    p_x = momentum[..., 0]
-    p_y = momentum[..., 1]
-    tof = calc_tof(momentum, electric_field, length_acceleration, length_drift, particle_params)
-
-    if magnetic_field:  # cyclotron motion during the time-of-flight
-        p_xy = np.sqrt(p_x**2 + p_y**2)
-        phi = np.atan2(p_x, p_y)
-        omega = calc_omega(magnetic_field, q, m)
-        alpha = omega * tof
-        theta = phi + alpha / 2
-        R = (2 * p_xy * np.abs(np.sin(alpha / 2))) / (q * magnetic_field)
-        x = R * np.sin(theta)
-        y = R * np.cos(theta)
-    else:  # for small magnetic field it reduces to this linear motion:
-        v_x = p_x / m
-        v_y = p_y / m
-        x = v_x * tof
-        y = v_y * tof
-    return x, y, tof
-
-
-def calc_R(
-    momentum,
-    electric_field,
-    magnetic_field,
-    length_acceleration,
-    length_drift,
-    particle_params=(m_e, -q_e),
-):
-    """
-    Parameters
-    ----------
-    momentum : ndarray
-        momentum for radius calculation
-
-    Returns
-    -------
-    R : array
-        Distance from reaction point to detection point in xy for each particle
-    """
-    m, q = particle_params
-    x, y, tof = calc_xytof(
-        momentum, electric_field, magnetic_field, length_acceleration, length_drift, particle_params
-    )
-    R = np.sqrt(x**2 + y**2)
-    return R
-
-
-def make_scipp_detector_converters(
-    length_acceleration, length_drift, electric_field, magnetic_field, mass, charge
-):
-    voltage_difference = electric_field * length_acceleration
-    acceleration_direction = np.sign(charge.value * electric_field.value)
-
-    def calc_tof(p):
-        p_z = p.fields.z
-        D = p_z * p_z - 2 * charge * voltage_difference * mass
-        rootD = sc.sqrt(D)
-        tof = sc.where(
-            D < 0 * sc.Unit("J*kg"),
-            sc.scalar(np.nan, unit="s"),
-            mass
-            * (
-                2 * length_acceleration / (rootD + acceleration_direction * p_z)
-                + length_drift / rootD
-            ),
-        )
-        return {"tof": tof.to(unit="ns")}
-
-    def calc_xyR(p, tof):
-        p_x = p.fields.x
-        p_y = p.fields.y
-
-        # cyclotron motion or linear motion?
-        if sc.abs(magnetic_field) > 0 * sc.Unit("T"):
-            p_xy = sc.sqrt(p_x**2 + p_y**2)
-            phi = sc.atan2(x=p_x, y=p_y)
-            omega = calc_omega(magnetic_field, charge, mass)
-
-            # alpha/2 has to be periodic in 1*pi!
-            # sign of alpha is important as it gives the direction of deflection
-            # The sign has to be included also in the modulo operation!
-            alpha = (omega.to(unit="1/s") * tof.to(unit="s")).values
-            alpha = alpha % (np.sign(alpha) * 2 * np.pi)
-            alpha = sc.array(dims=p.dims, values=alpha, unit="rad")
-
-            theta = phi + (alpha / 2)
-            # Here the signs of alpha, charge and magnetic_field cancel out so R is positive :)
-            R = (2 * p_xy * sc.sin(alpha / 2)) / (charge * magnetic_field)
-            x = R * sc.cos(theta)
-            y = R * sc.sin(theta)
-        else:  # for small magnetic field it reduces to this linear motion:
-            v_x = p_x / mass
-            v_y = p_y / mass
-            x = v_x * tof
-            y = v_y * tof
-            R = sc.sqrt(x**2 + y**2)
-        return {"x": x.to(unit="mm"), "y": y.to(unit="mm"), "R": R.to(unit="mm")}
-
-    def calc_tof_in_acceleration_part(p):
-        p_z = p.fields.z
-        D = p_z * p_z - 2 * charge * voltage_difference * mass
-        rootD = sc.sqrt(D)
-        tof = sc.where(
-            D < 0 * sc.Unit("J*kg"),
-            sc.scalar(np.nan, unit="s"),
-            mass * (2 * length_acceleration / (rootD + acceleration_direction * p_z)),
-        )
-        return tof
-
-    def calc_z(p, tof):
-        tof = tof.to(unit="s")
-        p_z = p.fields.z
-        v_0 = (p_z / mass).to(unit="m/s")
-        tof_acceleration = calc_tof_in_acceleration_part(p).to(unit="s")
-        acceleration = (charge * electric_field / mass).to(unit="m/s**2")
-        tof_drift = tof - tof_acceleration
-        final_velocity = tof_acceleration * acceleration + v_0
-        z = sc.where(
-            tof_drift < sc.scalar(0, unit="s"),
-            acceleration * tof**2 / 2 + v_0 * tof,
-            acceleration * tof_acceleration**2 / 2
-            + v_0 * tof_acceleration
-            + final_velocity * tof_drift,
-        )
-        return {"z": z.to(unit="m")}
-
-    return calc_tof, calc_xyR, calc_z
-
-
-def calc_omega(B, q=-q_e, m=m_e):
-    return q * B / m
-
+from .remi_particles import Electron, Particle, sample_photoionization, sample_coulomb_explosion
+from .remi_calculator import RemiCalculator
+from .units import q_e
 
 #############################
 #### GUI ####################
 ############################
 canvas_background_color = "mintcream"
+
+
+class RemiCalculatorTk(RemiCalculator):
+    def __init__(
+        self,
+        length_acceleration_ion_tkvariable: DoubleVar,
+        length_drift_ion_tkvariable: DoubleVar,
+        voltage_ion_tkvariable: DoubleVar,
+        length_acceleration_electron_tkvariable: DoubleVar,
+        length_drift_electron_tkvariable: DoubleVar,
+        voltage_electron_tkvariable: DoubleVar,
+        magnetic_field_tkvariable: DoubleVar,
+        v_jet_tkvariable: DoubleVar,
+    ):
+        self.length_acceleration_ion_tkvariable = length_acceleration_ion_tkvariable
+        self.length_drift_ion_tkvariable = length_drift_ion_tkvariable
+        self.voltage_ion_tkvariable = voltage_ion_tkvariable
+        self.length_acceleration_electron_tkvariable = length_acceleration_electron_tkvariable
+        self.length_drift_electron_tkvariable = length_drift_electron_tkvariable
+        self.voltage_electron_tkvariable = voltage_electron_tkvariable
+        self.magnetic_field_tkvariable = magnetic_field_tkvariable
+        self.v_jet_tkvariable = v_jet_tkvariable
+        self.jet_direction = "+x"
+        self.field_direction = "+z"
+
+    @property
+    def length_acceleration_ion(self):
+        return sc.scalar(self.length_acceleration_ion_tkvariable.get(), unit="m")
+
+    @property
+    def length_drift_ion(self):
+        return sc.scalar(self.length_drift_ion_tkvariable.get(), unit="m")
+
+    @property
+    def voltage_ion(self):
+        return sc.scalar(self.voltage_ion_tkvariable.get(), unit="V")
+
+    @property
+    def length_acceleration_electron(self):
+        return sc.scalar(self.length_acceleration_electron_tkvariable.get(), unit="m")
+
+    @property
+    def length_drift_electron(self):
+        return sc.scalar(self.length_drift_electron_tkvariable.get(), unit="m")
+
+    @property
+    def voltage_electron(self):
+        return sc.scalar(self.voltage_electron_tkvariable.get(), unit="V")
+
+    @property
+    def magnetic_field(self):
+        return sc.scalar(self.magnetic_field_tkvariable.get(), unit="G").to(unit="T")
+
+    @property
+    def v_jet(self):
+        return sc.scalar(self.v_jet_tkvariable.get(), unit="mm/us")
 
 
 class mclass:
@@ -377,14 +175,25 @@ class mclass:
         self.voltage_electron = DoubleVar(value=+469.5652173913043)
         self.voltage_ion = DoubleVar()  # gets initialized by ratio of distances
         self.magnetic_field_gauss = DoubleVar(value=6.0)
-        self.velocity_jet = DoubleVar(value=1.0)
+        self.velocity_jet = DoubleVar(value=5.0)
+
+        self.remicalculator = RemiCalculatorTk(
+            self.length_accel_ion,
+            self.length_drift_ion,
+            self.voltage_ion,
+            self.length_accel_electron,
+            self.length_drift_electron,
+            self.voltage_electron,
+            self.magnetic_field_gauss,
+            self.velocity_jet,
+        )
 
         self.detector_diameter_ions = DoubleVar(value=120)
         self.detector_diameter_electrons = DoubleVar(value=80)
 
         self.number_of_particles = IntVar(value=1000)
         self.electron_params = (sc.constants.m_e, -sc.constants.e)
-        self.particle_params = (sc.constants.m_e.value, -sc.constants.e.value)
+        self.bunch_modulo = DoubleVar(value=5000)
 
         self.fixed_center_potential = IntVar()
         self.fixed_center_potential.set(1)
@@ -394,6 +203,15 @@ class mclass:
 
         ######## variable callback actions ####################
 
+        job_wait_ms = 20
+        self.callback_job_id = None
+
+        def update_callback_spectrometer():
+            self.update_electron_positions()
+            self.update_ion_positions()
+            self.update_spectrometer_tab()
+            self.callback_job_id = None
+
         def write_callback_voltage_electron(var, index, mode):
             if self.fixed_center_potential.get():
                 new_voltage = self.voltage_electron.get()
@@ -401,13 +219,21 @@ class mclass:
                 distance_ion = self.length_accel_ion.get()
                 new_voltage_ion = -new_voltage * distance_ion / distance_electron
                 self.voltage_ion.set(new_voltage_ion)
-            self.update_electron_positions()
-            self.update_ion_positions()
-            self.delayed_update_spectrometer_tab()
 
-        self.voltage_electron.trace("w", write_callback_voltage_electron)
-        self.length_accel_electron.trace("w", write_callback_voltage_electron)
-        self.fixed_center_potential.trace("w", write_callback_voltage_electron)
+            # cancel previous update if triggered too fast:
+            if self.callback_job_id is not None:
+                self.window.after_cancel(self.callback_job_id)
+            # schedule update for later:
+            self.callback_job_id = self.window.after(job_wait_ms, update_callback_spectrometer)
+
+        for variable in [
+            self.voltage_electron,
+            self.length_accel_electron,
+            self.fixed_center_potential,
+        ]:
+            variable.trace("w", write_callback_voltage_electron)
+
+        self.callback_job_id_ion = None
 
         def write_callback_voltage_ion(var, index, mode):
             if self.fixed_center_potential.get():
@@ -416,32 +242,33 @@ class mclass:
                 distance_ion = self.length_accel_ion.get()
                 new_voltage_ion = -new_voltage * distance_electron / distance_ion
                 self.voltage_electron.set(new_voltage_ion)
-            self.update_electron_positions()
-            self.update_ion_positions()
-            self.delayed_update_spectrometer_tab()
 
-        self.voltage_ion.trace("w", write_callback_voltage_ion)
-        self.length_accel_ion.trace("w", write_callback_voltage_ion)
+            # cancel previous update if triggered too fast:
+            if self.callback_job_id is not None:
+                self.window.after_cancel(self.callback_job_id)
+            # schedule update for later:
+            self.callback_job_id = self.window.after(job_wait_ms, update_callback_spectrometer)
 
-        def write_callback_spectrometer_both(var, index, mode):
-            self.update_electron_positions()
-            self.update_ion_positions()
-            self.delayed_update_spectrometer_tab()
+        for variable in [self.voltage_ion, self.length_accel_ion]:
+            variable.trace("w", write_callback_voltage_ion)
 
-        self.magnetic_field_gauss.trace("w", write_callback_spectrometer_both)
-        self.velocity_jet.trace("w", write_callback_spectrometer_both)
+        def write_callback_spectrometer(var, index, mode):
+            # cancel previous update if triggered too fast:
+            if self.callback_job_id is not None:
+                self.window.after_cancel(self.callback_job_id)
+            # schedule update for later:
+            self.callback_job_id = self.window.after(job_wait_ms, update_callback_spectrometer)
 
-        def write_callback_spectrometer_electron(var, index, mode):
-            self.update_electron_positions()
-            self.delayed_update_spectrometer_tab()
-
-        self.length_drift_electron.trace("w", write_callback_spectrometer_electron)
-
-        def write_callback_spectrometer_ion(var, index, mode):
-            self.update_electron_positions()
-            self.delayed_update_spectrometer_tab()
-
-        self.length_drift_ion.trace("w", write_callback_spectrometer_ion)
+        for variable in [
+            self.magnetic_field_gauss,
+            self.velocity_jet,
+            self.length_drift_electron,
+            self.detector_diameter_electrons,
+            self.length_drift_ion,
+            self.bunch_modulo,
+            self.detector_diameter_ions,
+        ]:
+            variable.trace("w", write_callback_spectrometer)
 
         def write_callback_momentum_electrons(var, index, mode):
             self.update_electron_momenta()
@@ -752,7 +579,7 @@ class mclass:
 
         self.LABEL_SET_bunch_modulo = Label(remi_ion_conf_group, text="bunch modulo [ns]:")
         self.LABEL_SET_bunch_modulo.grid(row=103, column=101, padx="5", pady="5", sticky="w")
-        self.ENTRY_SET_bunch_modulo = Entry(remi_ion_conf_group)
+        self.ENTRY_SET_bunch_modulo = Entry(remi_ion_conf_group, textvariable=self.bunch_modulo)
         self.ENTRY_SET_bunch_modulo.grid(row=103, column=102, padx="5", pady="5", sticky="w")
 
         self.LABEL_SET_ion_detector_diameter = Label(
@@ -791,8 +618,6 @@ class mclass:
         self.CHECK_fixed_potential_ion.grid(
             row=108, column=101, columnspan=2, padx="5", pady="5", sticky="w"
         )
-
-        self.ENTRY_SET_bunch_modulo.insert(0, 5000)
 
         self.LABEL_SLIDE_U_pipco = Label(self.pipico_plot_group, text="Voltage ion side [V]")
         self.LABEL_SLIDE_U_pipco.grid(row=2, column=0, padx="5", pady="5", sticky="w")
@@ -840,18 +665,24 @@ class mclass:
         self.LABEL_KER_IONS.grid(row=1, column=5, padx="5", pady="5", sticky="w")
         self.LABEL_CHECK.grid(row=1, column=6, padx="5", pady="5", sticky="w")
 
-        self.BUTTON_GENERATE_IONS = Button(
-            self.ion_generation_group, command=self.generate_entrys, text="Make Ion Couples"
-        )
-        self.BUTTON_GENERATE_IONS.grid(row=0, column=1, padx="5", pady="5", sticky="w")
-        self.last_ion_number = 0
+        self.ion_labels = []
+        self.entries_formula = []
+        self.formula_variables = []
+        self.labels_mass = []
+        self.entries_charge = []
+        self.charge_variables = []
         self.labels_ion_tof = []
         self.entries_ker = []
+        self.ker_variables = []
+        self.active_check_variables = []
+        self.active_channels = 0
 
-        self.BUTTON_CALC_ION_TOF = Button(
-            self.ion_generation_group, command=self.calc_ion_tof, text="Update"
+        self.BUTTON_GENERATE_IONS = Button(
+            self.ion_generation_group,
+            command=self.generate_ion_pair_entries,
+            text="Make Ion Couples",
         )
-        self.BUTTON_CALC_ION_TOF.grid(row=0, column=5, padx="5", pady="5", sticky="w")
+        self.BUTTON_GENERATE_IONS.grid(row=0, column=1, padx="5", pady="5", sticky="w")
 
         fig, axes = plt.subplot_mosaic(
             [
@@ -891,8 +722,6 @@ class mclass:
         self.init_dataset()
         write_callback_voltage_electron(None, None, None)  # initalize ion voltages
         self.calc_ker()
-        self.generate_entrys()
-        self.calc_ion_tof()
 
     def scale_UI(self):
         # screen size in pixels:
@@ -945,11 +774,6 @@ class mclass:
             rowspan=2,
             subplot_kw={"projection": "3d"},
         )
-
-    def delayed_update_spectrometer_tab(self):
-        if hasattr(self, "_update_job"):
-            self.window.after_cancel(self._update_job)
-        self._update_job = self.window.after(100, self.update_spectrometer_tab)
 
     def update_spectrometer_tab(self):
         self.ax_spectrometer.clear()
@@ -1091,47 +915,65 @@ class mclass:
         self.ax_spectrometer.grid(axis="both", linestyle="--", color="gray")
         self.canvas_spectrometer.draw()
 
-        n_trajectories = 10
-        for _ in range(n_trajectories):
-            electron_trajectory = self.get_random_electron_trajectory()
-            self.ax_trajectory.plot(
-                electron_trajectory.coords["x"].to(unit="mm").values,
-                electron_trajectory.coords["y"].to(unit="mm").values,
-                electron_trajectory.coords["z"].to(unit="mm").values,
-            )
+        n_trajectories = 20
+        coin = self.electron_tab_coincidences[0]
+        colors = np.array(matplotlib.color_sequences["tab20"])
+        colors = colors[~np.isin(np.arange(len(colors)), [6, 7])]  # Skip red for color blind
+        channel_colors = colors[np.arange(n_trajectories) % len(colors)]
+        channel_colors = channel_colors.reshape((-1, 2, 3))
+        for in_channel_colors in channel_colors:
+            for particle, color in zip(coin.particles.values(), in_channel_colors):
+                trajectory = self.get_random_trajectory(particle)
+                if trajectory is not None:
+                    self.ax_trajectory.plot(
+                        trajectory.coords["x"].to(unit="mm").values,
+                        trajectory.coords["y"].to(unit="mm").values,
+                        trajectory.coords["z"].to(unit="mm").values,
+                        color=color,
+                    )
+
         detector_points = np.linspace(0, 2 * np.pi, 100)
-        detector_radius = self.detector_diameter_electrons.get() / 2
-        detector_x = np.sin(detector_points) * detector_radius
-        detector_y = np.cos(detector_points) * detector_radius
-        detector_z = (
-            -np.ones_like(detector_x)
-            * (self.length_accel_electron.get() + self.length_drift_electron.get())
-            * 1e3
-        )
-        self.ax_trajectory.plot(detector_x, detector_y, detector_z)
+        for detector_radius, detector_offset in [
+            (
+                self.detector_diameter_electrons.get() / 2,
+                (self.length_accel_electron.get() + self.length_drift_electron.get()) * 1e3,
+            ),
+            (
+                self.detector_diameter_ions.get() / 2,
+                -(self.length_accel_ion.get() + self.length_drift_ion.get()) * 1e3,
+            ),
+        ]:
+            detector_x = np.sin(detector_points) * detector_radius
+            detector_y = np.cos(detector_points) * detector_radius
+            detector_z = np.ones_like(detector_x) * detector_offset
+            self.ax_trajectory.plot(detector_x, detector_y, detector_z)
+
         self.ax_trajectory.set_xlabel("x [mm]")
         self.ax_trajectory.set_ylabel("y [mm]")
         self.ax_trajectory.set_zlabel("z [mm]")
         self.ax_trajectory.set_title("electron trajectories")
         self.canvas_trajectory.draw()
 
-    def get_random_electron_trajectory(self):
+    def get_random_trajectory(self, particle: Particle):
         rng = np.random.default_rng()
-        some_electron = self.electron_hits
-        slicers = zip(some_electron.dims, rng.integers(some_electron.shape))
+        hits = particle.detector_hits
+        slicers = zip(hits.dims, rng.integers(hits.shape))
+        some_hit = hits
         for dim, index in slicers:
-            some_electron = some_electron[dim, index]
+            some_hit = some_hit[dim, index]
 
-        tof_value = some_electron.coords["tof"]
+        tof_value = some_hit.coords["tof"]
+        if sc.isnan(tof_value):
+            return None
         n_steps = 200
         tof_range = sc.linspace("tof", start=tof_value / n_steps, stop=tof_value, num=n_steps)
-        starting_momentum = sc.broadcast(
-            some_electron.coords["p"], dims=["tof"], shape=tof_range.shape
-        )
+        starting_momentum = sc.broadcast(some_hit.coords["p"], dims=["tof"], shape=tof_range.shape)
         trajectory = sc.DataArray(
             data=sc.ones_like(tof_range), coords={"p": starting_momentum, "tof": tof_range}
         )
-        trajectory = trajectory.transform_coords(["x", "y", "z"], graph=self.electron_scipp_graph)
+        trajectory = trajectory.transform_coords(
+            ["x", "y", "z"], graph=particle.detector_transformation_graph
+        )
         return trajectory
 
     def make_export_tab(self):
@@ -1285,7 +1127,7 @@ class mclass:
 
         detector_radius = sc.scalar(self.detector_diameter_electrons.get() / 2, unit="mm")
 
-        max_tof = sc.scalar(self.calc_max_tof(), unit="s").to(unit="ns")
+        max_tof = self.calc_max_tof().to(unit="ns")
         tof_limit = max(max_tof * 1.2, 1e-9 * sc.Unit("ns"))
         R_limit = detector_radius * 1.2
         pos_bins = 100
@@ -1296,9 +1138,14 @@ class mclass:
         self.tof_bins_electrons = sc.linspace("tof", sc.scalar(0, unit="ns"), tof_limit, tof_bins)
         self.R_bins_electrons = sc.linspace("R", sc.scalar(0, unit="mm"), R_limit, pos_bins)
 
-        R_tof_hist = self.electron_hits.hist(
-            R=self.R_bins_electrons, tof=self.tof_bins_electrons, dim=("p", "pulses", "HitNr")
-        )
+        R_tof_hists = [
+            electron.detector_hits.hist(
+                R=self.R_bins_electrons, tof=self.tof_bins_electrons, dim=("p", "pulses")
+            )
+            for electron in self.electrons
+        ]
+        R_tof_hist = sum(R_tof_hists)
+
         R_tof_hist.plot(ax=ax, cbar=False, norm="log", cmap="PuBuGn")
 
         if self.v_ir.get() == 1:
@@ -1307,15 +1154,13 @@ class mclass:
         ax.axvline(max_tof.value, color="darkgrey")
         ax.axhline(detector_radius.value, lw=1)
 
-        no_mom_tof = (self.calc_no_momentum_tof() * sc.Unit("s")).to(unit="ns")
+        no_mom_tof = self.calc_no_momentum_tof(Electron(self.remicalculator)).to(unit="ns")
 
-        m, q = self.particle_params
-        omega = calc_omega(self.magnetic_field_si, q, m)
-        if omega == 0:
-            cyclotron_period = np.inf
+        omega = self.remicalculator.calc_omega(*self.electron_params)
+        if omega.to(unit="Hz") == sc.scalar(0, unit="Hz"):
+            cyclotron_period = sc.scalar(np.inf, unit="ns")
         else:
-            cyclotron_period = np.abs(2 * np.pi / omega)
-        cyclotron_period = (cyclotron_period * sc.Unit("s")).to(unit="ns")
+            cyclotron_period = sc.abs(2 * np.pi / omega).to(unit="ns")
 
         ax.axvline(no_mom_tof.value, ls="--", color="darkgrey")
         if sc.isfinite(cyclotron_period) and max_tof > cyclotron_period:
@@ -1327,9 +1172,13 @@ class mclass:
         ax = self.ele_pos_a
         ax.cla()
 
-        x_y_hist = self.electron_hits.hist(
-            y=self.y_bins_electrons, x=self.x_bins_electrons, dim=("p", "pulses", "HitNr")
-        )
+        x_y_hists = [
+            electron.detector_hits.hist(
+                y=self.y_bins_electrons, x=self.x_bins_electrons, dim=("p", "pulses")
+            )
+            for electron in self.electrons
+        ]
+        x_y_hist = sum(x_y_hists)
         x_y_hist.plot(ax=ax, cbar=False, norm="log", cmap="PuBuGn")
 
         detector = plt.Circle(
@@ -1380,55 +1229,29 @@ class mclass:
         """
         calculates the maximal tof for the electron to not fly into the ion detector
         """
-        m, q = self.particle_params
-
-        l_a_ion = self.length_accel_ion.get()
-        l_a_el = self.length_accel_electron.get()
-        l_d_el = self.length_drift_electron.get()
-        U_ion = self.voltage_ion.get()
-        U_el = self.voltage_electron.get()
-        E = self.electric_field
-        if (
-            np.abs(E) < 4 * np.finfo(E).eps
-        ):  # check if field magnitude is above numerical resolution
-            # No acceleration.. anything towards ion detector is lost
-            # assume a tiny kinetic energy towards electron detector..
-            E_kin = 1e-1 * q_e
-            momentum = np.array([[0, 0, np.sqrt(2 * E_kin * m)]])
-            tof_max = calc_tof(momentum, E, l_a_el, l_d_el, particle_params=self.particle_params)[0]
-        elif E > 0:
-            # Start with kinetic energy towards ion detector equal to the potential difference
-            # time from reaction point to end of ion acceleration
-            time_1 = np.sqrt(2 * l_a_ion * m / (-E * q))
-            # time from ion acceleration end to electron acceleration end
-            time_2 = np.sqrt(2 * (l_a_ion + l_a_el) * m / (-E * q))
-            # now kinetic energy is exactly the total potential for the edge case
-            E_kin = np.abs((U_ion + U_el) * q)
-            v_drift = np.sqrt(2 * E_kin / m)
-            time_3 = l_d_el / v_drift
-            tof_max = time_1 + time_2 + time_3
-        else:
-            # Field is deccelerating!
-            # Start with kinetic energy towards electron detector equal to the potential difference
-            # time from reaction point to end of ion acceleration
-            # now kinetic energy is exactly the total potential for the edge case
-            E_kin = E * l_a_el
-            momentum = np.array([[0, 0, np.sqrt(2 * E_kin * m)]])
-            tof_max = calc_tof(momentum, E, l_a_el, l_d_el, particle_params=self.particle_params)[0]
+        remi = self.remicalculator
+        test_electron = Electron(remi)
+        opposite_voltage = remi.electric_field * remi.length_acceleration_ion
+        energy = opposite_voltage * test_electron.charge
+        absolute_momentum = sc.sqrt(2 * energy * test_electron.mass).to(unit="au momentum")
+        momentum_vector = -remi.field_unitvector * absolute_momentum
+        test_electron.momentum_sample = sc.DataArray(
+            sc.ones(dims=["p"], shape=(1,)), coords={"p": momentum_vector}
+        )
+        test_electron.calculate_detector_hits()
+        tof_max = test_electron.detector_hits.coords["tof"]
         return tof_max
 
-    def calc_no_momentum_tof(self):
+    def calc_no_momentum_tof(self, test_particle: Particle):
         """
         calculates the time of flight for a paticle with no z-momentum
         """
-        no_momentum = np.zeros((1, 3))
-        zero_momentum_tof = calc_tof(
-            no_momentum,
-            self.electric_field,
-            self.length_accel_electron.get(),
-            self.length_drift_electron.get(),
-            particle_params=self.particle_params,
-        )[0]
+        momentum_vector = sc.vector([0.0, 0.0, 0.0], unit="au momentum")
+        test_particle.momentum_sample = sc.DataArray(
+            sc.ones(dims=["p"], shape=(1,)), coords={"p": momentum_vector}
+        )
+        test_particle.calculate_detector_hits()
+        zero_momentum_tof = test_particle.detector_hits.coords["tof"]
         return zero_momentum_tof
 
     def export_pipico(self):
@@ -1567,259 +1390,138 @@ class mclass:
 
         return ker
 
-    def generate_entrys(self):
-        ion_number = int(self.ENTRY_NUMBER_IONS.get()) * 2
+    def generate_ion_pair_entries(self):
+        ions_per_channel = 2
+        previous_active_channels = self.active_channels
+        self.active_channels = int(self.ENTRY_NUMBER_IONS.get())
+        active_ions = self.active_channels * ions_per_channel
+        previous_max_channel_number = len(self.entries_ker)
 
         colors = np.array(matplotlib.color_sequences["tab20"])
         colors = colors[~np.isin(np.arange(len(colors)), [6, 7])]  # Skip red for color blind
-        self.ion_color = colors[np.arange(ion_number) % len(colors)]
+        channel_colors = colors[np.arange(active_ions) % len(colors)]
+        self.channel_colors = channel_colors.reshape((-1, 2, 3))
 
-        # saving last entrys
-        empty_length = max(self.last_ion_number, ion_number)
-        masses = np.zeros(empty_length)
-        charges = np.zeros(empty_length)
-        formulas = ["" for i in range(empty_length)]
-        ker_length = max(len(self.entries_ker), ion_number // 2)
-        kers = np.zeros(ker_length)
+        predefined_ions = defaultdict(lambda: [(1, ChemFormula("H")), (1, ChemFormula("H"))])
+        predefined_ions[0] = [(1, ChemFormula("H")), (2, ChemFormula("OH"))]
+        predefined_ions[1] = [(1, ChemFormula("N")), (3, ChemFormula("N"))]
+        predefined_ions[2] = [(1, ChemFormula("Ar")), (1, ChemFormula("Ar"))]
+        predefined_ions[3] = [(2, ChemFormula("S")), (4, ChemFormula("CO"))]
+        predefined_ions[4] = [(1, ChemFormula("H")), (1, ChemFormula("CH3"))]
+        predefined_ions[5] = [(1, ChemFormula("H")), (2, ChemFormula("CH2I"))]
 
-        try:
-            len(self.active_check_variables)
-        except AttributeError:
-            self.active_check_variables = []
-        for i in range(len(self.active_check_variables), ker_length):
-            variable = BooleanVar(value=True)
-            checkbox = Checkbutton(self.ion_generation_group, variable=variable, text="")
-            self.active_check_variables.append((variable, checkbox))
+        predefined_kers = defaultdict(lambda: 3.5)
+        for i, ker in enumerate([6.0, 6.0, 10.0, 20.0, 4.0]):
+            predefined_kers[i] = ker
 
-        for n in range(self.last_ion_number):
-            try:
-                formulas[n] = ChemFormula(self.entries_formula[n].get())
-                charges[n] = float(self.entries_charge[n].get())
-            except IndexError:
-                formulas[n] = ChemFormula("")
-                charges[n] = 0
-            masses[n] = get_mass(formulas[n]).value
+        def write_callback_ion_channels(var, index, mode):
+            self.generate_ion_channels()
 
-            self.entries_formula[n].grid_remove()
-            self.labels_mass[n].grid_remove()
-            self.entries_charge[n].grid_remove()
-            self.ion_labels[n].grid_remove()
-            self.labels_ion_tof[n].grid_remove()
+        def write_callback_ion_plot(var, index, mode):
+            self.make_ion_pipico_plot()
 
-        for n in range(ion_number // 2, len(self.active_check_variables)):
-            var, checkbox = self.active_check_variables[n]
-            checkbox.grid_remove()
+        for i in range(previous_max_channel_number, self.active_channels):
+            channel_color = matplotlib.colors.to_hex(
+                matplotlib.colors.to_hex(self.channel_colors[i].mean(axis=0))
+            )
+            channel_row_index = (i * 2) + 3
 
-        predefined_ions = [
-            (1, ChemFormula("H")),
-            (2, ChemFormula("OH")),
-            (1, ChemFormula("N")),
-            (3, ChemFormula("N")),
-            (1, ChemFormula("Ar")),
-            (1, ChemFormula("Ar")),
-            (2, ChemFormula("S")),
-            (4, ChemFormula("CO")),
-            (1, ChemFormula("H")),
-            (1, ChemFormula("CH3")),
-            (1, ChemFormula("H")),
-            (2, ChemFormula("CH2I")),
-        ]
-        default_ion = (1, ChemFormula("H"))
-        for n in range(self.last_ion_number, ion_number):
-            if n < len(predefined_ions):
-                ion = predefined_ions[n]
-            else:
-                ion = default_ion
-            charges[n], formulas[n] = ion
-            masses[n] = get_mass(formulas[n]).value
+            self.ion_labels.append([])
+            self.formula_variables.append([])
+            self.entries_formula.append([])
+            self.labels_mass.append([])
+            self.charge_variables.append([])
+            self.entries_charge.append([])
+            self.labels_ion_tof.append([])
 
-        predefined_kers = [6.0, 6.0, 10.0, 20.0, 4.0]
-        default_ker = 3.5
-        for i in range(self.last_ion_number // 2):
-            try:
-                kers[i] = float(self.entries_ker[i].get())
-                self.entries_ker[i].grid_remove()
-            except IndexError:
-                pass
-        for i in range(self.last_ion_number // 2, ion_number // 2):
-            if i < len(predefined_kers):
-                kers[i] = predefined_kers[i]
-            else:
-                kers[i] = default_ker
-
-        self.entries_formula = []
-        self.labels_mass = []
-        self.entries_charge = []
-        self.ion_labels = []
-        for n in range(ion_number):
-            self.ion_labels.append(Label(self.ion_generation_group, text="Ion " + str(n + 1)))
-            self.ion_labels[n].grid(row=n + 3, column=0, sticky="nsew")
-
-            this_ion_color = matplotlib.colors.to_hex(self.ion_color[n])
-            self.entries_formula.append(Entry(self.ion_generation_group, foreground=this_ion_color))
-            self.entries_charge.append(Entry(self.ion_generation_group, foreground=this_ion_color))
-
-            self.entries_formula[n].grid(row=n + 3, column=1, sticky="nsew")
-            self.entries_charge[n].grid(row=n + 3, column=3, sticky="nsew")
-            self.labels_mass.append(
-                Label(
+            self.ker_variables.append(DoubleVar(value=predefined_kers[i]))
+            self.ker_variables[i].trace("w", write_callback_ion_channels)
+            self.entries_ker.append(
+                Entry(
                     self.ion_generation_group,
-                    text="{:.5g}".format(masses[n]),
-                    foreground=this_ion_color,
+                    foreground=channel_color,
+                    textvariable=self.ker_variables[i],
                 )
             )
-            self.labels_mass[n].grid(row=n + 3, column=2)
-            self.labels_ion_tof.append(
-                Label(self.ion_generation_group, text="", foreground=this_ion_color)
-            )
-            self.labels_ion_tof[n].grid(row=n + 3, column=4)
+            self.entries_ker[i].grid(row=channel_row_index, column=5, rowspan=2, sticky="nsew")
 
-            self.entries_formula[n].insert(0, formulas[n])
-            self.entries_charge[n].insert(0, charges[n])
+            variable = BooleanVar(value=True)
+            variable.trace("w", write_callback_ion_plot)
+            checkbox = Checkbutton(self.ion_generation_group, variable=variable, text="")
+            checkbox.grid(row=channel_row_index, column=6, rowspan=2)
+            self.active_check_variables.append((variable, checkbox))
 
-        self.entries_ker = []
-        for n in range(ion_number // 2):
-            this_pair_color = matplotlib.colors.to_hex(
-                (self.ion_color[2 * n] + self.ion_color[2 * n + 1]) / 2
-            )
-            self.entries_ker.append(Entry(self.ion_generation_group, foreground=this_pair_color))
-            self.entries_ker[n].grid(row=(n * 2) + 3, column=5, rowspan=2, sticky="nsew")
-            self.entries_ker[n].insert(0, kers[n])
-            var, checkbox = self.active_check_variables[n]
-            checkbox.grid(row=(n * 2) + 3, column=6, rowspan=2)
+            for j, (charge, formula) in enumerate(predefined_ions[i]):
+                ion_index = ions_per_channel * i + j
+                ion_row_index = ion_index + 3
+                self.ion_labels[i].append(
+                    Label(self.ion_generation_group, text="Ion " + str(ion_index + 1))
+                )
+                self.ion_labels[i][j].grid(row=ion_row_index, column=0, sticky="nsew")
 
-        self.last_ion_number = ion_number
-        self.calc_ion_tof()
+                this_ion_color = matplotlib.colors.to_hex(self.channel_colors[i, j])
+                self.formula_variables[i].append(StringVar(value=formula))
+                self.formula_variables[i][j].trace("w", write_callback_ion_channels)
+                self.entries_formula[i].append(
+                    Entry(
+                        self.ion_generation_group,
+                        foreground=this_ion_color,
+                        textvariable=self.formula_variables[i][j],
+                    )
+                )
+                self.entries_formula[i][j].grid(row=ion_row_index, column=1, sticky="nsew")
 
-    def calc_ion_tof(self):
-        self.LABEL_TOF_IONS.grid()
-        formulas = ["" for n in range(self.last_ion_number)]
-        masses = np.zeros(self.last_ion_number)
-        charges = np.zeros(self.last_ion_number)
-        for n in range(self.last_ion_number):
-            try:
-                formulas[n] = ChemFormula(self.entries_formula[n].get())
-            except IndexError:
-                formulas[n] = ChemFormula("")
-            mass_amu = get_mass(formulas[n]).value
-            masses[n] = mass_amu * amu
-            self.labels_mass[n]["text"] = "{:.4g}".format(mass_amu)
-            try:
-                charges[n] = float(self.entries_charge[n].get()) * q_e
-            except IndexError:
-                charges[n] = 0
-        for n in range(self.last_ion_number):
-            this_ion_tof = calc_tof(
-                np.zeros((1, 3)),
-                self.electric_field,
-                self.length_accel_ion.get(),
-                self.length_drift_ion.get(),
-                (masses[n], charges[n]),
-            )[0]
-            self.labels_ion_tof[n]["text"] = "{:.4g}".format(this_ion_tof * 1e9)
-        self.make_ion_pipico_plot()
+                self.labels_mass[i].append(
+                    Label(self.ion_generation_group, foreground=this_ion_color)
+                )
+                self.labels_mass[i][j].grid(row=ion_row_index, column=2)
+
+                self.charge_variables[i].append(IntVar(value=charge))
+                self.charge_variables[i][j].trace("w", write_callback_ion_channels)
+                self.entries_charge[i].append(
+                    Entry(
+                        self.ion_generation_group,
+                        foreground=this_ion_color,
+                        textvariable=self.charge_variables[i][j],
+                    )
+                )
+                self.entries_charge[i][j].grid(row=ion_row_index, column=3, sticky="nsew")
+
+                self.labels_ion_tof[i].append(
+                    Label(self.ion_generation_group, foreground=this_ion_color)
+                )
+                self.labels_ion_tof[i][j].grid(row=ion_row_index, column=4)
+
+        # show activated channels
+        for i in range(previous_active_channels, self.active_channels):
+            var, checkbox = self.active_check_variables[i]
+            checkbox.grid()
+            self.entries_ker[i].grid()
+            for j in range(ions_per_channel):
+                self.entries_formula[i][j].grid()
+                self.labels_mass[i][j].grid()
+                self.entries_charge[i][j].grid()
+                self.ion_labels[i][j].grid()
+                self.labels_ion_tof[i][j].grid()
+        # hide deactivated channels
+        for i in range(self.active_channels, previous_active_channels):
+            var, checkbox = self.active_check_variables[i]
+            checkbox.grid_remove()
+            self.entries_ker[i].grid_remove()
+            for j in range(ions_per_channel):
+                self.entries_formula[i][j].grid_remove()
+                self.labels_mass[i][j].grid_remove()
+                self.entries_charge[i][j].grid_remove()
+                self.ion_labels[i][j].grid_remove()
+                self.labels_ion_tof[i][j].grid_remove()
+        self.update_ion_momenta()
 
     def make_ion_pipico_plot(self):
-        # read in charge, mass, and KER
-        ion_formula_1 = []
-        ion_formula_2 = []
-        ion_mass_1 = []
-        ion_mass_2 = []
-        ion_charge_1 = []
-        ion_charge_2 = []
-        ion_ker = []
-
-        pairs_ns = []
-        ion_ns = []
-        for n, (variable, checkbox) in enumerate(self.active_check_variables):
-            if n > self.last_ion_number // 2:
-                break
+        plotted_channels = []
+        for i in range(self.active_channels):
+            variable, checkbox = self.active_check_variables[i]
             if variable.get():
-                pairs_ns.append(n)
-                ion_ns.append(2 * n)
-                ion_ns.append(2 * n + 1)
-
-        for n in range(self.last_ion_number):
-            if n % 2 == 0:
-                try:
-                    formula = ChemFormula(self.entries_formula[n].get())
-                    mass = get_mass(formula).value
-                    charge = float(self.entries_charge[n].get())
-                    ker = float(self.entries_ker[n // 2].get())
-                    ion_formula_1.append(formula)
-                    ion_mass_1.append(mass)
-                    ion_charge_1.append(charge)
-                    ion_ker.append(ker)
-                except IndexError:
-                    ion_formula_1.append(ChemFormula(""))
-                    ion_mass_1.append(0)
-                    ion_charge_1.append(0)
-                    ion_ker.append(0)
-            elif n % 2 == 1:
-                try:
-                    formula = ChemFormula(self.entries_formula[n].get())
-                    mass = get_mass(formula).value
-                    charge = float(self.entries_charge[n].get())
-                    ion_formula_2.append(formula)
-                    ion_mass_2.append(mass)
-                    ion_charge_2.append(charge)
-                except IndexError:
-                    ion_formula_2.append(ChemFormula(""))
-                    ion_mass_2.append(0)
-                    ion_charge_2.append(0)
-        ion_mass_1 = np.array(ion_mass_1) * amu
-        ion_charge_1 = np.array(ion_charge_1) * q_e
-        ion_mass_2 = np.array(ion_mass_2) * amu
-        ion_charge_2 = np.array(ion_charge_2) * q_e
-        ion_ker_eV = np.array(ion_ker)
-
-        # calc R tof for ions
-
-        v_jet = self.velocity_jet_si
-        ion_tof_1 = []
-        ion_tof_2 = []
-        ion_X_1 = []
-        ion_X_2 = []
-        ion_Y_1 = []
-        ion_Y_2 = []
-        electric_field = self.electric_field
-        magnetic_field = self.magnetic_field_si
-        length_acceleration = self.length_accel_ion.get()
-        length_drift = self.length_drift_ion.get()
-        for mass_1, mass_2, charge_1, charge_2, ker in zip(
-            ion_mass_1, ion_mass_2, ion_charge_1, ion_charge_2, ion_ker_eV
-        ):
-            p_ion_1, p_ion_2 = make_momentum_ion_dis(
-                ker, mass_1, mass_2, v_jet=v_jet, number_of_particles=1000
-            )
-            X_1, Y_1, tof_1 = calc_xytof(
-                p_ion_1,
-                electric_field,
-                magnetic_field,
-                length_acceleration,
-                length_drift,
-                particle_params=(mass_1, charge_1),
-            )
-            X_2, Y_2, tof_2 = calc_xytof(
-                p_ion_2,
-                electric_field,
-                magnetic_field,
-                length_acceleration,
-                length_drift,
-                particle_params=(mass_2, charge_2),
-            )
-            ion_tof_1.append(tof_1 * 1e9)
-            ion_tof_2.append(tof_2 * 1e9)
-            ion_X_1.append(X_1 * 1e3)
-            ion_X_2.append(X_2 * 1e3)
-            ion_Y_1.append(Y_1 * 1e3)
-            ion_Y_2.append(Y_2 * 1e3)
-        ion_tof_1 = np.array(ion_tof_1)
-        ion_tof_2 = np.array(ion_tof_2)
-        ion_X_1 = np.array(ion_X_1)
-        ion_X_2 = np.array(ion_X_2)
-        ion_Y_1 = np.array(ion_Y_1)
-        ion_Y_2 = np.array(ion_Y_2)
+                plotted_channels.append(self.ion_channels[i])
 
         # cleanup plot
         for ax in self.pipico_fig.axes:
@@ -1830,60 +1532,82 @@ class mclass:
         # do new plots
         ax_x_tof = self.pipico_xtof_ax
         ax_y_tof = self.pipico_ytof_ax
-        modulo = float(self.ENTRY_SET_bunch_modulo.get())
-        detector_diameter = self.detector_diameter_ions.get()
-        ax_x_tof.set_ylim(-1.2 * detector_diameter, 1.2 * detector_diameter)
-        ax_y_tof.set_ylim(-1.2 * detector_diameter, 1.2 * detector_diameter)
-        x_edges = y_edges = np.linspace(-detector_diameter * 0.55, detector_diameter * 0.55, 250)
+        modulo = self.bunch_modulo.get() * sc.Unit("ns")
+        detector_radius = self.detector_diameter_ions.get() / 2
+        space_lim = 1.2 * detector_radius
+        ax_x_tof.set_ylim(-space_lim, space_lim)
+        ax_y_tof.set_ylim(-space_lim, space_lim)
+        x_edges = y_edges = np.linspace(-space_lim, space_lim, 250)
 
         counts, _, _ = np.histogram2d([], [], bins=(x_edges, y_edges))
         legend_handles_even = []
         legend_labels_even = []
         legend_handles_odd = []
         legend_labels_odd = []
-        for n in pairs_ns:
+        for channel in plotted_channels:
+            ion_1, ion_2 = channel.particles.values()
+
             dots = ax_x_tof.scatter(
-                ion_tof_1[n] % modulo,
-                ion_X_1[n],
-                color=self.ion_color[2 * n],
+                (ion_1.detector_hits.coords["tof"] % modulo).values,
+                (ion_1.detector_hits.coords["x"]).values,
+                color=ion_1.color,
                 alpha=0.2,
                 edgecolors="none",
             )
             legend_handles_even.append(dots)
-            legend_labels_even.append(f"{ion_formula_1[n]}$^{{{ion_charge_1[n] / q_e:.1g}+}}$")
+            legend_labels_even.append(f"${ion_1.latex}$")
             dots = ax_x_tof.scatter(
-                ion_tof_2[n] % modulo,
-                ion_X_2[n],
-                color=self.ion_color[2 * n + 1],
+                (ion_2.detector_hits.coords["tof"] % modulo).values,
+                (ion_2.detector_hits.coords["x"]).values,
+                color=ion_2.color,
                 alpha=0.2,
                 edgecolors="none",
             )
             legend_handles_odd.append(dots)
-            legend_labels_odd.append(f"{ion_formula_2[n]}$^{{{ion_charge_2[n] / q_e:.1g}+}}$")
+            legend_labels_odd.append(f"${ion_2.latex}$")
             ax_y_tof.scatter(
-                ion_tof_1[n] % modulo,
-                ion_Y_1[n],
-                color=self.ion_color[2 * n],
+                (ion_1.detector_hits.coords["tof"] % modulo).values,
+                (ion_1.detector_hits.coords["y"]).values,
+                color=ion_1.color,
                 alpha=0.2,
                 edgecolors="none",
             )
             ax_y_tof.scatter(
-                ion_tof_2[n] % modulo,
-                ion_Y_2[n],
-                color=self.ion_color[2 * n + 1],
+                (ion_2.detector_hits.coords["tof"] % modulo).values,
+                (ion_2.detector_hits.coords["y"]).values,
+                color=ion_2.color,
                 alpha=0.2,
                 edgecolors="none",
             )
-            new_counts, _, _ = np.histogram2d(ion_X_1[n], ion_Y_1[n], bins=(x_edges, y_edges))
-            counts += new_counts
-            new_counts, _, _ = np.histogram2d(ion_X_2[n], ion_Y_2[n], bins=(x_edges, y_edges))
-            counts += new_counts
+
+            self.pipico_ax.scatter(
+                (ion_1.detector_hits.coords["tof"] % modulo).values,
+                (ion_2.detector_hits.coords["tof"] % modulo).values,
+                color=ion_1.color,
+                alpha=0.1,
+                edgecolors="none",
+            )
+            self.pipico_ax.scatter(
+                (ion_2.detector_hits.coords["tof"] % modulo).values,
+                (ion_1.detector_hits.coords["tof"] % modulo).values,
+                color=ion_2.color,
+                alpha=0.1,
+                edgecolors="none",
+            )
+
+            for h in [ion_1.detector_hits, ion_2.detector_hits]:
+                new_counts, _, _ = np.histogram2d(
+                    h.coords["x"].values.flatten(),
+                    h.coords["y"].values.flatten(),
+                    bins=(x_edges, y_edges),
+                )
+                counts += new_counts
         ax_xy = self.pipico_XY_ax
         counts[counts < 1] = np.nan
         ax_xy.pcolormesh(x_edges, y_edges, counts.T)
         ax_xy.add_artist(
             plt.Circle(
-                (0, 0), detector_diameter / 2, color="cadetblue", fill=False, figure=self.pipico_fig
+                (0, 0), detector_radius, color="cadetblue", fill=False, figure=self.pipico_fig
             )
         )
         ax_xy.set_xlabel("X [mm]")
@@ -1902,39 +1626,24 @@ class mclass:
         ax_x_tof.set_ylabel("X [mm]")
         ax_y_tof.set_ylabel("Y [mm]")
 
+        v_jet = self.velocity_jet.get() * sc.Unit("mm/µs")
         for i in range(5):
-            jettof = np.linspace(modulo * i, modulo * (i + 1), 2)
+            jet_tof = sc.linspace("tof", modulo * i, modulo * (i + 1), 2)
+            jet_offset = (jet_tof * v_jet).to(unit="mm")
             label = "Jet" if i == 0 else None
-            ax_x_tof.plot([0, modulo], jettof * v_jet / 1e6, label=label, color="k", alpha=0.3)
+            ax_x_tof.plot([0, modulo.value], jet_offset.values, label=label, color="k", alpha=0.3)
         for ax in [ax_x_tof, ax_y_tof]:
-            ax.axhline(detector_diameter / 2, color="red")
-            ax.axhline(-detector_diameter / 2, color="red")
-            ax.set_xlim(0, modulo)
+            ax.axhline(detector_radius, color="red")
+            ax.axhline(-detector_radius, color="red")
+            ax.set_xlim(0, modulo.value)
             ax.grid()
 
-        a = self.pipico_ax
+        self.pipico_ax.grid()
+        self.pipico_ax.set_xlabel("tof 1 [ns]")
+        self.pipico_ax.set_ylabel("tof 2 [ns]")
+        self.pipico_ax.set_xlim(0, modulo.value)
+        self.pipico_ax.set_ylim(0, modulo.value)
 
-        modulo = float(self.ENTRY_SET_bunch_modulo.get())
-        for n in pairs_ns:
-            a.scatter(
-                ion_tof_1[n] % modulo,
-                ion_tof_2[n] % modulo,
-                color=self.ion_color[2 * n],
-                alpha=0.1,
-                edgecolors="none",
-            )
-            a.scatter(
-                ion_tof_2[n] % modulo,
-                ion_tof_1[n] % modulo,
-                color=self.ion_color[2 * n],
-                alpha=0.1,
-                edgecolors="none",
-            )
-        a.grid()
-        a.set_xlabel("tof 1 [ns]")
-        a.set_ylabel("tof 2 [ns]")
-        a.set_xlim(0, modulo)
-        a.set_ylim(0, modulo)
         legend_handles = legend_handles_even + legend_handles_odd
         legend_labels = legend_labels_even + legend_labels_odd
         legend = self.pipico_fig.legend(legend_handles, legend_labels, loc=4, ncols=2)
@@ -1945,18 +1654,21 @@ class mclass:
         make_icon = False
         if make_icon:
             icon_fig, icon_ax = plt.subplots(figsize=(5, 5), layout="tight")
-            for n in pairs_ns:
+            for channel in plotted_channels:
+                ion_1, ion_2 = channel.particles
+                ion_1.hits = self.ion_hits[channel.name][ion_1.name]
+                ion_2.hits = self.ion_hits[channel.name][ion_2.name]
                 icon_ax.scatter(
-                    ion_tof_1[n] % modulo - ion_tof_2[n] % modulo,
-                    ion_tof_1[n] % modulo + ion_tof_2[n] % modulo,
-                    color=self.ion_color[2 * n],
+                    ion_1.hits.coords["tof"] % modulo,
+                    ion_2.hits.coords["tof"] % modulo,
+                    color=ion_1.color,
                     alpha=0.1,
                     edgecolors="none",
                 )
                 icon_ax.scatter(
-                    ion_tof_2[n] % modulo - ion_tof_1[n] % modulo,
-                    ion_tof_2[n] % modulo + ion_tof_1[n] % modulo,
-                    color=self.ion_color[2 * n],
+                    ion_2.hits.coords["tof"] % modulo,
+                    ion_1.hits.coords["tof"] % modulo,
+                    color=ion_2.color,
                     alpha=0.1,
                     edgecolors="none",
                 )
@@ -1966,146 +1678,114 @@ class mclass:
 
     def update_electron_momenta(self):
         mass, charge = self.electron_params
-        number_of_particles = len(self.pulses)
-        if self.v.get() == 1:
-            momentum = sc.vectors(
-                dims=["pulses", "HitNr"],
-                values=np.random.randn(number_of_particles, 1, 3),
-                unit="au momentum",
-            )
-            dataarray = sc.DataArray(
-                data=sc.ones(
-                    sizes={"pulses": number_of_particles, "HitNr": 1, "p": 1}, dtype="int32"
-                ),
-                coords={
-                    "pulses": self.pulses,
-                    "HitNr": sc.array(dims=["HitNr"], values=np.arange(1)),
-                    "p": momentum.to(unit="N*s"),
-                },
-            )
+        self.electron_tab_coincidences = []
+        default_atom = ChemFormula("He")
+        he_binding_energy = sc.scalar(24.587389011, unit="eV")
 
+        if self.v.get() == 1:
+            self.electron_tab_coincidences.append(
+                sample_photoionization(
+                    default_atom,
+                    binding_energy=he_binding_energy,
+                    photon_energy=he_binding_energy,
+                    energy_width=sc.scalar(1, unit="au energy").to(unit="eV"),
+                    sizes=self.sample_sizes,
+                    remi=self.remicalculator,
+                )
+            )
         elif self.v.get() == 2:
             energy_mean = sc.scalar(float(self.ENTRY_MEAN_ENERGY.get()), unit="eV")
             width = sc.scalar(float(self.ENTRY_WIDTH.get()), unit="eV")
-            energy = (
-                sc.array(dims=["pulses", "HitNr"], values=np.random.randn(number_of_particles, 1))
-                * width
-                + energy_mean
-            )
-            r_mom = sc.sqrt(energy * 2 * mass)
-
-            phi = sc.array(
-                dims=["pulses", "HitNr"],
-                values=np.random.rand(number_of_particles, 1) * 2 * np.pi,
-                unit="rad",
-            )
-
-            cos_theta = sc.array(
-                dims=["pulses", "HitNr"], values=np.random.rand(number_of_particles, 1) * 2 - 1
-            )
-            theta = sc.acos(cos_theta)
-
-            x = r_mom * sc.sin(theta) * sc.cos(phi)
-            y = r_mom * sc.sin(theta) * sc.sin(phi)
-            z = r_mom * cos_theta
-            dataarray = sc.DataArray(
-                data=sc.ones(
-                    sizes={"pulses": number_of_particles, "HitNr": 1, "p": 1}, dtype="int32"
-                ),
-                coords={
-                    "pulses": self.pulses,
-                    "HitNr": sc.array(dims=["HitNr"], values=np.arange(1)),
-                    "p": sc.spatial.as_vectors(x, y, z).to(unit="N*s"),
-                },
+            self.electron_tab_coincidences.append(
+                sample_photoionization(
+                    default_atom,
+                    binding_energy=he_binding_energy,
+                    photon_energy=he_binding_energy + energy_mean,
+                    energy_width=width,
+                    sizes=self.sample_sizes,
+                    remi=self.remicalculator,
+                )
             )
         elif self.v.get() == 3:
             energy_mean = sc.scalar(float(self.ENTRY_MEAN_ENERGY.get()), unit="eV")
             width = sc.scalar(float(self.ENTRY_WIDTH.get()), unit="eV")
             energy_step = sc.scalar(float(self.ENTRY_MULTI_PART_ENERGY_STEP.get()), unit="eV")
             part_num = int(self.ENTRY_MULTI_PART_NUMBER.get())
-            particles = []
             for i in range(part_num):
-                energy = (
-                    sc.array(
-                        dims=["pulses", "HitNr"], values=np.random.randn(number_of_particles, 1)
+                self.electron_tab_coincidences.append(
+                    sample_photoionization(
+                        default_atom,
+                        binding_energy=he_binding_energy,
+                        photon_energy=he_binding_energy + energy_mean + i * energy_step,
+                        energy_width=width,
+                        sizes=self.sample_sizes,
+                        remi=self.remicalculator,
                     )
-                    * width
-                    + energy_mean
-                    + i * energy_step
                 )
-                r_mom = sc.sqrt(energy * 2 * mass)
-
-                phi = sc.array(
-                    dims=["pulses", "HitNr"],
-                    values=np.random.rand(number_of_particles, 1) * 2 * np.pi,
-                    unit="rad",
-                )
-
-                cos_theta = sc.array(
-                    dims=["pulses", "HitNr"], values=np.random.rand(number_of_particles, 1) * 2 - 1
-                )
-                theta = sc.acos(cos_theta)
-
-                x = r_mom * sc.sin(theta) * sc.cos(phi)
-                y = r_mom * sc.sin(theta) * sc.sin(phi)
-                z = r_mom * cos_theta
-                momentum = sc.spatial.as_vectors(x, y, z)
-
-                particles.append(momentum)
-            dataarray = sc.DataArray(
-                data=sc.ones(
-                    sizes={"pulses": number_of_particles, "HitNr": part_num, "p": 1}, dtype="int32"
-                ),
-                coords={
-                    "pulses": self.pulses,
-                    "HitNr": sc.array(dims=["HitNr"], values=np.arange(part_num)),
-                    "p": sc.concat(particles, "HitNr").to(unit="N*s"),
-                },
-            )
-        self.electron_momenta = dataarray
+        self.electrons = [coin.electrons["e"] for coin in self.electron_tab_coincidences]
         self.update_electron_positions()
 
     def update_electron_positions(self):
         mass, charge = self.electron_params
-
-        calc_e_tof, calc_e_xyR, calc_e_z = make_scipp_detector_converters(
-            length_acceleration=sc.scalar(self.length_accel_electron.get(), unit="m"),
-            length_drift=sc.scalar(self.length_drift_electron.get(), unit="m"),
-            electric_field=sc.scalar(self.electric_field, unit="V/m"),
-            magnetic_field=sc.scalar(self.magnetic_field_si, unit="T"),
-            mass=mass,
-            charge=charge,
-        )
-
-        self.electron_scipp_graph = {"tof": calc_e_tof, ("x", "y", "R"): calc_e_xyR, "z": calc_e_z}
-
-        dataarray = self.electron_momenta.transform_coords(
-            ["x", "y", "tof", "R"], graph=self.electron_scipp_graph
-        )
-        self.electron_hits = dataarray
+        for coin in self.electron_tab_coincidences:
+            coin.calculate_detector_hits()
         self.update_R_tof()
         self.update_electron_detector_signals()
 
     def update_electron_detector_signals(self):
-        hits = self.electron_hits
-        self.datagroup["electrons"] = hits
-        pass
+        groupgroup = self.datagroup["electronsim"] = sc.DataGroup()
+        for coin in self.electron_tab_coincidences:
+            groupgroup[coin.name] = coin.datagroup
 
     def update_ion_momenta(self):
+        self.ion_channels = []
+        for i in range(self.active_channels):
+            formulas = [ChemFormula(f.get()) for f in self.formula_variables[i]]
+            name = " + ".join(f.formula for f in formulas)
+            ker = sc.scalar(float(self.entries_ker[i].get()), unit="eV")
+            coin = sample_coulomb_explosion(
+                fragment_formulas=formulas,
+                charge_counts=[c.get() for c in self.charge_variables[i]],
+                kinetic_energy_release=ker,
+                energy_width=ker / 10,
+                sizes=self.sample_sizes,
+                remi=self.remicalculator,
+                name=name,
+                colors=self.channel_colors[i],
+            )
+            self.ion_channels.append(coin)
+            for j, particle in enumerate(coin.particles.values()):
+                self.labels_mass[i][j]["text"] = "{:.4g}".format(particle.mass.value)
         self.update_ion_positions()
 
     def update_ion_positions(self):
+        for coin in self.ion_channels:
+            coin.calculate_detector_hits()
+
+        self.calc_ion_tof()
+        self.make_ion_pipico_plot()
         self.update_ion_detector_signals()
 
+    def calc_ion_tof(self):
+        for i, coin in enumerate(self.ion_channels):
+            for j, particle in enumerate(coin.particles.values()):
+                test_particle = Particle(particle.formula, particle.charge_count, particle.remi)
+                no_mom_tof = self.calc_no_momentum_tof(test_particle)
+                self.labels_ion_tof[i][j]["text"] = "{:.4g}".format(no_mom_tof.value)
+
     def update_ion_detector_signals(self):
-        pass
+        coins = self.ion_channels
+        groupgroup = self.datagroup["coulombexplosions"] = sc.DataGroup()
+        for i, coin in enumerate(coins):
+            groupgroup[coin.name] = coin.datagroup
 
     def init_dataset(self):
         n_samples = self.number_of_particles.get()
         self.pulses = sc.arange("pulses", n_samples)
+        self.sample_sizes = {"pulses": n_samples, "p": 1}
         self.datagroup = sc.DataGroup(pulses=self.pulses)
         self.update_electron_momenta()
-        self.update_ion_momenta()
+        self.generate_ion_pair_entries()
 
 
 def main():
