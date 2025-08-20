@@ -1,4 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Hannes Lindenblatt
+# SPDX-License-Identifier: CC0-1.0
 set -ex
+
 # Setup a workspace
 # - activate the environment otherwise the workspace is imported
 #   in the user home folder rather than in the prefix path (new default)

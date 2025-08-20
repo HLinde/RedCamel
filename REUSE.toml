@@ -15,6 +15,7 @@ path = [
     "pixi.lock",
     "uv.lock",
     ".github/workflows/*.yml",
+    ".binder/workspace.json",
 ]
 SPDX-FileCopyrightText = "2025 Hannes Lindenblatt"
 SPDX-License-Identifier = "CC0-1.0"
