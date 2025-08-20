@@ -54,6 +54,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.sdist]
 include = ["icon.png"]
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/redcamel"]
+
 [tool.uv]
 dev-dependencies = [
     "pytest>=8.3",
