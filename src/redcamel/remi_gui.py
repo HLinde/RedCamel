@@ -952,7 +952,8 @@ class mclass:
         self.ax_trajectory.set_xlabel("x [mm]")
         self.ax_trajectory.set_ylabel("y [mm]")
         self.ax_trajectory.set_zlabel("z [mm]")
-        self.ax_trajectory.set_title("electron trajectories")
+        ion_tex, ele_tex = [part.latex for part in coin.particles.values()]
+        self.ax_trajectory.set_title(rf"Some Coincidences with ${ele_tex}$ and ${ion_tex}$")
         self.canvas_trajectory.draw()
 
     def get_random_trajectory(self, particle: Particle):
