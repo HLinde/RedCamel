@@ -780,10 +780,10 @@ class mclass:
         self.ax_spectrometer.clear()
         self.ax_trajectory.clear()
 
-        Ld_i = self.length_drift_ion.get()
+        Ld_i = float(self.length_drift_ion.get())
         La_i = self.length_accel_ion.get()
         La_e = self.length_accel_electron.get()
-        Ld_e = self.length_drift_electron.get()
+        Ld_e = float(self.length_drift_electron.get())
         U_i = self.voltage_ion.get()
         U_e = self.voltage_electron.get()
 
@@ -824,14 +824,17 @@ class mclass:
         y_arrow_li = U_i - 10
         y_arrow_le = U_e + 10
 
-        self.ax_spectrometer.annotate(
+        if Ld_i > 0.0:
+            self.ax_spectrometer.annotate(
             "",
             xy=(0, y_arrow_li),
             xytext=(Ld_i, y_arrow_li),
             arrowprops=dict(arrowstyle="<->", color="green"),
         )
         self.ax_spectrometer.text(
-            Ld_i / 2, y_arrow_li - 5, "$L_d$", ha="center", fontsize=12, color="green"
+            Ld_i / 2, y_arrow_li - 5,
+            fr"$L_d = {Ld_i:.5g}\,\mathrm{{m}}$",
+            ha="center", fontsize=12, color="green"
         )
 
         self.ax_spectrometer.annotate(
@@ -841,7 +844,9 @@ class mclass:
             arrowprops=dict(arrowstyle="<->", color="green"),
         )
         self.ax_spectrometer.text(
-            Ld_i + La_i / 2, y_arrow_li - 5, "$L_a$", ha="center", fontsize=12, color="green"
+            Ld_i + La_i / 2, y_arrow_li - 5, 
+            fr"$L_a={La_i:.5g}\,\mathrm{{m}} $", 
+            ha="center", fontsize=12, color="green"
         )
 
         self.ax_spectrometer.annotate(
@@ -851,10 +856,13 @@ class mclass:
             arrowprops=dict(arrowstyle="<->", color="green"),
         )
         self.ax_spectrometer.text(
-            Ld_i + La_i + La_e / 2, y_arrow_le + 5, "$L_a$", ha="center", fontsize=12, color="green"
+            Ld_i + La_i + La_e / 2, y_arrow_le + 5, 
+            fr"$L_a={La_e:.5g}\,\mathrm{{m}} $", 
+            ha="center", fontsize=12, color="green"
         )
 
-        self.ax_spectrometer.annotate(
+        if Ld_e > 0.0:
+            self.ax_spectrometer.annotate(
             "",
             xy=(Ld_i + La_i + La_e, y_arrow_le),
             xytext=(Ld_i + La_i + La_e + Ld_e, y_arrow_le),
@@ -863,35 +871,30 @@ class mclass:
         self.ax_spectrometer.text(
             Ld_i + La_i + La_e + Ld_e / 2,
             y_arrow_le + 5,
-            "$L_d$",
-            ha="center",
-            fontsize=12,
-            color="green",
+            fr"$L_d = {Ld_e:.5g}\,\mathrm{{m}}$",
+            ha="center", fontsize=12, color="green"
         )
 
         self.ax_spectrometer.annotate(
             f"{self.electric_field:.5g} V/cm",
             xy=(Ld_i + La_i, (U_i + U_e) / 2),
             xytext=(Ld_i + La_i + La_e, (U_i + U_e) / 2),
-            textcoords="offset points",
             arrowprops=dict(arrowstyle="<->", color="green"),
-            color="green",
+            color="green",ha="center",va="center",
         )
 
         self.ax_spectrometer.annotate(
             "",
             xy=(Ld_i + La_i / 2, 0),
             xytext=(Ld_i + La_i / 2, U_i),
-            arrowprops=dict(arrowstyle="<->", color="darkblue", linewidth=2),
+            arrowprops=dict(arrowstyle="<->", 
+            color="darkblue", linewidth=2),
         )
         self.ax_spectrometer.text(
             Ld_i + La_i / 2 + 0.005,
             U_i / 2,
-            r"$U_i$",
-            ha="left",
-            va="center",
-            fontsize=12,
-            color="darkblue",
+            fr"$U_i = {U_i:.5g}\,\mathrm{{V}}$",
+            ha="left", va="center", fontsize=12, color="darkblue",
         )
 
         self.ax_spectrometer.annotate(
@@ -903,11 +906,8 @@ class mclass:
         self.ax_spectrometer.text(
             Ld_i + La_i + La_e / 2 + 0.005,
             U_e / 2,
-            r"$U_e$",
-            ha="left",
-            va="center",
-            fontsize=12,
-            color="darkblue",
+            fr"$U_e = {U_e:.5g}\,\mathrm{{V}}$",
+            ha="left", va="center", fontsize=12, color="darkblue",
         )
 
         boundary = Ld_i + La_i
