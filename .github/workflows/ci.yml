@@ -24,7 +24,7 @@ jobs:
       - name: Setup imagemagick
         uses: mfinelli/setup-imagemagick@v6
       - name: Check images
-        run: magick identify **/*.png
+        run: find . -not -path "*/.*" -name "*.png" -exec magick identify {} +
 
   test:
     needs: lint
