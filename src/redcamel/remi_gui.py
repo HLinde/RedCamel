@@ -826,15 +826,18 @@ class mclass:
 
         if Ld_i > 0.0:
             self.ax_spectrometer.annotate(
-            "",
-            xy=(0, y_arrow_li),
-            xytext=(Ld_i, y_arrow_li),
-            arrowprops=dict(arrowstyle="<->", color="green"),
-        )
+                "",
+                xy=(0, y_arrow_li),
+                xytext=(Ld_i, y_arrow_li),
+                arrowprops=dict(arrowstyle="<->", color="green"),
+            )
         self.ax_spectrometer.text(
-            Ld_i / 2, y_arrow_li - 5,
-            fr"$L_d = {Ld_i:.5g}\,\mathrm{{m}}$",
-            ha="center", fontsize=12, color="green"
+            Ld_i / 2,
+            y_arrow_li - 5,
+            rf"$L_d = {Ld_i:.5g}\,\mathrm{{m}}$",
+            ha="center",
+            fontsize=12,
+            color="green",
         )
 
         self.ax_spectrometer.annotate(
@@ -844,9 +847,12 @@ class mclass:
             arrowprops=dict(arrowstyle="<->", color="green"),
         )
         self.ax_spectrometer.text(
-            Ld_i + La_i / 2, y_arrow_li - 5, 
-            fr"$L_a={La_i:.5g}\,\mathrm{{m}} $", 
-            ha="center", fontsize=12, color="green"
+            Ld_i + La_i / 2,
+            y_arrow_li - 5,
+            rf"$L_a={La_i:.5g}\,\mathrm{{m}} $",
+            ha="center",
+            fontsize=12,
+            color="green",
         )
 
         self.ax_spectrometer.annotate(
@@ -856,23 +862,28 @@ class mclass:
             arrowprops=dict(arrowstyle="<->", color="green"),
         )
         self.ax_spectrometer.text(
-            Ld_i + La_i + La_e / 2, y_arrow_le + 5, 
-            fr"$L_a={La_e:.5g}\,\mathrm{{m}} $", 
-            ha="center", fontsize=12, color="green"
+            Ld_i + La_i + La_e / 2,
+            y_arrow_le + 5,
+            rf"$L_a={La_e:.5g}\,\mathrm{{m}} $",
+            ha="center",
+            fontsize=12,
+            color="green",
         )
 
         if Ld_e > 0.0:
             self.ax_spectrometer.annotate(
-            "",
-            xy=(Ld_i + La_i + La_e, y_arrow_le),
-            xytext=(Ld_i + La_i + La_e + Ld_e, y_arrow_le),
-            arrowprops=dict(arrowstyle="<->", color="green"),
-        )
+                "",
+                xy=(Ld_i + La_i + La_e, y_arrow_le),
+                xytext=(Ld_i + La_i + La_e + Ld_e, y_arrow_le),
+                arrowprops=dict(arrowstyle="<->", color="green"),
+            )
         self.ax_spectrometer.text(
             Ld_i + La_i + La_e + Ld_e / 2,
             y_arrow_le + 5,
-            fr"$L_d = {Ld_e:.5g}\,\mathrm{{m}}$",
-            ha="center", fontsize=12, color="green"
+            rf"$L_d = {Ld_e:.5g}\,\mathrm{{m}}$",
+            ha="center",
+            fontsize=12,
+            color="green",
         )
 
         self.ax_spectrometer.annotate(
@@ -880,21 +891,25 @@ class mclass:
             xy=(Ld_i + La_i, (U_i + U_e) / 2),
             xytext=(Ld_i + La_i + La_e, (U_i + U_e) / 2),
             arrowprops=dict(arrowstyle="<->", color="green"),
-            color="green",ha="center",va="center",
+            color="green",
+            ha="center",
+            va="center",
         )
 
         self.ax_spectrometer.annotate(
             "",
             xy=(Ld_i + La_i / 2, 0),
             xytext=(Ld_i + La_i / 2, U_i),
-            arrowprops=dict(arrowstyle="<->", 
-            color="darkblue", linewidth=2),
+            arrowprops=dict(arrowstyle="<->", color="darkblue", linewidth=2),
         )
         self.ax_spectrometer.text(
             Ld_i + La_i / 2 + 0.005,
             U_i / 2,
-            fr"$U_i = {U_i:.5g}\,\mathrm{{V}}$",
-            ha="left", va="center", fontsize=12, color="darkblue",
+            rf"$U_i = {U_i:.5g}\,\mathrm{{V}}$",
+            ha="left",
+            va="center",
+            fontsize=12,
+            color="darkblue",
         )
 
         self.ax_spectrometer.annotate(
@@ -906,8 +921,11 @@ class mclass:
         self.ax_spectrometer.text(
             Ld_i + La_i + La_e / 2 + 0.005,
             U_e / 2,
-            fr"$U_e = {U_e:.5g}\,\mathrm{{V}}$",
-            ha="left", va="center", fontsize=12, color="darkblue",
+            rf"$U_e = {U_e:.5g}\,\mathrm{{V}}$",
+            ha="left",
+            va="center",
+            fontsize=12,
+            color="darkblue",
         )
 
         boundary = Ld_i + La_i
