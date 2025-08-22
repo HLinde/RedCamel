@@ -780,10 +780,10 @@ class mclass:
         self.ax_spectrometer.clear()
         self.ax_trajectory.clear()
 
-        Ld_i = float(self.length_drift_ion.get())
+        Ld_i = self.length_drift_ion.get()
         La_i = self.length_accel_ion.get()
         La_e = self.length_accel_electron.get()
-        Ld_e = float(self.length_drift_electron.get())
+        Ld_e = self.length_drift_electron.get()
         U_i = self.voltage_ion.get()
         U_e = self.voltage_electron.get()
 
@@ -873,6 +873,7 @@ class mclass:
             f"{self.electric_field:.5g} V/cm",
             xy=(Ld_i + La_i, (U_i + U_e) / 2),
             xytext=(Ld_i + La_i + La_e, (U_i + U_e) / 2),
+            textcoords="offset points",
             arrowprops=dict(arrowstyle="<->", color="green"),
             color="green",
         )
@@ -881,8 +882,7 @@ class mclass:
             "",
             xy=(Ld_i + La_i / 2, 0),
             xytext=(Ld_i + La_i / 2, U_i),
-            arrowprops=dict(arrowstyle="<->", 
-            color="darkblue", linewidth=2),
+            arrowprops=dict(arrowstyle="<->", color="darkblue", linewidth=2),
         )
         self.ax_spectrometer.text(
             Ld_i + La_i / 2 + 0.005,
