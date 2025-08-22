@@ -9511,7 +9511,7 @@ packages:
 - pypi: ./
   name: redcamel
   version: 0.1.4
-  sha256: 2b99fb66d7719a42c66b35c3a9611fc7a44f6aab7f35e7b81a46bf8dbad3f6ab
+  sha256: 9ac856dd4d179cc2c56c3ede6fbe2d28c4a8510292fef5b9f1bcdcd3f5876cb2
   requires_dist:
   - chemformula>=1.2
   - graphviz>=0.20

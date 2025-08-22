@@ -2281,7 +2281,7 @@ dev = [
 requires-dist = [
     { name = "chemformula", specifier = ">=1.2" },
     { name = "graphviz", specifier = ">=0.20" },
-    { name = "h5py", specifier = ">=3.11.0" },
+    { name = "h5py", specifier = ">=3.11" },
     { name = "ipywidgets", specifier = ">=8" },
     { name = "matplotlib", specifier = ">=3.7" },
     { name = "numba", specifier = ">=0.58" },

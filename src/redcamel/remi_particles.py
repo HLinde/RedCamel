@@ -59,6 +59,10 @@ class Electron(Particle):
     def __init__(self, remi: RemiCalculator, **kwargs):
         super().__init__(ChemFormula("e"), -1, remi, **kwargs)
 
+    @property
+    def latex(self):
+        return r"\text{e}^{-}"
+
 
 class Ion(Particle):
     pass
