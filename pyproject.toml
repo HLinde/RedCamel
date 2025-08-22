@@ -75,6 +75,7 @@ select = [
 #    "PLR", # pylint-refactor #TODO keep in mind for refactoring later
     "PLW", # pylint-warning
 ]
+isort.split-on-trailing-comma=false
 
 [tool.ruff.format]
 docstring-code-format = true
