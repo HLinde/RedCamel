@@ -12,35 +12,39 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+            lfs: true
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
       - name: Ruff lint
         run: uv run ruff check .
       - name: Ruff format
         run: uv run ruff format --diff .
       - name: Prettier format
         run: npx prettier --check "**/*.md"
+      - name: Setup imagemagick
+        uses: mfinelli/setup-imagemagick@v6
+      - name: Check images
+        run: identify **/*.png
 
   test:
+    needs: lint
     name: Run tests
     strategy:
       matrix:
         os: [ubuntu-latest] # not for now: , macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+            lfs: true
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
       - run: sudo apt-get install -y python3-tk
       - name: Run pytest with coverage
         run: uv run pytest --cov=src --cov-report=term --cov-report=xml
       - name: Test package building
         run: uv build
-
-  Create-MyBinderOrg-Cache:
-    runs-on: ubuntu-latest
-    steps:
-    - name: cache binder build on mybinder.org
-      uses: jupyterhub/repo2docker-action@master
-      with:
-        NO_PUSH: true
-        MYBINDERORG_TAG: ${{ github.event.ref }} # This builds the container on mybinder.org with the branch that was pushed on.
