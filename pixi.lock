@@ -9518,8 +9518,8 @@ packages:
   timestamp: 1740379663071
 - pypi: ./
   name: redcamel
-  version: 0.1.5
-  sha256: f3b2f9c01a9393fcd121d55e2dbab26d26fbe8a19ed94fffb24c4157049e2415
+  version: 0.1.6
+  sha256: 7265319e8e1fd04eab5fda2f7d3e40b9ecd915dbcf82f20846d50c80ba9c5c27
   requires_dist:
   - chemformula>=1.2
   - graphviz>=0.20
