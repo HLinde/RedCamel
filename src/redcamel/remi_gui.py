@@ -788,7 +788,7 @@ class mclass:
         U_e = self.voltage_electron.get()
 
         z = np.cumsum([0, Ld_e, La_e, La_i, Ld_i])
-        z -= z[2] # shift center to zero
+        z -= z[2]  # shift center to zero
 
         if self.fixed_center_potential.get():
             U_0 = 0
@@ -867,11 +867,11 @@ class mclass:
         self.ax_spectrometer.annotate(
             "",
             xy=(0, y_arrow_le),
-            xytext=(- La_e, y_arrow_le),
+            xytext=(-La_e, y_arrow_le),
             arrowprops=dict(arrowstyle="<->", color="green"),
         )
         self.ax_spectrometer.text(
-            - La_e / 2,
+            -La_e / 2,
             y_text_le,
             rf"$L_a={La_e:.5g}\,\mathrm{{m}} $",
             va="bottom",
@@ -883,7 +883,7 @@ class mclass:
         if Ld_e > 0.0:
             self.ax_spectrometer.annotate(
                 "",
-                xy=(- La_e, y_arrow_le),
+                xy=(-La_e, y_arrow_le),
                 xytext=(-(La_e + Ld_e), y_arrow_le),
                 arrowprops=dict(arrowstyle="<->", color="green"),
             )
@@ -900,8 +900,8 @@ class mclass:
         offset_voltage = (U_e - U_i) / 20
         self.ax_spectrometer.annotate(
             f"{self.electric_field:.5g} V/cm",
-            xy=(-La_e / 3, U_e*1/3 + offset_voltage),
-            xytext=(La_i / 3, U_i * 1/3 + offset_voltage),
+            xy=(-La_e / 3, U_e * 1 / 3 + offset_voltage),
+            xytext=(La_i / 3, U_i * 1 / 3 + offset_voltage),
             arrowprops=dict(arrowstyle="->", color="green"),
             color="green",
             ha="center",
@@ -912,12 +912,12 @@ class mclass:
         offset_distance_text = total_distance / 30
         self.ax_spectrometer.annotate(
             "",
-            xy=(- offset_distance_arrow, 0),
-            xytext=(- offset_distance_arrow, U_i),
+            xy=(-offset_distance_arrow, 0),
+            xytext=(-offset_distance_arrow, U_i),
             arrowprops=dict(arrowstyle="<->", color="darkblue", linewidth=2),
         )
         self.ax_spectrometer.text(
-            - offset_distance_text,
+            -offset_distance_text,
             U_i / 2,
             rf"$U_i = {U_i:.5g}\,\mathrm{{V}}$",
             ha="right",
