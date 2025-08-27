@@ -841,7 +841,7 @@ class mclass:
             self.ax_spectrometer.text(
                 La_i + Ld_i * 4 / 5,
                 y_text_li,
-                rf"$L_d = {Ld_i:.5g}\,\mathrm{{m}}$",
+                rf"$L_d = {Ld_i:.3g}\,\mathrm{{m}}$",
                 va="top",
                 ha="right",
                 fontsize=12,
@@ -857,7 +857,7 @@ class mclass:
         self.ax_spectrometer.text(
             La_i / 2,
             y_text_li,
-            rf"$L_a={La_i:.5g}\,\mathrm{{m}} $",
+            rf"$L_a={La_i:.3g}\,\mathrm{{m}} $",
             va="top",
             ha="center",
             fontsize=12,
@@ -873,7 +873,7 @@ class mclass:
         self.ax_spectrometer.text(
             -La_e / 2,
             y_text_le,
-            rf"$L_a={La_e:.5g}\,\mathrm{{m}} $",
+            rf"$L_a={La_e:.3g}\,\mathrm{{m}} $",
             va="bottom",
             ha="center",
             fontsize=12,
@@ -890,7 +890,7 @@ class mclass:
             self.ax_spectrometer.text(
                 -(La_e + Ld_e * 4 / 5),
                 y_text_le,
-                rf"$L_d = {Ld_e:.5g}\,\mathrm{{m}}$",
+                rf"$L_d = {Ld_e:.3g}\,\mathrm{{m}}$",
                 va="bottom",
                 ha="left",
                 fontsize=12,
@@ -899,7 +899,7 @@ class mclass:
 
         offset_voltage = (U_e - U_i) / 20
         self.ax_spectrometer.annotate(
-            f"{self.electric_field:.5g} V/cm",
+            rf"{self.electric_field:.4g} V/cm",
             xy=(-La_e / 3, U_e * 1 / 3 + offset_voltage),
             xytext=(La_i / 3, U_i * 1 / 3 + offset_voltage),
             arrowprops=dict(arrowstyle="->", color="green"),
@@ -917,7 +917,7 @@ class mclass:
         self.ax_spectrometer.text(
             -offset_distance_text,
             U_i / 2,
-            rf"$U_i = {U_i:.5g}\,\mathrm{{V}}$",
+            rf"$U_i = {U_i:.3g}\,\mathrm{{V}}$",
             ha="right",
             va="center",
             fontsize=12,
@@ -933,7 +933,7 @@ class mclass:
         self.ax_spectrometer.text(
             offset_distance_text,
             U_e / 2,
-            r"$U_e$",
+            rf"$U_e = {U_e:.3g}\,\mathrm{{V}}$",
             ha="left",
             va="center",
             fontsize=12,
