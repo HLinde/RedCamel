@@ -21,7 +21,7 @@ authors:
     orcid: 'https://orcid.org/0009-0002-1446-2129'
 repository-code: 'https://codeberg.org/FlashREMI/RedCamel'
 abstract: >-
-  Library and graphical user interface for simulation of 
+  Library and graphical user interface for simulation of
   Reaction Microscope detector images.
 license: GPL-3.0-or-later
 keywords:

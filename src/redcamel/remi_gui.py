@@ -787,7 +787,8 @@ class mclass:
         U_i = self.voltage_ion.get()
         U_e = self.voltage_electron.get()
 
-        z = np.cumsum([0, Ld_i, La_i, La_e, Ld_e])
+        z = np.cumsum([0, Ld_e, La_e, La_i, Ld_i])
+        z -= z[2]  # shift center to zero
 
         if self.fixed_center_potential.get():
             U_0 = 0
@@ -795,12 +796,12 @@ class mclass:
             E = (U_e - U_i) / (La_i + La_e)
             U_0 = U_i + E * La_i
 
-        U = [U_i, U_i, U_0, U_e, U_e]
+        U = [U_e, U_e, U_0, U_i, U_i]
 
         self.ax_spectrometer.text(
             0.2,
             1.05,
-            "Ions",
+            "Electrons",
             transform=self.ax_spectrometer.transAxes,
             ha="center",
             fontsize=15,
@@ -810,7 +811,7 @@ class mclass:
         self.ax_spectrometer.text(
             0.8,
             1.05,
-            "Electrons",
+            "Ions",
             transform=self.ax_spectrometer.transAxes,
             ha="center",
             fontsize=15,
@@ -821,74 +822,103 @@ class mclass:
         self.ax_spectrometer.set_xlabel("z [m]")
         self.ax_spectrometer.set_ylabel("U [V]")
 
-        y_arrow_li = U_i - 10
-        y_arrow_le = U_e + 10
+        total_distance = Ld_e + La_e + La_i + Ld_i
+        y_arrow_li = U_i * 1.05
+        y_text_li = U_i * 1.1
+        y_arrow_le = U_e * 1.05
+        y_text_le = U_e * 1.1
+        self.ax_spectrometer.set_ylim(U_i * 1.3, U_e * 1.25)
+        offset_behind = total_distance / 50
+        self.ax_spectrometer.set_xlim(-(La_e + Ld_e + offset_behind), La_i + Ld_i + offset_behind)
+
+        if Ld_i > 0.0:
+            self.ax_spectrometer.annotate(
+                "",
+                xy=((Ld_i + La_i), y_arrow_li),
+                xytext=(La_i, y_arrow_li),
+                arrowprops=dict(arrowstyle="<->", color="green"),
+            )
+            self.ax_spectrometer.text(
+                La_i + Ld_i * 4 / 5,
+                y_text_li,
+                rf"$L_d = {Ld_i:.3g}\,\mathrm{{m}}$",
+                va="top",
+                ha="right",
+                fontsize=12,
+                color="green",
+            )
 
         self.ax_spectrometer.annotate(
             "",
             xy=(0, y_arrow_li),
-            xytext=(Ld_i, y_arrow_li),
+            xytext=(La_i, y_arrow_li),
             arrowprops=dict(arrowstyle="<->", color="green"),
         )
         self.ax_spectrometer.text(
-            Ld_i / 2, y_arrow_li - 5, "$L_d$", ha="center", fontsize=12, color="green"
-        )
-
-        self.ax_spectrometer.annotate(
-            "",
-            xy=(Ld_i, y_arrow_li),
-            xytext=(Ld_i + La_i, y_arrow_li),
-            arrowprops=dict(arrowstyle="<->", color="green"),
-        )
-        self.ax_spectrometer.text(
-            Ld_i + La_i / 2, y_arrow_li - 5, "$L_a$", ha="center", fontsize=12, color="green"
-        )
-
-        self.ax_spectrometer.annotate(
-            "",
-            xy=(Ld_i + La_i, y_arrow_le),
-            xytext=(Ld_i + La_i + La_e, y_arrow_le),
-            arrowprops=dict(arrowstyle="<->", color="green"),
-        )
-        self.ax_spectrometer.text(
-            Ld_i + La_i + La_e / 2, y_arrow_le + 5, "$L_a$", ha="center", fontsize=12, color="green"
-        )
-
-        self.ax_spectrometer.annotate(
-            "",
-            xy=(Ld_i + La_i + La_e, y_arrow_le),
-            xytext=(Ld_i + La_i + La_e + Ld_e, y_arrow_le),
-            arrowprops=dict(arrowstyle="<->", color="green"),
-        )
-        self.ax_spectrometer.text(
-            Ld_i + La_i + La_e + Ld_e / 2,
-            y_arrow_le + 5,
-            "$L_d$",
+            La_i / 2,
+            y_text_li,
+            rf"$L_a={La_i:.3g}\,\mathrm{{m}} $",
+            va="top",
             ha="center",
             fontsize=12,
             color="green",
         )
 
         self.ax_spectrometer.annotate(
-            f"{self.electric_field:.5g} V/cm",
-            xy=(Ld_i + La_i, (U_i + U_e) / 2),
-            xytext=(Ld_i + La_i + La_e, (U_i + U_e) / 2),
-            textcoords="offset points",
+            "",
+            xy=(0, y_arrow_le),
+            xytext=(-La_e, y_arrow_le),
             arrowprops=dict(arrowstyle="<->", color="green"),
+        )
+        self.ax_spectrometer.text(
+            -La_e / 2,
+            y_text_le,
+            rf"$L_a={La_e:.3g}\,\mathrm{{m}} $",
+            va="bottom",
+            ha="center",
+            fontsize=12,
             color="green",
         )
 
+        if Ld_e > 0.0:
+            self.ax_spectrometer.annotate(
+                "",
+                xy=(-La_e, y_arrow_le),
+                xytext=(-(La_e + Ld_e), y_arrow_le),
+                arrowprops=dict(arrowstyle="<->", color="green"),
+            )
+            self.ax_spectrometer.text(
+                -(La_e + Ld_e * 4 / 5),
+                y_text_le,
+                rf"$L_d = {Ld_e:.3g}\,\mathrm{{m}}$",
+                va="bottom",
+                ha="left",
+                fontsize=12,
+                color="green",
+            )
+
+        offset_voltage = (U_e - U_i) / 20
+        self.ax_spectrometer.annotate(
+            rf"{self.electric_field:.4g} V/cm",
+            xy=(-La_e / 3, U_e * 1 / 3 + offset_voltage),
+            xytext=(La_i / 3, U_i * 1 / 3 + offset_voltage),
+            arrowprops=dict(arrowstyle="->", color="green"),
+            color="green",
+        )
+
+        offset_distance_arrow = total_distance / 50
+        offset_distance_text = total_distance / 30
         self.ax_spectrometer.annotate(
             "",
-            xy=(Ld_i + La_i / 2, 0),
-            xytext=(Ld_i + La_i / 2, U_i),
+            xy=(-offset_distance_arrow, 0),
+            xytext=(-offset_distance_arrow, U_i),
             arrowprops=dict(arrowstyle="<->", color="darkblue", linewidth=2),
         )
         self.ax_spectrometer.text(
-            Ld_i + La_i / 2 + 0.005,
+            -offset_distance_text,
             U_i / 2,
-            r"$U_i$",
-            ha="left",
+            rf"$U_i = {U_i:.3g}\,\mathrm{{V}}$",
+            ha="right",
             va="center",
             fontsize=12,
             color="darkblue",
@@ -896,22 +926,24 @@ class mclass:
 
         self.ax_spectrometer.annotate(
             "",
-            xy=(Ld_i + La_i + La_e / 2, 0),
-            xytext=(Ld_i + La_i + La_e / 2, U_e),
+            xy=(offset_distance_arrow, 0),
+            xytext=(offset_distance_arrow, U_e),
             arrowprops=dict(arrowstyle="<->", color="darkblue", linewidth=2),
         )
         self.ax_spectrometer.text(
-            Ld_i + La_i + La_e / 2 + 0.005,
+            offset_distance_text,
             U_e / 2,
-            r"$U_e$",
+            rf"$U_e = {U_e:.3g}\,\mathrm{{V}}$",
             ha="left",
             va="center",
             fontsize=12,
             color="darkblue",
         )
 
-        boundary = Ld_i + La_i
-        self.ax_spectrometer.axvline(x=boundary, color="black", linewidth=2)
+        self.ax_spectrometer.axvline(Ld_i + La_i, color="black", linewidth=2, zorder=0)
+        self.ax_spectrometer.axvline(-(Ld_e + La_e), color="black", linewidth=2, zorder=0)
+        self.ax_spectrometer.axvline(0, color="black", linewidth=1, zorder=0)
+        self.ax_spectrometer.axhline(0, color="black", linewidth=1, zorder=0)
 
         self.ax_spectrometer.grid(axis="both", linestyle="--", color="gray")
         self.canvas_spectrometer.draw()
