@@ -86,6 +86,20 @@ class RemiCalculator:
         }
         return graph
 
+    def make_graph_for_momentum_calculation(self, mass: sc.Variable, charge: sc.Variable):
+        graph = {
+            # "p_jet": lambda p: self.jet_momentum(p),
+            # "p_trans": lambda p: self.transverse_momentum(p),
+            "p_z": lambda tof: self.p_z(tof, mass, charge),
+            ("p_x", "p_y"): lambda tof, x, y: {
+                label: func
+                for label, func in zip(("p_x", "p_y"), self.p_xy(tof, x, y, mass, charge))
+            },
+            "p_obs": lambda p_x, p_y, p_z: sc.spatial.as_vectors(p_x, p_y, p_z),
+            "energy": lambda p_obs: (0.5 * sc.norm(p_obs) ** 2 / mass).to(unit="eV"),
+        }
+        return graph
+
     def longitudinal_momentum(self, momentum: sc.Variable):
         return sc.dot(momentum, self.field_unitvector)
 
@@ -212,3 +226,56 @@ class RemiCalculator:
 
     def calc_omega(self, mass: sc.Variable, charge: sc.Variable):
         return (charge * self.magnetic_field / mass).to(unit="1/s")
+
+    def p_xy(
+        self,
+        tof: sc.Variable,
+        x: sc.Variable,
+        y: sc.Variable,
+        mass: sc.Variable,
+        charge: sc.Variable,
+    ):
+        if sc.abs(self.magnetic_field).value > 0:
+            omega = self.calc_omega(mass, charge)
+            alpha = (tof * omega).to(unit="dimensionless") * sc.scalar(1, unit="rad")
+            radius = sc.sqrt(x**2 + y**2)
+            p_r = charge * self.magnetic_field * radius / sc.sin(0.5 * alpha)
+            phi = sc.atan2(x=x, y=y) + alpha / 2
+            p_x_lab = p_r * sc.cos(phi)
+            p_y_lab = p_r * sc.sin(phi)
+            v_x = (p_x_lab / mass).to(unit="m/s") - self.v_jet
+            p_x = v_x * mass
+            p_y = p_y_lab
+        else:
+            x = x.to(unit="mm")
+            y = y.to(unit="mm")
+            tof = tof.to(unit="ns")
+            mass = mass.to(unit="kg")
+            charge = charge.to(unit="C")
+            v_x = (x / tof).to(unit="m/s") - self.v_jet
+            v_y = y / tof
+            p_x = mass * v_x
+            p_y = mass * v_y
+        return p_x.to(unit="au momentum"), p_y.to(unit="au momentum")
+
+    def p_z(self, tof: sc.Variable, mass: sc.Variable, charge: sc.Variable):
+        tof = tof.to(unit="ns")
+        mass = mass.to(unit="kg")
+        charge = charge.to(unit="C")
+        acceleration_direction = np.sign(charge.value * self.electric_field.value)
+        if acceleration_direction > 0:
+            length_acceleration = self.length_acceleration_electron
+            length_drift = self.length_drift_electron
+        else:
+            length_acceleration = self.length_acceleration_ion
+            length_drift = self.length_drift_ion
+
+        # TODO add case where particle overcomes opposite acceleration step
+        # TODO add drift case
+        if length_drift > sc.scalar(0, unit="m"):
+            raise NotImplementedError()
+        else:
+            pz = -(mass * length_acceleration / tof).to(unit="au momentum") - (
+                tof * charge * self.electric_field / 2
+            ).to(unit="au momentum")
+        return pz.to(unit="au momentum")
