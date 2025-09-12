@@ -969,11 +969,11 @@ class mclass:
         for detector_radius, detector_offset in [
             (
                 self.detector_diameter_electrons.get() / 2,
-                (self.length_accel_electron.get() + self.length_drift_electron.get()) * 1e3,
+                -(self.length_accel_electron.get() + self.length_drift_electron.get()) * 1e3,
             ),
             (
                 self.detector_diameter_ions.get() / 2,
-                -(self.length_accel_ion.get() + self.length_drift_ion.get()) * 1e3,
+                +(self.length_accel_ion.get() + self.length_drift_ion.get()) * 1e3,
             ),
         ]:
             detector_x = np.sin(detector_points) * detector_radius
@@ -997,13 +997,24 @@ class mclass:
             some_hit = some_hit[dim, index]
 
         tof_value = some_hit.coords["tof"]
+        tof_accel_value = some_hit.coords["tof_accel"]
         if sc.isnan(tof_value):
             return None
         n_steps = 200
         tof_range = sc.linspace("tof", start=tof_value / n_steps, stop=tof_value, num=n_steps)
+        tof_accel_range = sc.where(tof_range > tof_accel_value, tof_accel_value, tof_range)
+        tof_drift_range = sc.where(
+            tof_range > tof_accel_value, tof_range - tof_accel_value, sc.zeros_like(tof_range)
+        )
         starting_momentum = sc.broadcast(some_hit.coords["p"], dims=["tof"], shape=tof_range.shape)
         trajectory = sc.DataArray(
-            data=sc.ones_like(tof_range), coords={"p": starting_momentum, "tof": tof_range}
+            data=sc.ones_like(tof_range),
+            coords={
+                "p": starting_momentum,
+                "tof": tof_range,
+                "tof_accel": tof_accel_range,
+                "tof_drift": tof_drift_range,
+            },
         )
         trajectory = trajectory.transform_coords(
             ["x", "y", "z"], graph=particle.detector_transformation_graph
@@ -1166,11 +1177,10 @@ class mclass:
         R_limit = detector_radius * 1.2
         pos_bins = 100
         tof_bins = 200
-
         self.x_bins_electrons = sc.linspace("x", -R_limit, R_limit, pos_bins)
         self.y_bins_electrons = sc.linspace("y", -R_limit, R_limit, pos_bins)
-        self.tof_bins_electrons = sc.linspace("tof", sc.scalar(0, unit="ns"), tof_limit, tof_bins)
-        self.R_bins_electrons = sc.linspace("R", sc.scalar(0, unit="mm"), R_limit, pos_bins)
+        self.tof_bins_electrons = sc.linspace("tof", sc.scalar(0.0, unit="ns"), tof_limit, tof_bins)
+        self.R_bins_electrons = sc.linspace("R", sc.scalar(0.0, unit="mm"), R_limit, pos_bins)
 
         R_tof_hists = [
             electron.detector_hits.hist(
@@ -1266,9 +1276,9 @@ class mclass:
         remi = self.remicalculator
         test_electron = Electron(remi)
         opposite_voltage = remi.electric_field * remi.length_acceleration_ion
-        energy = opposite_voltage * test_electron.charge
+        energy = -opposite_voltage * test_electron.charge
         absolute_momentum = sc.sqrt(2 * energy * test_electron.mass).to(unit="au momentum")
-        momentum_vector = -remi.field_unitvector * absolute_momentum
+        momentum_vector = remi.field_unitvector * absolute_momentum
         test_electron.momentum_sample = sc.DataArray(
             sc.ones(dims=["p"], shape=(1,)), coords={"p": momentum_vector}
         )
