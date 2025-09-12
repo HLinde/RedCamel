@@ -9,7 +9,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 GUI tool to simulate Reaction Microscope detector images.
 
-Try out the examples: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/HLinde/RedCamel/v0.1.6)
+Try out the examples: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/HLinde/RedCamel/v0.1.7)
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/redcamel)![PyPI - Version](https://img.shields.io/pypi/v/redcamel)![GitHub Release Date](https://img.shields.io/github/release-date/HLinde/RedCamel)![GitHub commits since latest release](https://img.shields.io/github/commits-since/HLinde/RedCamel/latest)
 [![REUSE status](https://api.reuse.software/badge/github.com/HLinde/RedCamel)](https://api.reuse.software/info/github.com/HLinde/RedCamel)
@@ -18,8 +18,8 @@ Try out the examples: [![Binder](https://mybinder.org/badge_logo.svg)](https://m
 
 # Example Outputs
 
-![Electron Wiggles](https://codeberg.org/FlashREMI/RedCamel/media/tag/v0.1.6/Electrons.png)
-![Ion fragmentation](https://codeberg.org/FlashREMI/RedCamel/media/tag/v0.1.6/Ions.png)
+![Electron Wiggles](https://codeberg.org/FlashREMI/RedCamel/media/tag/v0.1.7/Electrons.png)
+![Ion fragmentation](https://codeberg.org/FlashREMI/RedCamel/media/tag/v0.1.7/Ions.png)
 
 # Usage
 
