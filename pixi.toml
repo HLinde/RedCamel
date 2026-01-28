@@ -58,6 +58,7 @@ pytest = ">=8.3"
 pytest-cov = ">=5"
 pytest-sugar = ">=1"
 ruff = ">=0.7"
+pre-commit = ">=4.5.1,<5"
 
 [feature.test.tasks.test]
 description = "Run all python tests"
@@ -73,6 +74,10 @@ cmd = ["ruff", "format", "src/**/*.py", "examples/*.ipynb", "test/**/*.py"]
 [feature.test.tasks.autoformat_markdown]
 description = "Apply automatic markdown formatting rules with prettier"
 cmd = ["npx", "prettier", "--write", "**/*.md"]
+
+[feature.test.tasks.pre-commit]
+description = "Run pre-commit hooks"
+cmd = ["pre-commit", "run"]
 
 [feature.test.tasks.all_checks]
 description = "Run static code analysis, python formatter and markdown formatter."
