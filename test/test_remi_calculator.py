@@ -9,7 +9,13 @@ from scipp import constants
 from scipp.testing import assert_allclose
 
 from redcamel.remi_calculator import RemiCalculator
-from redcamel.remi_particles import Electron, Ion, sample_coulomb_explosion, sample_photoionization
+from redcamel.remi_particles import (
+    Electron,
+    Ion,
+    sample_coulomb_explosion,
+    sample_lonely_particle,
+    sample_photoionization,
+)
 
 
 @pytest.fixture(
@@ -64,6 +70,14 @@ def photoionization_coincidence(remi):
     )
     coin.calculate_detector_hits()
     return coin
+
+
+def test_float_mass_ion(remi):
+    testparticle = Ion(formula=123.456, charge_count=1, remi=remi)
+    sample_lonely_particle(
+        testparticle, sc.scalar(10.0, unit="eV"), sc.scalar(10.0, unit="eV"), sizes={"stuff": 20}
+    )
+    testparticle.calculate_detector_hits()
 
 
 @pytest.fixture

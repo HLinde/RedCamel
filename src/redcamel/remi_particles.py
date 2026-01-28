@@ -21,7 +21,7 @@ class Particle:
 
     def __init__(
         self,
-        formula: ChemFormula,
+        formula: ChemFormula | float,
         charge_count: int,
         remi: RemiCalculator,
         *,
@@ -32,10 +32,16 @@ class Particle:
         self.formula = formula
         if name is None:
             self.name = str(self.formula)
-        self.mass = get_mass(formula)
+        if isinstance(formula, float):
+            self.mass = formula * sc.Unit("u")
+            self.isfromchemformula = False
+        else:
+            assert isinstance(formula, ChemFormula)
+            self.formula.charge = charge_count
+            self.mass = get_mass(formula)
+            self.isfromchemformula = True
         self.charge_count = charge_count
         self.charge = charge_count * sc.constants.e
-        self.formula.charge = charge_count
         self.color = color
         self.energy = energy
         self.remi = remi
@@ -45,8 +51,12 @@ class Particle:
 
     @property
     def latex(self):
-        tex_string = self.formula.latex
-        tex_string = tex_string.replace("textnormal", "text")
+        if self.isfromchemformula:
+            tex_string = self.formula.latex
+            tex_string = tex_string.replace("textnormal", "text")
+        else:
+            mass_amu = self.mass.to(unit="u").value
+            tex_string = rf"M_{{{mass_amu:.1f}}}^{{{self.charge_count}+}}"
         return tex_string
 
     def calculate_detector_hits(self):
@@ -143,7 +153,7 @@ def sample_photoionization(
 
 
 def sample_coulomb_explosion(
-    fragment_formulas: Iterable[ChemFormula],
+    fragment_formulas: Iterable[ChemFormula | float],
     charge_counts: Iterable[int],
     kinetic_energy_release: sc.Variable,
     energy_width: sc.Variable,
@@ -190,7 +200,7 @@ def sample_lonely_particle(
     particle: Particle, energy_mean: sc.Variable, energy_width: sc.Variable, sizes: dict
 ):
     dims, shape = zip(*sizes.items())
-    energy = sc.array(dims=dims, values=np.random.randn(*shape) * energy_width + energy_mean)
+    energy = sc.array(dims=dims, values=np.random.randn(*shape)) * energy_width + energy_mean
     absolute_momentum = sc.sqrt(2 * energy * particle.mass)
     momentum_vectors = sample_random_momentum_vectors(absolute_momentum)
     particle.momentum_sample = sc.DataArray(

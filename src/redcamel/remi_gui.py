@@ -1784,8 +1784,21 @@ class mclass:
     def update_ion_momenta(self):
         self.ion_channels = []
         for i in range(self.active_channels):
-            formulas = [ChemFormula(f.get()) for f in self.formula_variables[i]]
-            name = " + ".join(f.formula for f in formulas)
+            formulas = []
+            for f in self.formula_variables[i]:
+                formula_string = f.get()
+                try:
+                    formula_float = float(formula_string)
+                    formulas.append(formula_float)
+                except ValueError:
+                    formulas.append(ChemFormula(formula_string))
+
+            def get_formula_name(formula):
+                if isinstance(formula, ChemFormula):
+                    return formula.formula
+                return f"M{formula:.2f}"
+
+            name = " + ".join(get_formula_name(f) for f in formulas)
             ker = sc.scalar(float(self.entries_ker[i].get()), unit="eV")
             coin = sample_coulomb_explosion(
                 fragment_formulas=formulas,
