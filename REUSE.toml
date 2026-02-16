@@ -4,11 +4,17 @@ version = 1
 path = [
     "Ions.png",
     "Electrons.png",
-    "src/redcamel/icon.png",
     "examples/redcamel_data.h5",
 ]
 SPDX-FileCopyrightText = "2025 Hannes Lindenblatt"
 SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = [
+    "src/redcamel/icon.png",
+]
+SPDX-FileCopyrightText = "2026 Patrizia Schoch"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
 
 [[annotations]]
 path = [

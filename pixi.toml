@@ -17,7 +17,7 @@ repository = "https://codeberg.org/FlashREMI/RedCamel.git"
 channels = ["conda-forge"]
 name = "redcamel"
 platforms = ["win-64", "linux-64", "osx-arm64", "osx-64"]
-version = "0.1.7"
+version = "0.1.8"
 
 [tasks.redcamel]
 description = "Launch the RedCamel GUI program"
@@ -59,6 +59,7 @@ pytest-cov = ">=5"
 pytest-sugar = ">=1"
 ruff = ">=0.7"
 pre-commit = ">=4.5.1,<5"
+reuse = ">=5.1.1,<7"
 
 [feature.test.tasks.test]
 description = "Run all python tests"
@@ -75,6 +76,10 @@ cmd = ["ruff", "format", "src/**/*.py", "examples/*.ipynb", "test/**/*.py"]
 description = "Apply automatic markdown formatting rules with prettier"
 cmd = ["npx", "prettier", "--write", "**/*.md"]
 
+[feature.test.tasks.reuse_lint]
+description = "Check licenses with reuse"
+cmd = ["reuse", "lint"]
+
 [feature.test.tasks.pre-commit]
 description = "Run pre-commit hooks"
 cmd = ["pre-commit", "run"]
@@ -85,4 +90,5 @@ depends-on = [
     {task = "code_analysis"},
     {task = "autoformat_python"},
     {task = "autoformat_markdown"},
+    {task = "reuse_lint"},
 ]
