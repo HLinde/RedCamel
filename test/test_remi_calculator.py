@@ -94,9 +94,10 @@ def test_unity_transform_p_xyz(coincidence_test_cases):
                 particle.mass, particle.charge
             )
             hits = hits.transform_coords(["energy"], graph=converter_graph)
-            assert_allclose(hits.coords["p_z"], hits.coords["p_long"])
-            assert_allclose(hits.coords["p_x"], hits.coords["p_jet"])
-            assert_allclose(hits.coords["p_y"], hits.coords["p_trans"])
+            momentum_tolerance = sc.scalar(1e-12, unit="au momentum")
+            assert_allclose(hits.coords["p_z"], hits.coords["p_long"], atol=momentum_tolerance)
+            assert_allclose(hits.coords["p_x"], hits.coords["p_jet"], atol=momentum_tolerance)
+            assert_allclose(hits.coords["p_y"], hits.coords["p_trans"], atol=momentum_tolerance)
 
 
 def test_particles_at_detector(coincidence_test_cases):
