@@ -66,13 +66,22 @@ class Particle:
 
     def calculate_detector_hits(self):
         self.detector_hits = self.momentum_sample.transform_coords(
-            ["x", "y", "tof", "R"], graph=self.detector_transformation_graph
+            ["x", "y", "tof", "alpha", "R"], graph=self.detector_transformation_graph
         )
 
     def calculate_momenta(self):
         self.momenta = self.detector_hits.transform_coords(
             ["energy", "p_obs"], graph=self.momentum_transformation_graph
         )
+
+    def set_wiggle_mask(self, threshold):
+        if self.detector_hits is None:
+            raise AttributeError("The wiggle mask can not be calculated without detector hits.")
+        else:
+            wiggle_mask = sc.abs(sc.sin(self.detector_hits.coords["alpha"] / 2)) < threshold
+            self.detector_hits.masks["close to wiggle"] = wiggle_mask
+        if self.momenta is not None:
+            self.momenta.masks["close to wiggle"] = wiggle_mask
 
 
 class Electron(Particle):
@@ -126,6 +135,10 @@ class Coincidence:
         for part in self.particles.values():
             part.calculate_momenta()
 
+    def set_wiggle_mask(self, threshold):
+        for electron in self.electrons.values():
+            electron.set_wiggle_mask(threshold)
+
     @property
     def detector_hits(self) -> sc.DataGroup:
         return sc.DataGroup({name: part.detector_hits for name, part in self.particles.items()})
@@ -173,13 +186,14 @@ def sample_photoionization(
         sc.scalar(np.nan, unit="eV"),  # those electrons didn't make it out of the atom
         kinetic_energy,
     )
-
-    ion = Ion(atom_formula, charge_count=1, remi=remi, color=color)
+    atom_formula.charge += 1
+    ion = Ion(atom_formula, charge_count=atom_formula.charge, remi=remi, color=color)
     electron = Electron(remi=remi)
 
     if name is None:
         name = "_".join([ion.name, electron.name])
     sample_two_body_fragmentation(kinetic_energy, ion, electron)
+    # TODO add photon momentum to fragments
 
     return Coincidence(name, ions=[ion], electrons=[electron])
 
@@ -247,10 +261,12 @@ def sample_two_body_fragmentation(
     momentum_1 = sample_random_momentum_vectors(absolute_momentum)
     momentum_2 = -momentum_1
     particle_1.momentum_sample = sc.DataArray(
-        data=sc.ones(sizes=kinetic_energy.sizes), coords={"p": momentum_1}
+        data=sc.ones(sizes=kinetic_energy.sizes),
+        coords={"p": momentum_1, "mass": particle_1.mass, "charge": particle_1.charge},
     )
     particle_2.momentum_sample = sc.DataArray(
-        data=sc.ones(sizes=kinetic_energy.sizes), coords={"p": momentum_2}
+        data=sc.ones(sizes=kinetic_energy.sizes),
+        coords={"p": momentum_2, "mass": particle_2.mass, "charge": particle_2.charge},
     )
 
 

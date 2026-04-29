@@ -16,6 +16,7 @@ from redcamel.remi_particles import (
     sample_lonely_particle,
     sample_photoionization,
 )
+from redcamel.units import get_mass
 
 
 @pytest.fixture(
@@ -280,3 +281,41 @@ def test_half_rotating_electron():
     )
     # Looking from above, negative charges go clockwise at positive magnetic field
     assert_allclose(y, -2 * cyclotron_radius.to(unit="m"))
+
+
+def test_half_rotating_proton():
+    cyclotron_period = sc.scalar(2.0, unit="s")
+    ion_formula = ChemFormula("H", charge=1)
+    magnetic_field = 2 * np.pi * get_mass(ion_formula) / (constants.e * cyclotron_period)
+    remi = RemiCalculator(
+        length_acceleration_ion=sc.scalar(1.0, unit="m"),
+        length_drift_ion=sc.scalar(0.0, unit="m"),
+        voltage_ion=sc.scalar(-1e-30, unit="V"),
+        length_acceleration_electron=sc.scalar(1.0, unit="m"),
+        length_drift_electron=sc.scalar(0.0, unit="m"),
+        voltage_electron=sc.scalar(+1e-30, unit="V"),
+        v_jet=sc.scalar(0.0, unit="m/s"),
+        magnetic_field=magnetic_field.to(unit="G"),
+        resolution_x=resolution_x,
+        resolution_y=resolution_y,
+        resolution_tof=resolution_tof,
+        jet_direction="+x",
+        field_direction="+z",
+    )
+    tester = Ion(formula=ion_formula, charge_count=ion_formula.charge, remi=remi)
+    v_vec = sc.vectors(dims=["p"], values=[[1.0, 0.0, +1.0]], unit="m/s")
+    p_vec = v_vec * tester.mass
+    p_vec = p_vec.to(unit="au momentum")
+    tester.momentum_sample = sc.DataArray(data=sc.ones(sizes=p_vec.sizes), coords={"p": p_vec})
+    tester.calculate_detector_hits()
+    hits = tester.detector_hits
+    tof = hits.coords["tof"].to(unit="s")
+    x = hits.coords["x"].to(unit="m")
+    y = hits.coords["y"].to(unit="m")
+    assert_allclose(tof, sc.ones_like(tof))
+    assert_allclose(x, sc.zeros_like(x), atol=sc.scalar(1e-15, unit="m"))
+    cyclotron_radius = sc.sqrt(p_vec.fields.x**2 + p_vec.fields.y**2) / (
+        constants.e * magnetic_field
+    )
+    # Looking from above, positive charges go counter-clockwise at positive magnetic field
+    assert_allclose(y, 2 * cyclotron_radius.to(unit="m"))

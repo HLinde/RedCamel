@@ -103,6 +103,7 @@ class RemiCalculator:
             "z": lambda p_long, tof, tof_accel, tof_drift: self.position_longitudinal(
                 p_long, tof, tof_accel, tof_drift, mass, charge
             ),
+            "alpha": lambda tof: self.calc_alpha(tof=tof, mass=mass, charge=charge),
         }
         return graph
 
@@ -180,24 +181,23 @@ class RemiCalculator:
         p_x = momentum_jet + (self.v_jet * mass).to(unit="au momentum")
         p_y = momentum_transverse
         assert p_x.dims == p_y.dims
-        dims = p_x.dims
 
         # Cyclotron motion or linear motion?
         if sc.abs(self.magnetic_field) > 0 * sc.Unit("T"):
             p_xy = sc.sqrt(p_x**2 + p_y**2)
             phi = sc.atan2(x=p_x, y=p_y)  # angle in xy-plane towards jet-direction
-            omega = self.calc_omega(mass, charge)
 
             # Alpha/2 has to be periodic in 1*pi!
             # sign of alpha is important as it gives the direction of deflection
             # The sign has to be included also in the modulo operation!
-            alpha = (omega.to(unit="1/s") * tof.to(unit="s")).values
-            alpha = alpha % (np.sign(alpha) * 2 * np.pi)
-            alpha = sc.array(dims=dims, values=alpha, unit="rad")
+            alpha = self.calc_alpha(tof=tof, mass=mass, charge=charge)
 
-            theta = phi + (alpha / 2)
+            if self.magnetic_field * charge > 0 * sc.Unit("T*C"):
+                theta = phi + (alpha / 2)
+            else:
+                theta = phi - (alpha / 2)
             # Here the signs of alpha, charge and magnetic_field cancel out so R is positive :)
-            R = (2 * p_xy * sc.sin(alpha / 2)) / (charge * self.magnetic_field)
+            R = (2 * p_xy * sc.abs(sc.sin(alpha / 2))) / (charge * self.magnetic_field)
             x = R * sc.cos(theta)
             y = R * sc.sin(theta)
         else:  # For small magnetic field it reduces to this linear motion:
@@ -242,6 +242,11 @@ class RemiCalculator:
     def calc_omega(self, mass: sc.Variable, charge: sc.Variable):
         return (charge * self.magnetic_field / mass).to(unit="1/s")
 
+    def calc_alpha(self, tof: sc.Variable, mass: sc.Variable, charge: sc.Variable):
+        omega = self.calc_omega(mass, charge)
+        alpha = (tof * omega).to(unit="dimensionless") * sc.scalar(1, unit="rad")
+        return alpha
+
     def p_xy(
         self,
         tof: sc.Variable,
@@ -250,15 +255,12 @@ class RemiCalculator:
         mass: sc.Variable,
         charge: sc.Variable,
     ):
-        if sc.abs(self.magnetic_field).value > 0:
-            omega = self.calc_omega(mass, charge)
-            alpha = (tof * omega).to(unit="dimensionless") * sc.scalar(1, unit="rad")
-            alpha = alpha % (
-                sc.array(dims=alpha.dims, values=np.sign(alpha.values) * 2 * np.pi, unit="rad")
-            )
+        if sc.abs(self.magnetic_field) > 0 * sc.Unit("T"):
+            alpha = self.calc_alpha(tof=tof, mass=mass, charge=charge)
             radius = sc.sqrt(x**2 + y**2)
-            p_r = charge * self.magnetic_field * radius / sc.sin(0.5 * alpha) / 2
-            phi = sc.atan2(x=x, y=y) - alpha / 2
+            p_r = charge * self.magnetic_field * radius / sc.abs(sc.sin(alpha / 2)) / 2
+            sign = -1 if self.magnetic_field * charge > 0 * sc.Unit("T*C") else +1
+            phi = sc.atan2(x=x, y=y) + sign * alpha / 2
             p_x_lab = p_r * sc.cos(phi)
             p_y_lab = p_r * sc.sin(phi)
             v_x = (p_x_lab / mass).to(unit="m/s") - self.v_jet
