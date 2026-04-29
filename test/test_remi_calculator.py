@@ -25,6 +25,11 @@ def magnet_settings(request):
     return {"magnetic_field": (request.param, "G")}
 
 
+resolution_x = sc.scalar(0.0, unit="mm")
+resolution_y = sc.scalar(0.0, unit="mm")
+resolution_tof = sc.scalar(0.0, unit="ns")
+
+
 @pytest.fixture
 def remi(magnet_settings):
     kwargs = {}
@@ -38,6 +43,9 @@ def remi(magnet_settings):
         length_drift_electron=sc.scalar(0.0, unit="m"),
         voltage_electron=sc.scalar(+20.0, unit="V"),
         v_jet=sc.scalar(1.0, unit="m/s"),
+        resolution_x=resolution_x,
+        resolution_y=resolution_y,
+        resolution_tof=resolution_tof,
         jet_direction="+x",
         field_direction="+z",
         **kwargs,
@@ -126,6 +134,9 @@ def test_drifting_electron():
         voltage_electron=sc.scalar(+1e-30, unit="V"),
         v_jet=sc.scalar(0.0, unit="m/s"),
         magnetic_field=sc.scalar(0.0, unit="G"),
+        resolution_x=resolution_x,
+        resolution_y=resolution_y,
+        resolution_tof=resolution_tof,
         jet_direction="+x",
         field_direction="+z",
     )
@@ -153,6 +164,9 @@ def test_drifting_ion():
         voltage_electron=sc.scalar(+1e-30, unit="V"),
         v_jet=sc.scalar(0.0, unit="m/s"),
         magnetic_field=sc.scalar(0.0, unit="G"),
+        resolution_x=resolution_x,
+        resolution_y=resolution_y,
+        resolution_tof=resolution_tof,
         jet_direction="+x",
         field_direction="+z",
     )
@@ -182,6 +196,9 @@ def test_full_rotating_electron():
         voltage_electron=sc.scalar(+1e-30, unit="V"),
         v_jet=sc.scalar(0.0, unit="m/s"),
         magnetic_field=magnetic_field.to(unit="G"),
+        resolution_x=resolution_x,
+        resolution_y=resolution_y,
+        resolution_tof=resolution_tof,
         jet_direction="+x",
         field_direction="+z",
     )
@@ -212,6 +229,9 @@ def test_half_rotating_electron():
         voltage_electron=sc.scalar(+1e-30, unit="V"),
         v_jet=sc.scalar(0.0, unit="m/s"),
         magnetic_field=magnetic_field.to(unit="G"),
+        resolution_x=resolution_x,
+        resolution_y=resolution_y,
+        resolution_tof=resolution_tof,
         jet_direction="+x",
         field_direction="+z",
     )

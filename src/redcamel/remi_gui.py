@@ -83,6 +83,9 @@ class RemiCalculatorTk(RemiCalculator):
         self.v_jet_tkvariable = v_jet_tkvariable
         self.jet_direction = "+x"
         self.field_direction = "+z"
+        self.resolution_x = sc.scalar(0.0, unit="mm")
+        self.resolution_y = sc.scalar(0.0, unit="mm")
+        self.resolution_tof = sc.scalar(0.0, unit="ns")
 
     @property
     def length_acceleration_ion(self):

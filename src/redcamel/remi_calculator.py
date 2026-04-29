@@ -32,8 +32,12 @@ class RemiCalculator:
         voltage_electron: sc.Variable,
         magnetic_field: sc.Variable,
         v_jet: sc.Variable,
+        resolution_x: sc.Variable,
+        resolution_y: sc.Variable,
+        resolution_tof: sc.Variable,
         jet_direction: CoordinateDirection = "+x",
         field_direction: CoordinateDirection = "+z",
+        projectile_direction: CoordinateDirection = "-y",
     ):
         self.length_acceleration_ion = length_acceleration_ion
         self.length_drift_ion = length_drift_ion
@@ -45,6 +49,10 @@ class RemiCalculator:
         self.v_jet = v_jet
         self.jet_direction = jet_direction
         self.field_direction = field_direction
+        self.projectile_direction = projectile_direction
+        self.resolution_x = resolution_x
+        self.resolution_y = resolution_y
+        self.resolution_tof = resolution_tof
 
     @property
     def jet_unitvector(self):
@@ -53,6 +61,10 @@ class RemiCalculator:
     @property
     def field_unitvector(self):
         return axis_vectors[self.field_direction]
+
+    @property
+    def projectile_unitvector(self):
+        return axis_vectors[self.projectile_direction]
 
     @property
     def transverse_unitvector(self):
@@ -75,7 +87,10 @@ class RemiCalculator:
             "p_jet": self.jet_momentum,
             "p_trans": self.transverse_momentum,
             "p_long": self.longitudinal_momentum,
-            "tof": lambda tof_accel, tof_drift: tof_accel + tof_drift,
+            "tof": lambda tof_accel, tof_drift, tof_resolution: tof_accel
+            + tof_drift
+            + tof_resolution,
+            "tof_resolution": lambda tof_accel: self.sample_resolution_tof(tof_accel),
             ("tof_accel", "tof_drift"): lambda p_long: self.tof_in_parts(p_long, mass, charge),
             ("x", "y", "R"): lambda tof, p_jet, p_trans: {
                 label: func
@@ -190,7 +205,14 @@ class RemiCalculator:
             v_y = p_y / mass
             x = v_x * tof
             y = v_y * tof
-            R = sc.sqrt(x**2 + y**2)
+
+        x += sc.array(dims=x.dims, values=np.random.randn(*x.shape)) * self.resolution_x.to(
+            unit=x.unit
+        )
+        y += sc.array(dims=y.dims, values=np.random.randn(*y.shape)) * self.resolution_y.to(
+            unit=y.unit
+        )
+        R = sc.sqrt(x**2 + y**2)
         return x.to(unit="mm"), y.to(unit="mm"), R.to(unit="mm")
 
     def position_longitudinal(
@@ -275,3 +297,9 @@ class RemiCalculator:
                 unit="au momentum"
             ) - (tof * charge * self.electric_field / 2).to(unit="au momentum")
         return pz.to(unit="au momentum")
+
+    def sample_resolution_tof(self, tof_accel):
+        return (
+            sc.array(dims=tof_accel.dims, values=np.random.randn(*tof_accel.shape))
+            * self.resolution_tof
+        )
