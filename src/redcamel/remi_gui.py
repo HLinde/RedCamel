@@ -1462,7 +1462,7 @@ class mclass:
             predefined_kers[i] = ker
 
         def write_callback_ion_channels(var, index, mode):
-            self.generate_ion_channels()
+            self.update_ion_momenta()
 
         def write_callback_ion_plot(var, index, mode):
             self.make_ion_pipico_plot()
@@ -1782,7 +1782,7 @@ class mclass:
     def update_electron_detector_signals(self):
         groupgroup = self.datagroup["electronsim"] = sc.DataGroup()
         for coin in self.electron_tab_coincidences:
-            groupgroup[coin.name] = coin.datagroup
+            groupgroup[coin.name] = coin.detector_hits
 
     def update_ion_momenta(self):
         self.ion_channels = []
@@ -1837,7 +1837,7 @@ class mclass:
         coins = self.ion_channels
         groupgroup = self.datagroup["coulombexplosions"] = sc.DataGroup()
         for coin in coins:
-            groupgroup[coin.name] = coin.datagroup
+            groupgroup[coin.name] = coin.detector_hits
 
     def init_dataset(self):
         n_samples = self.number_of_particles.get()

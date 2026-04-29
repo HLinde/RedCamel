@@ -16,8 +16,8 @@ from .units import get_mass
 
 
 class Particle:
-    momentum_sample: sc.DataArray
-    detector_hits: sc.DataArray
+    momentum_sample: sc.DataArray | None
+    detector_hits: sc.DataArray | None
 
     def __init__(
         self,
@@ -48,6 +48,11 @@ class Particle:
         self.detector_transformation_graph = remi.make_scipp_graph_for_detector(
             self.mass, self.charge
         )
+        self.momentum_transformation_graph = remi.make_graph_for_momentum_calculation(
+            self.mass, self.charge
+        )
+        self.detector_hits = None
+        self.momentum_sample = None
 
     @property
     def latex(self):
@@ -62,6 +67,11 @@ class Particle:
     def calculate_detector_hits(self):
         self.detector_hits = self.momentum_sample.transform_coords(
             ["x", "y", "tof", "R"], graph=self.detector_transformation_graph
+        )
+
+    def calculate_momenta(self):
+        self.momenta = self.detector_hits.transform_coords(
+            ["energy", "p_obs"], graph=self.momentum_transformation_graph
         )
 
 
@@ -112,9 +122,31 @@ class Coincidence:
         for part in self.particles.values():
             part.calculate_detector_hits()
 
+    def calculate_momenta(self):
+        for part in self.particles.values():
+            part.calculate_momenta()
+
     @property
-    def datagroup(self) -> sc.DataGroup:
+    def detector_hits(self) -> sc.DataGroup:
         return sc.DataGroup({name: part.detector_hits for name, part in self.particles.items()})
+
+    @property
+    def momenta(self) -> sc.DataGroup:
+        return sc.DataGroup({name: part.momenta for name, part in self.particles.items()})
+
+    @property
+    def momentum_sum(self) -> sc.DataArray:
+        momentum_sum = None
+        for thing in self.momenta.values():
+            momenta = thing.drop_coords(
+                ["R", "energy", "tof", "tof_accel", "tof_drift", "tof_resolution", "x", "y"]
+            )
+            if momentum_sum is None:
+                momentum_sum = momenta
+            else:
+                for key in momenta.coords:
+                    momentum_sum.coords[key] += momenta.coords[key]
+        return momentum_sum
 
 
 def sample_photoionization(
