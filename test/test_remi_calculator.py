@@ -95,13 +95,9 @@ def coincidence_test_cases(photoionization_coincidence, nitrogen_coincidence):
 
 def test_unity_transform_p_xyz(coincidence_test_cases):
     for coin in coincidence_test_cases:
-        for particle_name, particle in coin.particles.items():
-            hits = coin.datagroup[particle_name]
-            remi = particle.remi
-            converter_graph = remi.make_graph_for_momentum_calculation(
-                particle.mass, particle.charge
-            )
-            hits = hits.transform_coords(["energy"], graph=converter_graph)
+        coin.calculate_momenta()
+        for _, particle in coin.particles.items():
+            hits = particle.momenta
             momentum_tolerance = sc.scalar(1e-12, unit="au momentum")
             assert_allclose(hits.coords["p_z"], hits.coords["p_long"], atol=momentum_tolerance)
             assert_allclose(hits.coords["p_x"], hits.coords["p_jet"], atol=momentum_tolerance)
@@ -111,7 +107,7 @@ def test_unity_transform_p_xyz(coincidence_test_cases):
 def test_particles_at_detector(coincidence_test_cases):
     for coin in coincidence_test_cases:
         for particle_name, particle in coin.particles.items():
-            hits = coin.datagroup[particle_name]
+            hits = coin.detector_hits[particle_name]
             remi = particle.remi
             hits = hits.transform_coords(["z"], graph=particle.detector_transformation_graph)
             z = hits.coords["z"]
@@ -152,6 +148,37 @@ def test_drifting_electron():
     y = hits.coords["y"].to(unit="m")
     for coord in [x, y, tof]:
         assert_allclose(coord, sc.ones_like(coord))
+
+
+def test_accelerated_electron():
+    remi = RemiCalculator(
+        length_acceleration_ion=sc.scalar(1.0, unit="m"),
+        length_drift_ion=sc.scalar(0.0, unit="m"),
+        voltage_ion=sc.scalar(-1.0, unit="V"),
+        length_acceleration_electron=sc.scalar(1.0, unit="m"),
+        length_drift_electron=sc.scalar(0.0, unit="m"),
+        voltage_electron=sc.scalar(1.0, unit="V"),
+        v_jet=sc.scalar(0.0, unit="m/s"),
+        magnetic_field=sc.scalar(0.0, unit="G"),
+        resolution_x=resolution_x,
+        resolution_y=resolution_y,
+        resolution_tof=resolution_tof,
+        jet_direction="+x",
+        field_direction="+z",
+    )
+    tester = Electron(remi=remi)
+    v_vec = sc.vectors(dims=["p"], values=[[0.0, 0.0, 0.0]], unit="m/s")
+    p_vec = v_vec * tester.mass
+    p_vec = p_vec.to(unit="au momentum")
+    tester.momentum_sample = sc.DataArray(data=sc.ones(sizes=p_vec.sizes), coords={"p": p_vec})
+    tester.calculate_detector_hits()
+    hits = tester.detector_hits
+    tof = hits.coords["tof"].to(unit="s")
+    x = hits.coords["x"].to(unit="m")
+    y = hits.coords["y"].to(unit="m")
+    assert_allclose(tof, sc.ones_like(tof) * 3.372129924e-6)
+    for coord in [x, y]:
+        assert_allclose(coord, sc.zeros_like(coord))
 
 
 def test_drifting_ion():
