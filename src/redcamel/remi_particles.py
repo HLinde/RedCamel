@@ -151,9 +151,9 @@ class Coincidence:
     def momentum_sum(self) -> sc.DataArray:
         momentum_sum = None
         for thing in self.momenta.values():
-            momenta = thing.drop_coords(
-                ["R", "energy", "tof", "tof_accel", "tof_drift", "tof_resolution", "x", "y"]
-            )
+            all_coords = thing.coords.keys()
+            filtered_coord_keys = [key for key in all_coords if key not in ["p_x", "p_y", "p_z"]]
+            momenta = thing.drop_coords(filtered_coord_keys)
             if momentum_sum is None:
                 momentum_sum = momenta
             else:

@@ -87,30 +87,33 @@ class RemiCalculator:
             "p_jet": self.jet_momentum,
             "p_trans": self.transverse_momentum,
             "p_long": self.longitudinal_momentum,
-            "tof": lambda tof_accel, tof_drift, tof_resolution: tof_accel
-            + tof_drift
-            + tof_resolution,
-            "tof_resolution": lambda tof_accel: self.sample_resolution_tof(tof_accel),
+            # calculate true hit positions
             ("tof_accel", "tof_drift"): lambda p_long: self.tof_in_parts(p_long, mass, charge),
-            ("x", "y", "R"): lambda tof, p_jet, p_trans: {
+            "tof_true": lambda tof_accel, tof_drift: tof_accel + tof_drift,
+            ("x_true", "y_true", "R_true", "alpha_true"): lambda tof_true, p_jet, p_trans: {
                 label: func
                 for label, func in zip(
-                    ("x", "y", "R"),
-                    self.hit_position_xyR(tof, p_jet, p_trans, mass, charge),
+                    ("x_true", "y_true", "R_true", "alpha_true"),
+                    self.hit_position_xyRa(tof_true, p_jet, p_trans, mass, charge),
                     strict=True,
                 )
             },
-            "z": lambda p_long, tof, tof_accel, tof_drift: self.position_longitudinal(
-                p_long, tof, tof_accel, tof_drift, mass, charge
-            ),
+            # add noise to simulate finite detector resolution:
+            "tof": lambda tof_true: tof_true + self.sample_resolution_tof(tof_true),
+            ("x", "y", "R"): lambda x_true, y_true: {
+                label: func
+                for label, func in zip(("x", "y", "R"), self.sample_resolution_pos(x_true, y_true))
+            },
             "alpha": lambda tof: self.calc_alpha(tof=tof, mass=mass, charge=charge),
+            # helper to calculate position along the time of flight:
+            "z": lambda p_long, tof_true, tof_accel, tof_drift: self.position_longitudinal(
+                p_long, tof_true, tof_accel, tof_drift, mass, charge
+            ),
         }
         return graph
 
     def make_graph_for_momentum_calculation(self, mass: sc.Variable, charge: sc.Variable):
         graph = {
-            # "p_jet": lambda p: self.jet_momentum(p),
-            # "p_trans": lambda p: self.transverse_momentum(p),
             "p_z": lambda tof: self.p_z(tof, mass, charge),
             ("p_x", "p_y"): lambda tof, x, y: {
                 label: func
@@ -170,7 +173,7 @@ class RemiCalculator:
         )
         return {"tof_accel": tof_accel, "tof_drift": tof_drift}
 
-    def hit_position_xyR(
+    def hit_position_xyRa(
         self,
         tof: sc.Variable,
         momentum_jet: sc.Variable,
@@ -187,17 +190,10 @@ class RemiCalculator:
             p_xy = sc.sqrt(p_x**2 + p_y**2)
             phi = sc.atan2(x=p_x, y=p_y)  # angle in xy-plane towards jet-direction
 
-            # Alpha/2 has to be periodic in 1*pi!
-            # sign of alpha is important as it gives the direction of deflection
-            # The sign has to be included also in the modulo operation!
             alpha = self.calc_alpha(tof=tof, mass=mass, charge=charge)
+            theta = phi + (alpha / 2)
 
-            if self.magnetic_field * charge > 0 * sc.Unit("T*C"):
-                theta = phi + (alpha / 2)
-            else:
-                theta = phi - (alpha / 2)
-            # Here the signs of alpha, charge and magnetic_field cancel out so R is positive :)
-            R = (2 * p_xy * sc.abs(sc.sin(alpha / 2))) / (charge * self.magnetic_field)
+            R = sc.abs((2 * p_xy * sc.sin(alpha / 2)) / (charge * self.magnetic_field))
             x = R * sc.cos(theta)
             y = R * sc.sin(theta)
         else:  # For small magnetic field it reduces to this linear motion:
@@ -205,13 +201,17 @@ class RemiCalculator:
             v_y = p_y / mass
             x = v_x * tof
             y = v_y * tof
+            alpha = sc.ones_like(tof, unit="rad")
+        R = sc.sqrt(x**2 + y**2)
+        return x.to(unit="mm"), y.to(unit="mm"), R.to(unit="mm"), alpha.to(unit="rad")
 
-        x += sc.array(dims=x.dims, values=np.random.randn(*x.shape)) * self.resolution_x.to(
-            unit=x.unit
-        )
-        y += sc.array(dims=y.dims, values=np.random.randn(*y.shape)) * self.resolution_y.to(
-            unit=y.unit
-        )
+    def sample_resolution_pos(self, x_true, y_true):
+        x = x_true + sc.array(
+            dims=x_true.dims, values=np.random.randn(*x_true.shape)
+        ) * self.resolution_x.to(unit=x_true.unit)
+        y = y_true + sc.array(
+            dims=y_true.dims, values=np.random.randn(*y_true.shape)
+        ) * self.resolution_y.to(unit=y_true.unit)
         R = sc.sqrt(x**2 + y**2)
         return x.to(unit="mm"), y.to(unit="mm"), R.to(unit="mm")
 
@@ -258,9 +258,8 @@ class RemiCalculator:
         if sc.abs(self.magnetic_field) > 0 * sc.Unit("T"):
             alpha = self.calc_alpha(tof=tof, mass=mass, charge=charge)
             radius = sc.sqrt(x**2 + y**2)
-            p_r = charge * self.magnetic_field * radius / sc.abs(sc.sin(alpha / 2)) / 2
-            sign = -1 if self.magnetic_field * charge > 0 * sc.Unit("T*C") else +1
-            phi = sc.atan2(x=x, y=y) + sign * alpha / 2
+            p_r = sc.abs(charge * self.magnetic_field * radius / sc.sin(alpha / 2) / 2)
+            phi = sc.atan2(x=x, y=y) - alpha / 2
             p_x_lab = p_r * sc.cos(phi)
             p_y_lab = p_r * sc.sin(phi)
             v_x = (p_x_lab / mass).to(unit="m/s") - self.v_jet

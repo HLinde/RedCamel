@@ -212,6 +212,44 @@ def test_drifting_ion():
         assert_allclose(coord, sc.ones_like(coord))
 
 
+def test_accelerated_ion():
+    helium_formula = ChemFormula("He", charge=1)
+    one_second_voltage = (
+        2
+        * get_mass(helium_formula)
+        * sc.scalar(1.0, unit="m") ** 2
+        / sc.scalar(1.0, unit="s") ** 2
+        / sc.scalar(1.0, unit="e")
+    ).to(unit="V")
+    remi = RemiCalculator(
+        length_acceleration_ion=sc.scalar(1.0, unit="m"),
+        length_drift_ion=sc.scalar(0.0, unit="m"),
+        voltage_ion=-one_second_voltage,
+        length_acceleration_electron=sc.scalar(1.0, unit="m"),
+        length_drift_electron=sc.scalar(0.0, unit="m"),
+        voltage_electron=one_second_voltage,
+        v_jet=sc.scalar(0.5, unit="m/s"),
+        magnetic_field=sc.scalar(0.0, unit="G"),
+        resolution_x=resolution_x,
+        resolution_y=resolution_y,
+        resolution_tof=resolution_tof,
+        jet_direction="+x",
+        field_direction="+z",
+    )
+    tester = Ion(helium_formula, helium_formula.charge, remi=remi)
+    v_vec = sc.vectors(dims=["p"], values=[[0.5, 1.0, 0.0]], unit="m/s")
+    p_vec = v_vec * tester.mass
+    p_vec = p_vec.to(unit="au momentum")
+    tester.momentum_sample = sc.DataArray(data=sc.ones(sizes=p_vec.sizes), coords={"p": p_vec})
+    tester.calculate_detector_hits()
+    hits = tester.detector_hits
+    tof = hits.coords["tof"].to(unit="s")
+    x = hits.coords["x"].to(unit="m")
+    y = hits.coords["y"].to(unit="m")
+    for coord in [x, y, tof]:
+        assert_allclose(coord, sc.ones_like(coord))
+
+
 def test_full_rotating_electron():
     cyclotron_period = sc.scalar(1.0, unit="s")
     magnetic_field = 2 * np.pi * constants.m_e / (constants.e * cyclotron_period)
@@ -240,7 +278,7 @@ def test_full_rotating_electron():
     tof = hits.coords["tof"].to(unit="s")
     x = hits.coords["x"].to(unit="m")
     y = hits.coords["y"].to(unit="m")
-    assert_allclose(tof, sc.ones_like(tof))
+    assert_allclose(tof, sc.ones_like(tof), atol=sc.scalar(1e-15, unit="s"))
     for coord in [x, y]:
         assert_allclose(coord, sc.zeros_like(coord), atol=sc.scalar(1e-15, unit="m"))
 
@@ -281,6 +319,7 @@ def test_half_rotating_electron():
     )
     # Looking from above, negative charges go clockwise at positive magnetic field
     assert_allclose(y, -2 * cyclotron_radius.to(unit="m"))
+    assert_allclose(hits.coords["alpha"], -sc.ones_like(hits.coords["alpha"]) * np.pi)
 
 
 def test_half_rotating_proton():
@@ -319,3 +358,70 @@ def test_half_rotating_proton():
     )
     # Looking from above, positive charges go counter-clockwise at positive magnetic field
     assert_allclose(y, 2 * cyclotron_radius.to(unit="m"))
+    assert_allclose(hits.coords["alpha"], sc.ones_like(hits.coords["alpha"]) * np.pi)
+
+
+def test_low_magnetic_field_limit():
+    cyclotron_period = sc.scalar(1.0, unit="s")
+    magnetic_field = 2 * np.pi * constants.m_e / (constants.e * cyclotron_period) * 1e-9
+    remi_with_almost_no_field = RemiCalculator(
+        length_acceleration_ion=sc.scalar(1.0, unit="m"),
+        length_drift_ion=sc.scalar(0.0, unit="m"),
+        voltage_ion=sc.scalar(-1e-30, unit="V"),
+        length_acceleration_electron=sc.scalar(1.0, unit="m"),
+        length_drift_electron=sc.scalar(0.0, unit="m"),
+        voltage_electron=sc.scalar(+1e-30, unit="V"),
+        v_jet=sc.scalar(0.0, unit="m/s"),
+        magnetic_field=magnetic_field.to(unit="G"),
+        resolution_x=resolution_x,
+        resolution_y=resolution_y,
+        resolution_tof=resolution_tof,
+        jet_direction="+x",
+        field_direction="+z",
+    )
+    remi_with_exactly_no_field = RemiCalculator(
+        length_acceleration_ion=sc.scalar(1.0, unit="m"),
+        length_drift_ion=sc.scalar(0.0, unit="m"),
+        voltage_ion=sc.scalar(-1e-30, unit="V"),
+        length_acceleration_electron=sc.scalar(1.0, unit="m"),
+        length_drift_electron=sc.scalar(0.0, unit="m"),
+        voltage_electron=sc.scalar(+1e-30, unit="V"),
+        v_jet=sc.scalar(0.0, unit="m/s"),
+        magnetic_field=sc.scalar(0.0, unit="G"),
+        resolution_x=resolution_x,
+        resolution_y=resolution_y,
+        resolution_tof=resolution_tof,
+        jet_direction="+x",
+        field_direction="+z",
+    )
+    ion_formula = ChemFormula("H", charge=1)
+    ion_hits = []
+    electron_hits = []
+    for test_remi in [remi_with_almost_no_field, remi_with_exactly_no_field]:
+        tester_electron = Electron(remi=test_remi)
+        tester_proton = Ion(formula=ion_formula, charge_count=ion_formula.charge, remi=test_remi)
+        v_vec = sc.vectors(dims=["p"], values=[[1.0, 1.0, -1.0]], unit="m/s")
+        p_vec = v_vec * tester_electron.mass
+        p_vec = p_vec.to(unit="au momentum")
+        tester_electron.momentum_sample = sc.DataArray(
+            data=sc.ones(sizes=p_vec.sizes), coords={"p": p_vec}
+        )
+        tester_electron.calculate_detector_hits()
+        electron_hits.append(tester_electron.detector_hits)
+
+        v_vec = sc.vectors(dims=["p"], values=[[1.0, 1.0, +1.0]], unit="m/s")
+        p_vec = v_vec * tester_proton.mass
+        p_vec = p_vec.to(unit="au momentum")
+        tester_proton.momentum_sample = sc.DataArray(
+            data=sc.ones(sizes=p_vec.sizes), coords={"p": p_vec}
+        )
+        tester_proton.calculate_detector_hits()
+        ion_hits.append(tester_proton.detector_hits)
+
+    for test_1_hits, test_2_hits in [electron_hits, ion_hits]:
+        x_1, x_2 = test_1_hits.coords["x"], test_2_hits.coords["x"]
+        assert_allclose(x_1, x_2, atol=sc.scalar(1e-15, unit="m"))
+        y_1, y_2 = test_1_hits.coords["y"], test_2_hits.coords["y"]
+        assert_allclose(y_1, y_2, atol=sc.scalar(1e-15, unit="m"))
+        tof_1, tof_2 = test_1_hits.coords["tof"], test_2_hits.coords["tof"]
+        assert_allclose(tof_1, tof_2, atol=sc.scalar(1e-15, unit="s"))
