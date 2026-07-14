@@ -48,6 +48,7 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
 import scipp as sc
+import scipp.constants
 from chemformula import ChemFormula
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
@@ -72,6 +73,9 @@ class RemiCalculatorTk(RemiCalculator):
         voltage_electron_tkvariable: DoubleVar,
         magnetic_field_tkvariable: DoubleVar,
         v_jet_tkvariable: DoubleVar,
+        resolution_x_tkvariable: DoubleVar,
+        resolution_y_tkvariable: DoubleVar,
+        resolution_tof_tkvariable: DoubleVar,
     ):
         self.length_acceleration_ion_tkvariable = length_acceleration_ion_tkvariable
         self.length_drift_ion_tkvariable = length_drift_ion_tkvariable
@@ -83,9 +87,9 @@ class RemiCalculatorTk(RemiCalculator):
         self.v_jet_tkvariable = v_jet_tkvariable
         self.jet_direction = "+x"
         self.field_direction = "+z"
-        self.resolution_x = sc.scalar(0.0, unit="mm")
-        self.resolution_y = sc.scalar(0.0, unit="mm")
-        self.resolution_tof = sc.scalar(0.0, unit="ns")
+        self.resolution_x_tkvariable = resolution_x_tkvariable
+        self.resolution_y_tkvariable = resolution_y_tkvariable
+        self.resolution_tof_tkvariable = resolution_tof_tkvariable
 
     @property
     def length_acceleration_ion(self):
@@ -118,6 +122,18 @@ class RemiCalculatorTk(RemiCalculator):
     @property
     def v_jet(self):
         return sc.scalar(self.v_jet_tkvariable.get(), unit="mm/us")
+
+    @property
+    def resolution_x(self):
+        return sc.scalar(self.resolution_x_tkvariable.get(), unit="mm")
+
+    @property
+    def resolution_y(self):
+        return sc.scalar(self.resolution_y_tkvariable.get(), unit="mm")
+
+    @property
+    def resolution_tof(self):
+        return sc.scalar(self.resolution_tof_tkvariable.get(), unit="ns")
 
 
 class mclass:
@@ -180,6 +196,9 @@ class mclass:
         self.voltage_ion = DoubleVar()  # gets initialized by ratio of distances
         self.magnetic_field_gauss = DoubleVar(value=6.0)
         self.velocity_jet = DoubleVar(value=5.0)
+        self.resolution_x = DoubleVar(value=1.0)
+        self.resolution_y = DoubleVar(value=1.0)
+        self.resolution_tof = DoubleVar(value=1.0)
 
         self.remicalculator = RemiCalculatorTk(
             self.length_accel_ion,
@@ -190,6 +209,9 @@ class mclass:
             self.voltage_electron,
             self.magnetic_field_gauss,
             self.velocity_jet,
+            self.resolution_x,
+            self.resolution_y,
+            self.resolution_tof,
         )
 
         self.detector_diameter_ions = DoubleVar(value=120)
@@ -271,6 +293,9 @@ class mclass:
             self.length_drift_ion,
             self.bunch_modulo,
             self.detector_diameter_ions,
+            self.resolution_x,
+            self.resolution_y,
+            self.resolution_tof,
         ]:
             variable.trace("w", write_callback_spectrometer)
 
@@ -353,6 +378,23 @@ class mclass:
         self.CHECK_fixed_potential_ele.grid(
             row=5, column=0, columnspan=2, padx="5", pady="5", sticky="ew"
         )
+
+        self.LABEL_RESOLUTIONS = Label(remi_conf_group, text="Detector Resolutions")
+        self.LABEL_RESOLUTIONS.grid(row=6, column=0, padx="5", pady="5", sticky="ew")
+        self.LABEL_SET_resolution_x = Label(remi_conf_group, text="res. X[mm]:")
+        self.LABEL_SET_resolution_x.grid(row=7, column=0, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_resolution_x = Entry(remi_conf_group, textvariable=self.resolution_x)
+        self.ENTRY_SET_resolution_x.grid(row=7, column=1, padx="5", pady="5", sticky="ew")
+
+        self.LABEL_SET_resolution_y = Label(remi_conf_group, text="res. Y[mm]:")
+        self.LABEL_SET_resolution_y.grid(row=8, column=0, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_resolution_y = Entry(remi_conf_group, textvariable=self.resolution_y)
+        self.ENTRY_SET_resolution_y.grid(row=8, column=1, padx="5", pady="5", sticky="ew")
+
+        self.LABEL_SET_resolution_tof = Label(remi_conf_group, text="res. TOF[ns]:")
+        self.LABEL_SET_resolution_tof.grid(row=9, column=0, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_resolution_tof = Entry(remi_conf_group, textvariable=self.resolution_tof)
+        self.ENTRY_SET_resolution_tof.grid(row=9, column=1, padx="5", pady="5", sticky="ew")
 
         ######## momentum, R, tof calculation #############
         self.R_tof_group = LabelFrame(left_bar_group, text="Electron Momentum Distribution")
@@ -622,6 +664,27 @@ class mclass:
         self.CHECK_fixed_potential_ion.grid(
             row=108, column=101, columnspan=2, padx="5", pady="5", sticky="w"
         )
+
+        self.LABEL_RESOLUTIONS_ion = Label(remi_ion_conf_group, text="Detector Resolutions")
+        self.LABEL_RESOLUTIONS_ion.grid(
+            row=109, column=101, columnspan=2, padx="5", pady="5", sticky="ew"
+        )
+        self.LABEL_SET_resolution_x_ion = Label(remi_ion_conf_group, text="res. X[mm]:")
+        self.LABEL_SET_resolution_x_ion.grid(row=110, column=101, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_resolution_x_ion = Entry(remi_ion_conf_group, textvariable=self.resolution_x)
+        self.ENTRY_SET_resolution_x_ion.grid(row=110, column=102, padx="5", pady="5", sticky="ew")
+
+        self.LABEL_SET_resolution_y_ion = Label(remi_ion_conf_group, text="res. Y[mm]:")
+        self.LABEL_SET_resolution_y_ion.grid(row=111, column=101, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_resolution_y_ion = Entry(remi_ion_conf_group, textvariable=self.resolution_y)
+        self.ENTRY_SET_resolution_y_ion.grid(row=111, column=102, padx="5", pady="5", sticky="ew")
+
+        self.LABEL_SET_resolution_tof_ion = Label(remi_ion_conf_group, text="res. TOF[ns]:")
+        self.LABEL_SET_resolution_tof_ion.grid(row=112, column=101, padx="5", pady="5", sticky="ew")
+        self.ENTRY_SET_resolution_tof_ion = Entry(
+            remi_ion_conf_group, textvariable=self.resolution_tof
+        )
+        self.ENTRY_SET_resolution_tof_ion.grid(row=112, column=102, padx="5", pady="5", sticky="ew")
 
         self.LABEL_SLIDE_U_pipco = Label(self.pipico_plot_group, text="Voltage ion side [V]")
         self.LABEL_SLIDE_U_pipco.grid(row=2, column=0, padx="5", pady="5", sticky="w")
