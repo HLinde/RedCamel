@@ -16,28 +16,27 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
             lfs: true
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+            enable-cache: "auto"
+            cache-python: "true"
       - name: Run tests
         run: uv run pytest
       - name: Build package
         run: uv build
-      # Check that basic features work and we didn't miss to include crucial files
-      # - name: Smoke test (wheel)
-      #   run: uv run --isolated --no-project -p 3.13 --with dist/*.whl tests/smoke_test.py
-      # - name: Smoke test (source distribution)
-      #   run: uv run --isolated --no-project -p 3.13 --with dist/*.tar.gz tests/smoke_test.py
-      - run: uv publish --trusted-publishing always
+      - name: Publish package
+        run: uv publish --trusted-publishing always
 
   Create-MyBinderOrg-Cache:
     needs: pypi
     runs-on: ubuntu-latest
     steps:
     - name: cache binder build on mybinder.org
-      uses: jupyterhub/repo2docker-action@master
+      uses: jupyterhub/repo2docker-action@92fefcbd2b46dd9716f5263a9e740cbc972f6dd9 # master on 15.07.2026
       with:
         NO_PUSH: true
         MYBINDERORG_TAG: ${{ github.event.ref }} # This builds the container on mybinder.org with the branch that was pushed on.
