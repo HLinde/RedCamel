@@ -2,44 +2,47 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 [workspace]
+name = "redcamel"
+version = "0.1.8"
+description = "GUI tool to simulate Reaction Microscope detector images."
+readme = "README.md"
 authors = [
     "Patrizia Schoch",
     "Hannes Lindenblatt <hannes.lindenblatt@desy.de>",
     "Magdalena Orlowska",
 ]
-description = "GUI tool to simulate Reaction Microscope detector images."
+maintainers = [
+    {name = "Hannes Lindenblatt", email = "hannes.lindenblatt@desy.de" },
+]
 license = "GPL-3.0-or-later"
-license-file = "LICENSES/GPL-3.0-or-later.txt"
-readme = "README.md"
+license-files = ["LICENSES/*", "REUSE.toml", "CITATION.cff"]
 homepage = "https://codeberg.org/FlashREMI/RedCamel"
 repository = "https://codeberg.org/FlashREMI/RedCamel.git"
 
 channels = ["conda-forge"]
-name = "redcamel"
 platforms = ["win-64", "linux-64", "osx-arm64", "osx-64"]
-version = "0.1.8"
-
-[tasks.redcamel]
-description = "Launch the RedCamel GUI program"
-cmd = "redcamel"
 
 [dependencies]
-python = ">=3.11"
-numpy = ">=1.2"
-numba = ">=0.58"
-matplotlib-base = ">=3.7"
-plopp = ">=25"
-scipp = ">=25"
-scipy = ">=1.10"
-python-graphviz = ">=0.20"
-ipywidgets = ">=8"
 h5py = ">=3,<4"
+ipywidgets = ">=8"
 ipykernel = ">=6,<7"
 ipympl = ">=0.9,<0.10"
+matplotlib-base = ">=3.7"
+numba = ">=0.58"
+numpy = ">=1.2"
+plopp = ">=25"
+python = ">=3.11"
+python-graphviz = ">=0.20"
+scipp = ">=25"
+scipy = ">=1.10"
 
 [pypi-dependencies]
 chemformula = ">=1.2"
 redcamel = { path = ".", editable = true }
+
+[tasks.redcamel]
+description = "Launch the RedCamel GUI program"
+cmd = "redcamel"
 
 [environments]
 jupyterlab = ["jupyterlab"]
