@@ -37,7 +37,7 @@ dependencies = [
     "numpy>=1.2",
     "plopp>=25.11,<26",
     "scipp>=25.11,<26",
-    "scipy>=1.10",
+    "scipy>=1.17,<2",
 ]
 
 [project.gui-scripts]
