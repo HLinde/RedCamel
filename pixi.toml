@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: CC0-1.0
 [workspace]
 name = "redcamel"
-version = "0.1.8"
+version = "0.1.9"
 description = "GUI tool to simulate Reaction Microscope detector images."
 readme = "README.md"
 authors = [
