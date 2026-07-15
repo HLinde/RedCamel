@@ -72,9 +72,9 @@ class RemiCalculator:
 
     def make_scipp_graph_for_detector(self, mass: sc.Variable, charge: sc.Variable):
         graph = {
-            "p_jet": lambda p: self.jet_momentum(p),
-            "p_trans": lambda p: self.transverse_momentum(p),
-            "p_long": lambda p: self.longitudinal_momentum(p),
+            "p_jet": self.jet_momentum,
+            "p_trans": self.transverse_momentum,
+            "p_long": self.longitudinal_momentum,
             "tof": lambda tof_accel, tof_drift: tof_accel + tof_drift,
             ("tof_accel", "tof_drift"): lambda p_long: self.tof_in_parts(p_long, mass, charge),
             ("x", "y", "R"): lambda tof, p_jet, p_trans: {
@@ -102,19 +102,19 @@ class RemiCalculator:
                     ("p_x", "p_y"), self.p_xy(tof, x, y, mass, charge), strict=True
                 )
             },
-            "p_obs": lambda p_x, p_y, p_z: sc.spatial.as_vectors(p_x, p_y, p_z),
+            "p_obs": lambda p_x, p_y, p_z: sc.spatial.as_vectors(x=p_x, y=p_y, z=p_z),
             "energy": lambda p_obs: (0.5 * sc.norm(p_obs) ** 2 / mass).to(unit="eV"),
         }
         return graph
 
-    def longitudinal_momentum(self, momentum: sc.Variable):
-        return sc.dot(momentum, self.field_unitvector)
+    def longitudinal_momentum(self, p: sc.Variable):
+        return sc.dot(p, self.field_unitvector)
 
-    def jet_momentum(self, momentum: sc.Variable):
-        return sc.dot(momentum, self.jet_unitvector)
+    def jet_momentum(self, p: sc.Variable):
+        return sc.dot(p, self.jet_unitvector)
 
-    def transverse_momentum(self, momentum: sc.Variable):
-        return sc.dot(momentum, self.transverse_unitvector)
+    def transverse_momentum(self, p: sc.Variable):
+        return sc.dot(p, self.transverse_unitvector)
 
     def tof_in_parts(
         self, momentum_longitudinal: sc.Variable, mass: sc.Variable, charge: sc.Variable
