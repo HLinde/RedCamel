@@ -33,7 +33,7 @@ dependencies = [
     "ipywidgets>=8",
     "ipympl>=0.9",
     "matplotlib>=3.7",
-    "numba>=0.58",
+    "numba>=0.65",
     "numpy>=1.2",
     "plopp>=23",
     "scipp>=23",
@@ -59,7 +59,7 @@ test = [
 ]
 lint = [
     "ruff>=0.15,<0.16",
-    "reuse>=6.2,<7"
+    "reuse>=6.1,<7"
 ]
 dev = [
   {include-group = "lint"},
