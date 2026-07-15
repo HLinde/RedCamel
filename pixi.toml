@@ -11,11 +11,8 @@ authors = [
     "Hannes Lindenblatt <hannes.lindenblatt@desy.de>",
     "Magdalena Orlowska",
 ]
-maintainers = [
-    {name = "Hannes Lindenblatt", email = "hannes.lindenblatt@desy.de" },
-]
 license = "GPL-3.0-or-later"
-license-files = ["LICENSES/*", "REUSE.toml", "CITATION.cff"]
+license-file = "LICENSES/GPL-3.0-or-later.txt"
 homepage = "https://codeberg.org/FlashREMI/RedCamel"
 repository = "https://codeberg.org/FlashREMI/RedCamel.git"
 
