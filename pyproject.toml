@@ -35,8 +35,8 @@ dependencies = [
     "matplotlib>=3.7",
     "numba>=0.65",
     "numpy>=1.2",
-    "plopp>=23",
-    "scipp>=23",
+    "plopp>=25.11,<26",
+    "scipp>=25.11,<26",
     "scipy>=1.10",
 ]
 
