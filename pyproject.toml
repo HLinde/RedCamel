@@ -58,7 +58,8 @@ test = [
     "pytest-sugar>=1.1,<1.2",
 ]
 lint = [
-    "ruff>=0.15",
+    "ruff>=0.15,<0.16",
+    "reuse>=6.2,<7"
 ]
 dev = [
   {include-group = "lint"},
