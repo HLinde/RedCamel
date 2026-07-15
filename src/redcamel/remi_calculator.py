@@ -102,7 +102,9 @@ class RemiCalculator:
             "tof": lambda tof_true: tof_true + self.sample_resolution_tof(tof_true),
             ("x", "y", "R"): lambda x_true, y_true: {
                 label: func
-                for label, func in zip(("x", "y", "R"), self.sample_resolution_pos(x_true, y_true))
+                for label, func in zip(
+                    ("x", "y", "R"), self.sample_resolution_pos(x_true, y_true), strict=True
+                )
             },
             "alpha": lambda tof: self.calc_alpha(tof=tof, mass=mass, charge=charge),
             # helper to calculate position along the time of flight:
