@@ -20,7 +20,7 @@ channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "osx-arm64", "osx-64"]
 
 [dependencies]
-h5py = ">=3,<4"
+h5py = ">=3.16,<4"
 ipywidgets = ">=8"
 ipykernel = ">=6,<7"
 ipympl = ">=0.9,<0.10"
