@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # -*- coding: utf-8 -*-
-from typing import Iterable
+from collections.abc import Iterable
 
 import numpy as np
 import scipp as sc
@@ -128,7 +128,7 @@ def sample_photoionization(
     color=None,
 ) -> Coincidence:
     # TODO handle higher charge states
-    dims, shape = zip(*sizes.items())
+    dims, shape = zip(*sizes.items(), strict=True)
     assert "p" in dims
     assert sizes["p"] == 1
 
@@ -163,7 +163,7 @@ def sample_coulomb_explosion(
     colors=None,
 ) -> Coincidence:
     # TODO handle higher charge states
-    dims, shape = zip(*sizes.items())
+    dims, shape = zip(*sizes.items(), strict=True)
     assert "p" in dims
     assert sizes["p"] == 1
     assert len(fragment_formulas) > 1
@@ -186,7 +186,7 @@ def sample_coulomb_explosion(
 
     ions = [
         Ion(formula, charge_count=charge, remi=remi, color=color)
-        for formula, charge, color in zip(fragment_formulas, charge_counts, colors)
+        for formula, charge, color in zip(fragment_formulas, charge_counts, colors, strict=True)
     ]
 
     if name is None:
@@ -199,7 +199,7 @@ def sample_coulomb_explosion(
 def sample_lonely_particle(
     particle: Particle, energy_mean: sc.Variable, energy_width: sc.Variable, sizes: dict
 ):
-    dims, shape = zip(*sizes.items())
+    dims, shape = zip(*sizes.items(), strict=True)
     energy = sc.array(dims=dims, values=np.random.randn(*shape)) * energy_width + energy_mean
     absolute_momentum = sc.sqrt(2 * energy * particle.mass)
     momentum_vectors = sample_random_momentum_vectors(absolute_momentum)

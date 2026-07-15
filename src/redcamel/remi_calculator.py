@@ -80,7 +80,9 @@ class RemiCalculator:
             ("x", "y", "R"): lambda tof, p_jet, p_trans: {
                 label: func
                 for label, func in zip(
-                    ("x", "y", "R"), self.hit_position_xyR(tof, p_jet, p_trans, mass, charge)
+                    ("x", "y", "R"),
+                    self.hit_position_xyR(tof, p_jet, p_trans, mass, charge),
+                    strict=True,
                 )
             },
             "z": lambda p_long, tof, tof_accel, tof_drift: self.position_longitudinal(
@@ -96,7 +98,9 @@ class RemiCalculator:
             "p_z": lambda tof: self.p_z(tof, mass, charge),
             ("p_x", "p_y"): lambda tof, x, y: {
                 label: func
-                for label, func in zip(("p_x", "p_y"), self.p_xy(tof, x, y, mass, charge))
+                for label, func in zip(
+                    ("p_x", "p_y"), self.p_xy(tof, x, y, mass, charge), strict=True
+                )
             },
             "p_obs": lambda p_x, p_y, p_z: sc.spatial.as_vectors(p_x, p_y, p_z),
             "energy": lambda p_obs: (0.5 * sc.norm(p_obs) ** 2 / mass).to(unit="eV"),

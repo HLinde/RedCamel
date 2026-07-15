@@ -955,7 +955,7 @@ class mclass:
         channel_colors = colors[np.arange(n_trajectories) % len(colors)]
         channel_colors = channel_colors.reshape((-1, 2, 3))
         for in_channel_colors in channel_colors:
-            for particle, color in zip(coin.particles.values(), in_channel_colors):
+            for particle, color in zip(coin.particles.values(), in_channel_colors, strict=True):
                 trajectory = self.get_random_trajectory(particle)
                 if trajectory is not None:
                     self.ax_trajectory.plot(
@@ -991,7 +991,7 @@ class mclass:
     def get_random_trajectory(self, particle: Particle):
         rng = np.random.default_rng()
         hits = particle.detector_hits
-        slicers = zip(hits.dims, rng.integers(hits.shape))
+        slicers = zip(hits.dims, rng.integers(hits.shape), strict=True)
         some_hit = hits
         for dim, index in slicers:
             some_hit = some_hit[dim, index]
@@ -1249,7 +1249,7 @@ class mclass:
                 colors.append(str(entry["foreground"]))
         energies = sc.array(dims=["p"], values=energies, unit="eV")
 
-        for e, c in zip(energies, colors):
+        for e, c in zip(energies, colors, strict=True):
             p_max = sc.sqrt(2 * e * sc.constants.m_e).to(unit="N*s")
             p_z = sc.linspace("p", -p_max, p_max, 100)
             p_x = sc.sqrt(p_max**2 - p_z**2)
