@@ -11,10 +11,7 @@ GUI tool to simulate Reaction Microscope detector images.
 
 Try out the examples: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/HLinde/RedCamel/v0.1.9)
 
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/redcamel)![PyPI - Version](https://img.shields.io/pypi/v/redcamel)![GitHub Release Date](https://img.shields.io/github/release-date/HLinde/RedCamel)![GitHub commits since latest release](https://img.shields.io/github/commits-since/HLinde/RedCamel/latest)
-[![REUSE status](https://api.reuse.software/badge/github.com/HLinde/RedCamel)](https://api.reuse.software/info/github.com/HLinde/RedCamel)
-![GitHub tag check runs](https://img.shields.io/github/check-runs/HLinde/RedCamel/main)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16911941.svg)](https://doi.org/10.5281/zenodo.16911941)
+[![PyPI - Version](https://img.shields.io/pypi/v/redcamel)](https://pypi.org/project/redcamel/)[![Anaconda-Server Badge](https://anaconda.org/conda-forge/redcamel/badges/version.svg)](https://anaconda.org/conda-forge/redcamel)[![GitHub Release Date](https://img.shields.io/github/release-date/HLinde/RedCamel)](https://codeberg.org/FlashREMI/RedCamel/releases/latest)[![GitHub commits since latest release](https://img.shields.io/github/commits-since/HLinde/RedCamel/latest)](https://codeberg.org/FlashREMI/RedCamel/compare/v0.1.9...main)[![REUSE status](https://api.reuse.software/badge/github.com/HLinde/RedCamel)](https://api.reuse.software/info/github.com/HLinde/RedCamel)[![GitHub tag check runs](https://img.shields.io/github/check-runs/HLinde/RedCamel/main)](https://github.com/HLinde/RedCamel/actions/workflows/ci.yml)[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16911941.svg)](https://doi.org/10.5281/zenodo.16911941)
 
 # Example Outputs
 
