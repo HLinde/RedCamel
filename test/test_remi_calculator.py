@@ -72,8 +72,8 @@ def photoionization_coincidence(remi):
     coin = sample_photoionization(
         atom_formula=ChemFormula("He"),
         binding_energy=sc.scalar(10.0, unit="eV"),
-        photon_energy=sc.scalar(15.0, unit="eV"),
-        energy_width=sc.scalar(0.15, unit="eV"),
+        photon_energy=sc.scalar(25.0, unit="eV"),
+        energy_width=sc.scalar(2.15, unit="eV"),
         sizes={"events": 1000, "someparameter": 5, "p": 1},
         remi=remi,
     )
