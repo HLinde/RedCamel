@@ -183,8 +183,8 @@ class RemiCalculator:
         mass: sc.Variable,
         charge: sc.Variable,
     ):
-        p_x = momentum_jet + (self.v_jet * mass).to(unit="au momentum")
-        p_y = momentum_transverse
+        p_x = momentum_jet.to(unit="au momentum") + (self.v_jet * mass).to(unit="au momentum")
+        p_y = momentum_transverse.to(unit="au momentum")
         assert p_x.dims == p_y.dims
 
         # Cyclotron motion or linear motion?
@@ -193,11 +193,13 @@ class RemiCalculator:
             phi = sc.atan2(x=p_x, y=p_y)  # angle in xy-plane towards jet-direction
 
             alpha = self.calc_alpha(tof=tof, mass=mass, charge=charge)
-            theta = phi + (alpha / 2)
+            alpha_half_mod = (alpha / 2) % (np.pi * np.sign(charge.value) * sc.Unit("rad"))
+            theta = phi + alpha_half_mod
 
-            R = sc.abs((2 * p_xy * sc.sin(alpha / 2)) / (charge * self.magnetic_field))
+            R = (2 * p_xy * sc.sin(alpha_half_mod)) / (charge * self.magnetic_field)
             x = R * sc.cos(theta)
             y = R * sc.sin(theta)
+
         else:  # For small magnetic field it reduces to this linear motion:
             v_x = p_x / mass
             v_y = p_y / mass
@@ -260,7 +262,7 @@ class RemiCalculator:
         if sc.abs(self.magnetic_field) > 0 * sc.Unit("T"):
             alpha = self.calc_alpha(tof=tof, mass=mass, charge=charge)
             radius = sc.sqrt(x**2 + y**2)
-            p_r = sc.abs(charge * self.magnetic_field * radius / sc.sin(alpha / 2) / 2)
+            p_r = charge * self.magnetic_field * radius / sc.sin(alpha / 2) / 2
             phi = sc.atan2(x=x, y=y) - alpha / 2
             p_x_lab = p_r * sc.cos(phi)
             p_y_lab = p_r * sc.sin(phi)
