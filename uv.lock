@@ -902,15 +902,16 @@ wheels = [
 
 [[package]]
 name = "plopp"
-version = "25.11.0"
+version = "26.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "lazy-loader" },
     { name = "matplotlib" },
+    { name = "scipp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9c/ac/9f13697bec88dea2d12fda491d9f99b7ab70cf866035377b49f4835ee443/plopp-25.11.0.tar.gz", hash = "sha256:5541d39b6369169a327c76a67cab51c89cdfe226b9581b3a5b1e1ff13edf3d1e", size = 1305546, upload-time = "2025-11-17T14:13:03.096Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/c7/2e32bb9ede72a835b555db0c621fbe02ba86421050c54a34adfd108e6968/plopp-26.9.0.tar.gz", hash = "sha256:a017984de68ce69721e40e2110a4c82de680bfb7791aa8ed5852c5230eeb0d24", size = 1342671, upload-time = "2026-09-23T14:14:34.05Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/84/4a/d070dc6a36c2eb8b8a19b31908d0817e2a85fe0b70f9db20834a495a74e1/plopp-25.11.0-py3-none-any.whl", hash = "sha256:b449415fed4fe9254140393df75c3b57640de7ba0571c12463331b12cbf54180", size = 113863, upload-time = "2025-11-17T14:13:01.542Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/7e/8139f0faa2ff7aee2759300061e4b7e5e661775bcd5bf70810d0793af48a/plopp-26.9.0-py3-none-any.whl", hash = "sha256:6fdff3744b81dce65a30092491bb219e69cbc573ad65c8ace0bb0714d86a97d2", size = 122464, upload-time = "2026-09-23T14:14:32.495Z" },
 ]
 
 [[package]]
@@ -1045,7 +1046,7 @@ wheels = [
 
 [[package]]
 name = "redcamel"
-version = "0.1.9"
+version = "0.1.10"
 source = { editable = "." }
 dependencies = [
     { name = "chemformula" },
@@ -1090,8 +1091,8 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.7" },
     { name = "numba", specifier = ">=0.65" },
     { name = "numpy", specifier = ">=1.2" },
-    { name = "plopp", specifier = ">=25.11,<26" },
-    { name = "scipp", specifier = ">=25.11,<26" },
+    { name = "plopp", specifier = ">=26.3,<27" },
+    { name = "scipp", specifier = ">=25.12,<27" },
     { name = "scipy", specifier = ">=1.17,<2" },
 ]
 
@@ -1192,7 +1193,7 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "numpy" },
+    { name = "numpy", marker = "python_full_version < '3.12'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7a/97/5a3609c4f8d58b039179648e62dd220f89864f56f7357f5d4f45c29eb2cc/scipy-1.17.1.tar.gz", hash = "sha256:95d8e012d8cb8816c226aef832200b1d45109ed4464303e997c5b13122b297c0", size = 30573822, upload-time = "2026-02-23T00:26:24.851Z" }
 wheels = [
@@ -1266,7 +1267,7 @@ resolution-markers = [
     "python_full_version >= '3.12'",
 ]
 dependencies = [
-    { name = "numpy" },
+    { name = "numpy", marker = "python_full_version >= '3.12'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a7/25/c2700dfaf6442b4effaa91af24ebce5dc9d31bb4a69706313aae70d72cd0/scipy-1.18.0.tar.gz", hash = "sha256:67b2ad2ad54c72ca6d04975a9b2df8c3638c34ddd5b28738e94fc2b57929d378", size = 30774447, upload-time = "2026-06-19T15:01:43.456Z" }
 wheels = [
