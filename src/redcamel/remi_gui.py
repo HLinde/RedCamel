@@ -1025,8 +1025,8 @@ class mclass:
                 trajectory = self.get_random_trajectory(particle)
                 if trajectory is not None:
                     self.ax_trajectory.plot(
-                        trajectory.coords["x"].to(unit="mm").values,
-                        trajectory.coords["y"].to(unit="mm").values,
+                        trajectory.coords["x_true"].to(unit="mm").values,
+                        trajectory.coords["y_true"].to(unit="mm").values,
                         trajectory.coords["z"].to(unit="mm").values,
                         color=color,
                     )
@@ -1050,6 +1050,7 @@ class mclass:
         self.ax_trajectory.set_xlabel("x [mm]")
         self.ax_trajectory.set_ylabel("y [mm]")
         self.ax_trajectory.set_zlabel("z [mm]")
+        self.ax_trajectory.set_aspect("equalxy")
         ion_tex, ele_tex = [part.latex for part in coin.particles.values()]
         self.ax_trajectory.set_title(rf"Some Coincidences with ${ele_tex}$ and ${ion_tex}$")
         self.canvas_trajectory.draw()
@@ -1062,7 +1063,7 @@ class mclass:
         for dim, index in slicers:
             some_hit = some_hit[dim, index]
 
-        tof_value = some_hit.coords["tof"]
+        tof_value = some_hit.coords["tof_true"]
         tof_accel_value = some_hit.coords["tof_accel"]
         if sc.isnan(tof_value):
             return None
@@ -1077,13 +1078,13 @@ class mclass:
             data=sc.ones_like(tof_range),
             coords={
                 "p": starting_momentum,
-                "tof": tof_range,
+                "tof_true": tof_range,
                 "tof_accel": tof_accel_range,
                 "tof_drift": tof_drift_range,
             },
         )
         trajectory = trajectory.transform_coords(
-            ["x", "y", "z"], graph=particle.detector_transformation_graph
+            ["x_true", "y_true", "z"], graph=particle.detector_transformation_graph
         )
         return trajectory
 
@@ -1789,10 +1790,10 @@ class mclass:
     def update_electron_momenta(self):
         mass, charge = self.electron_params
         self.electron_tab_coincidences = []
-        default_atom = ChemFormula("He")
         he_binding_energy = sc.scalar(24.587389011, unit="eV")
 
         if self.v.get() == 1:
+            default_atom = ChemFormula("He")
             self.electron_tab_coincidences.append(
                 sample_photoionization(
                     default_atom,
@@ -1806,6 +1807,7 @@ class mclass:
         elif self.v.get() == 2:
             energy_mean = sc.scalar(float(self.ENTRY_MEAN_ENERGY.get()), unit="eV")
             width = sc.scalar(float(self.ENTRY_WIDTH.get()), unit="eV")
+            default_atom = ChemFormula("He")
             self.electron_tab_coincidences.append(
                 sample_photoionization(
                     default_atom,
@@ -1822,6 +1824,7 @@ class mclass:
             energy_step = sc.scalar(float(self.ENTRY_MULTI_PART_ENERGY_STEP.get()), unit="eV")
             part_num = int(self.ENTRY_MULTI_PART_NUMBER.get())
             for i in range(part_num):
+                default_atom = ChemFormula("He")
                 self.electron_tab_coincidences.append(
                     sample_photoionization(
                         default_atom,
@@ -1837,6 +1840,7 @@ class mclass:
 
     def update_electron_positions(self):
         mass, charge = self.electron_params
+        self.electron_scipp_graph = self.electrons[0].detector_transformation_graph
         for coin in self.electron_tab_coincidences:
             coin.calculate_detector_hits()
         self.update_R_tof()
